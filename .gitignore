@@ -26,6 +26,9 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Design handoff assets (not project source)
+Design/
+
 # Local dev/sandbox artifacts (not project files)
 .mcp.json
 .ripgreprc

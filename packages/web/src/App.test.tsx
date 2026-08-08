@@ -15,12 +15,32 @@ const scenario = {
   ],
 };
 
+const sessionSummary = {
+  id: "session-1",
+  mode: "analyze" as const,
+  title: "Fix the bug",
+  model: "unknown",
+  usageDataAvailable: false,
+  turns: [],
+};
+
+const fullSession = {
+  ...sessionSummary,
+  turns: [makeTurn({ index: 0, explanation: "analyze turn explanation" })],
+};
+
 function fakeFetch(url: string) {
   if (url === "/api/health") {
     return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: "ok" }) });
   }
   if (url === "/api/learn/scenarios") {
     return Promise.resolve({ ok: true, json: () => Promise.resolve([scenario]) });
+  }
+  if (url === "/api/sessions") {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve([sessionSummary]) });
+  }
+  if (url === "/api/sessions/session-1") {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(fullSession) });
   }
   return Promise.reject(new Error(`Unhandled fetch url in test: ${url}`));
 }
@@ -63,5 +83,14 @@ describe("App", () => {
 
     expect(await screen.findByText("second turn explanation")).toBeInTheDocument();
     expect(screen.getAllByRole("row")[2]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("lets the user pick a real Analyze session and renders the shared layout", async () => {
+    render(<App />);
+
+    const sessionButton = await screen.findByRole("button", { name: "Fix the bug" });
+    fireEvent.click(sessionButton);
+
+    expect(await screen.findByText("analyze turn explanation")).toBeInTheDocument();
   });
 });

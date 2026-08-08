@@ -316,6 +316,43 @@ the `Session`, so the frontend renders the behavioral-proxy view (turn
 counts/duration/checkpoints) instead of fake numbers — satisfying
 constraint 6, with constraint 8's actionable case surfaced distinctly.
 
+**Implementation note (Phase 3).** Phase 3 built `platform/vscode-paths`,
+`data-sources/sqlite`, and a stubbed `services/session-enricher` (no `JL`
+step yet — that's Phase 4). Facts and decisions discovered/made along the
+way that weren't previously documented:
+
+- The local session-store database (tables listed in vision/
+  agentic-coding-explained §18.1) lives at
+  `<user-data-dir>/User/globalStorage/github.copilot-chat/session-store.db`
+  (WAL mode) — sibling to the `debug-logs/<session-id>/main.jsonl` path
+  already noted in §7/§18.3, both under `globalStorage`, not
+  `workspaceStorage`. `<user-data-dir>` resolution (§13's open question) is
+  currently: prefer `~/.config/Code - Insiders`, fall back to
+  `~/.config/Code`, Linux only — other platforms return "not found" until a
+  later phase.
+- `sessions` has no `title`/`model` column, but `Session` requires both:
+  `title` falls back through `summary → repository → cwd → "Session <id>"`;
+  `model` is the literal string `"unknown"` on both `Session.model` and
+  every `Turn.usage.model` until Phase 4 recovers the real value from
+  `main.jsonl`.
+- `GET /api/sessions` returns summaries with `turns: []` (not full turn
+  data) to avoid an unbounded join over every locally stored session;
+  `GET /api/sessions/:id` returns the full session.
+- Every `TurnUsage` field is stubbed with a single generic reason
+  (`"main.jsonl parsing not yet implemented"`) — Phase 3 does not yet
+  distinguish the two `reason` cases described above; that split is Phase
+  4 work, once the `JL` step actually exists to tell them apart.
+- `toolCalls` per turn ARE populated in Phase 3 (not left empty) by
+  grouping `session_files` rows by `tool_name` for that turn — cheap to
+  derive from data already being queried, and closer to "real turns" than
+  omitting them.
+- `data-sources/sqlite` exposes a tested `getCheckpointRows` query
+  (checkpoint rows are real, structural data per §4.1), but `app.ts`/
+  `session-enricher` don't call it yet — there's no `Turn.triggeredEvent`
+  wiring for it in Phase 3. Mapping a checkpoint to the turn it interrupted
+  needs timestamp-correlation heuristics that belong in a later phase, not
+  "structural data only."
+
 ### 6.3 Startup configuration check
 
 ```mermaid
@@ -426,7 +463,7 @@ The server binds to `localhost` only (see §11.2).
 |---|---|---|
 | Backend language/runtime | TypeScript on Node.js | Same language as frontend and shared domain package; good SQLite and streaming support |
 | Local HTTP server | Express (or Fastify) | Minimal REST surface (§8); no need for anything heavier |
-| SQLite access | `better-sqlite3` (read-only connection) | Synchronous, well-suited to local read-only queries against the store described in vision §18.1 |
+| SQLite access | `node:sqlite` (`DatabaseSync`, read-only connection) | Built into Node.js (experimental) — synchronous, well-suited to local read-only queries against the store described in vision §18.1, no native-addon dependency to install/audit |
 | `main.jsonl` parsing | Node streams + `readline`, hand-rolled extractor registry (§7) | No fixed schema exists to codegen against; defensive parsing needs full control |
 | Schema validation | `zod` (or equivalent) shared in the domain package | Runtime-validates data crossing the server/frontend boundary, and doubles as the TS type source |
 | Frontend framework | React + TypeScript + Vite | Fast local dev loop; component model matches the panel breakdown in §4.2 |
@@ -619,10 +656,10 @@ Carried over from vision §7 plus new ones raised while designing this layer:
   than have been observed so far.
 - How `platform/vscode-paths` should behave when multiple VS Code
   variants/installs exist on one machine (Stable + Insiders, or several
-  profiles) — auto-detect by scanning known per-OS locations and picking
-  the one matching the current workspace, or require explicit
-  configuration when detection is ambiguous. Only validated on Linux
-  Insiders so far.
+  profiles) — Phase 3 resolved this minimally (Linux only: prefer Insiders,
+  fall back to Stable, no per-workspace matching), not the deeper
+  auto-detect-by-workspace or explicit-configuration approaches; still open
+  for macOS/Windows and for multi-profile setups on any platform.
 - Whether the 200-session retention minimum (constraint 10) should stay a
   hard-coded constant in `config-check`, or become an app-level
   configurable threshold.

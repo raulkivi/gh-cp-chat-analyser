@@ -25,8 +25,9 @@ content here.
   met.
 - Commit all changes to git as soon as a phase's exit criterion is met,
   before starting the next phase.
-- Repo status: Phase 0 (repo scaffolding) and Phase 1 (domain model &
-  schema package) complete — npm workspaces with `packages/domain` (zod
-  schemas + types for every architecture.md §5 shape), `packages/server`
-  (Express health check), `packages/web` (Vite + React), Vitest wired with
-  TDD-first tests. Phase 2 (Learn mode) is next.
+- Repo status: Phases 0-3 complete — npm workspaces with `packages/domain`
+  (zod schemas + types for every architecture.md §5 shape), `packages/server`
+  (Express API: Learn-mode fixtures plus real Analyze-mode sessions read
+  read-only from the local VS Code SQLite store via `node:sqlite`),
+  `packages/web` (Vite + React, shared Learn/Analyze layout), Vitest wired
+  with TDD-first tests. Phase 4 (`main.jsonl` parsing & enrichment) is next.

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@gh-cp-chat-analyser/domain";
 import { fetchLearnScenarios } from "./api-client/learn-scenarios.js";
+import { fetchSession, fetchSessions } from "./api-client/sessions.js";
 import { ExplanationPanel } from "./components/ExplanationPanel.js";
 import { TimelineScrubber } from "./components/TimelineScrubber.js";
 import { TurnsTable } from "./components/TurnsTable.js";
@@ -13,6 +14,7 @@ interface HealthResponse {
 export function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [scenarios, setScenarios] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const { session, selectedTurnIndex, loadSession, selectTurn } = useSessionStore();
 
   useEffect(() => {
@@ -23,6 +25,10 @@ export function App() {
 
   useEffect(() => {
     fetchLearnScenarios().then(setScenarios);
+  }, []);
+
+  useEffect(() => {
+    fetchSessions().then(setSessions);
   }, []);
 
   const selectedTurn = session?.turns[selectedTurnIndex] ?? null;
@@ -39,6 +45,19 @@ export function App() {
             <li key={scenario.id}>
               <button type="button" onClick={() => loadSession(scenario)}>
                 {scenario.title}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Analyze mode</h2>
+        <ul>
+          {sessions.map((analyzeSession) => (
+            <li key={analyzeSession.id}>
+              <button type="button" onClick={() => fetchSession(analyzeSession.id).then(loadSession)}>
+                {analyzeSession.title}
               </button>
             </li>
           ))}

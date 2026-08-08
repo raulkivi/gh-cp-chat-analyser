@@ -7,6 +7,9 @@ sessions.
 
 ![App landing page, showing the Learn mode scenario list](docs/images/landing-page.png)
 
+*The "Industry" design system: steel-blue accent, hairline "blueprint"
+cards with corner registration marks, Barlow/Barlow Condensed type.*
+
 ## Documentation
 
 - [Vision](docs/vision.md) — the problem, goals, product concept (Learn vs.
@@ -90,11 +93,17 @@ session turn by turn:
   compaction, an MCP tool change mid-session, a model switch mid-session,
   …) to see a guided, turn-by-turn walkthrough of how caching and token
   accounting work, with a plain-language explanation for each turn.
+
+  ![Learn mode with a scenario selected: turns table, cost sparkline, timeline scrubber, and the explanation panel](docs/images/learn-scenario.png)
+
 - **Analyze mode** — pick one of your own real Copilot Chat sessions to see
   the same breakdown for what actually happened, plus (once debug logging
   is enabled, above) a system-prompt breakdown, the full tool inventory
   cross-referenced against which tools were actually invoked, and per-turn
-  tool-call/file detail.
+  tool-call/file detail — behind a tabbed right-column panel that's
+  Analyze-mode-only:
+
+  ![Analyze mode's tabbed right panel: Explanation, System prompt, and Tools](docs/images/analyze-tabs.png)
 
 ## License
 

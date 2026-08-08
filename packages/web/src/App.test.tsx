@@ -64,7 +64,10 @@ let configStatus = cleanConfigStatus;
 
 function fakeFetch(url: string) {
   if (url === "/api/health") {
-    return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: "ok" }) });
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ status: "ok", version: "0.1.0" }),
+    });
   }
   if (url === "/api/learn/scenarios") {
     return Promise.resolve({ ok: true, json: () => Promise.resolve([scenario]) });
@@ -91,12 +94,13 @@ describe("App", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders a successful health check from the server", async () => {
+  it("renders a successful health check from the server, including the app version", async () => {
     render(<App />);
 
     await waitFor(() =>
       expect(screen.getByText(/status: ok/i)).toBeInTheDocument(),
     );
+    expect(screen.getByText(/v0\.1\.0/)).toBeInTheDocument();
     expect(fetch).toHaveBeenCalledWith("/api/health");
   });
 

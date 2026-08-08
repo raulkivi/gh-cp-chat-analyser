@@ -74,13 +74,13 @@ function seedFixtureDb(dbPath: string): void {
 }
 
 describe("GET /api/health", () => {
-  it("returns ok status", async () => {
+  it("returns ok status and the app version", async () => {
     const app = createApp();
 
     const response = await request(app).get("/api/health");
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ status: "ok" });
+    expect(response.body).toEqual({ status: "ok", version: "0.1.0" });
   });
 });
 

@@ -14,6 +14,7 @@ import { useSessionStore } from "./state/session-store.js";
 
 interface HealthResponse {
   status: string;
+  version: string;
 }
 
 export function App() {
@@ -47,7 +48,11 @@ export function App() {
     <main>
       <ConfigWarningBanner warnings={configWarnings} />
       <h1>GitHub Copilot Chat Session Analyser</h1>
-      <p>{health ? `status: ${health.status}` : "Checking server…"}</p>
+      <p>
+        {health
+          ? `status: ${health.status} · v${health.version}`
+          : "Checking server…"}
+      </p>
 
       <section>
         <h2>Learn mode</h2>

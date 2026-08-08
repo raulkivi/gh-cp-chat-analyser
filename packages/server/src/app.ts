@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import express, { type Express } from "express";
@@ -46,6 +46,12 @@ import {
   buildSessionSummary,
 } from "./services/session-enricher/session-enricher.js";
 import { checkConfig } from "./services/config-check/config-check.js";
+
+const APP_VERSION = (
+  JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
+  ) as { version: string }
+).version;
 
 interface AnalyzeModeExtras {
   invokedToolNamesByTurn: string[][];
@@ -125,7 +131,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   }
 
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", version: APP_VERSION });
   });
 
   app.get("/api/config/status", (_req, res) => {

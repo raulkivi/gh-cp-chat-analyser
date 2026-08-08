@@ -1,0 +1,23 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { TimelineScrubber } from "./TimelineScrubber.js";
+
+describe("TimelineScrubber", () => {
+  it("renders a slider spanning every turn", () => {
+    render(<TimelineScrubber turnCount={5} selectedTurnIndex={2} onSelectTurn={() => {}} />);
+
+    const slider = screen.getByRole("slider");
+    expect(slider).toHaveAttribute("min", "0");
+    expect(slider).toHaveAttribute("max", "4");
+    expect(slider).toHaveValue("2");
+  });
+
+  it("calls onSelectTurn with the new index when moved", () => {
+    const onSelectTurn = vi.fn();
+    render(<TimelineScrubber turnCount={5} selectedTurnIndex={0} onSelectTurn={onSelectTurn} />);
+
+    fireEvent.change(screen.getByRole("slider"), { target: { value: "3" } });
+
+    expect(onSelectTurn).toHaveBeenCalledWith(3);
+  });
+});

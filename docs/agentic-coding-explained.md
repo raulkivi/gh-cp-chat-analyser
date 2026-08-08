@@ -407,6 +407,8 @@ graph TD
 
 ## 9. Worked example: a multi-turn session showing every token type
 
+> Extracted as standalone docs: [scenarios/01-cache-basics-8-turn-session.md](scenarios/01-cache-basics-8-turn-session.md) and [scenarios/02-subagent-own-session.md](scenarios/02-subagent-own-session.md).
+
 The example below is an illustrative (not literal) 8-turn session for the task
 *"Add a caching layer to the API and write tests for it"*. It shows how each token
 type from Section 6 shows up turn by turn, how cache reuse changes the mix as the
@@ -604,6 +606,8 @@ roughly proportional to just that turn's new content — and the subagent's enti
 
 ## 10. How context compaction/summarization affects tokens, cache, and cost
 
+> Extracted as a standalone doc: [scenarios/03-context-compaction.md](scenarios/03-context-compaction.md).
+
 When a session's history grows close to the model's context-window limit, the
 client (or the model itself) can **compact** it: instead of sending every raw past
 message, it asks the model to produce a condensed summary of everything so far,
@@ -644,6 +648,8 @@ the whole point of compaction.
 
 ## 11. How changing the model mid-session affects tokens, cache, and cost
 
+> Extracted as a standalone doc: [scenarios/04-model-switch.md](scenarios/04-model-switch.md).
+
 Prompt caches are scoped **per model** (and often per model *version*/tokenizer).
 Switching models mid-session — e.g. from a cheaper model to a more capable one
 starting at turn 3 — means the new model has never seen any of the previous
@@ -683,6 +689,8 @@ the new, pricier rates.
 ---
 
 ## 12. How changing MCP tools mid-session affects tokens, cache, and cost
+
+> Extracted as a standalone doc: [scenarios/05-mcp-tool-change.md](scenarios/05-mcp-tool-change.md).
 
 The list of available tools (including MCP server tools) — their names,
 descriptions, and JSON schemas — is sent to the model as part of the request on
@@ -761,6 +769,8 @@ git itself, the dominant cost driver for that turn.
 
 ## 14. How Claude Code's `/clear` affects tokens and cache
 
+> Extracted as a standalone doc: [scenarios/06-clear.md](scenarios/06-clear.md).
+
 `/clear` tells the client to drop the visible conversation history and start the
 next message with an empty transcript — but it does **not** delete anything from
 disk.
@@ -805,6 +815,8 @@ summarized or resent; the old turns were simply never sent again.
 
 ## 15. How `/rewind` (or editing a previous turn in VS Code) affects tokens and cache
 
+> Extracted as a standalone doc: [scenarios/07-rewind.md](scenarios/07-rewind.md).
+
 Claude Code's `/rewind`, and VS Code's equivalent — restoring a checkpoint or
 editing an earlier user message and resubmitting — roll the conversation back to
 an earlier turn and continue from there, discarding every turn after that point
@@ -844,6 +856,8 @@ re-paying for) that wrong 1830-token detour in every subsequent turn forever.
 ---
 
 ## 16. How session forking affects tokens, cache, and cost
+
+> Extracted as a standalone doc: [scenarios/08-session-forking.md](scenarios/08-session-forking.md).
 
 **Forking** creates a *new*, independent session that shares the same history up
 to a chosen turn — but, unlike `/rewind` (Section 15), the **original session
@@ -947,7 +961,7 @@ on the model generation:
 
 | Provider (example models available in Copilot) | Default cache lifetime | Longer-TTL option | Notes |
 |---|---|---|---|
-| **Anthropic** (Claude Opus/Sonnet/Haiku/Fable families) | **5 minutes**, refreshed for free on every cache hit | 1-hour TTL available, at ~2x the normal cache-write cost | The clock starts at the **request** that reads/writes the entry, not the end of its response — a slow 4-minute response leaves only ~1 minute before the next call must land to keep the hit |
+| **Anthropic** (Claude Opus/Sonnet/Haiku families) | **5 minutes**, refreshed for free on every cache hit | 1-hour TTL available, at ~2x the normal cache-write cost | The clock starts at the **request** that reads/writes the entry, not the end of its response — a slow 4-minute response leaves only ~1 minute before the next call must land to keep the hit |
 | **OpenAI** (GPT-5.x families) | Automatic, **in-memory** caching: typically evicted after **5-10 minutes of inactivity**, but can persist up to **~1 hour** off-peak (not a guarantee) | Extended/24-hour retention on some pre-GPT-5.6 model families; GPT-5.6+ uses explicit cache breakpoints with a fixed **30-minute** minimum TTL instead | Behavior isn't as tightly specified as Anthropic's — treat "5-10 minutes" as the safe assumption |
 | **Google** (Gemini 3.x Flash/Pro) | **Implicit caching**, no published fixed TTL at all | None documented | Google's own guidance is just to send similar-prefix requests "in a short amount of time" — there's no stated number to target |
 | **xAI (Grok), Moonshot AI (Kimi), Microsoft (MAI-Code)** | Not publicly documented | — | Treat as unknown/opaque; assume the same 5-10 minute ballpark unless you observe otherwise |
@@ -958,6 +972,8 @@ model you're using — a pause of roughly 5+ minutes is close to a universal
 danger zone across every provider Copilot uses.
 
 ### 17.2 10-turn example: a 5+ minute smoke break between turns 7 and 8
+
+> Extracted as a standalone doc: [scenarios/09-cache-ttl-smoke-break.md](scenarios/09-cache-ttl-smoke-break.md).
 
 The example below extends Section 9's style to 10 turns, using the same
 illustrative rates (cache write \$0.00625, cache read \$0.0005, uncached

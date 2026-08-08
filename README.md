@@ -5,6 +5,8 @@ behavior, and token/cost accounting — to help you learn how agentic coding
 tools spend tokens and money, and to analyze your own real Copilot Chat
 sessions.
 
+![App landing page, showing the Learn mode scenario list](docs/images/landing-page.png)
+
 ## Documentation
 
 - [Vision](docs/vision.md) — the problem, goals, product concept (Learn vs.
@@ -17,44 +19,83 @@ sessions.
   document on sessions, turns, tool calls, prompt caching, and token
   accounting; the source material Learn mode's scenarios are seeded from.
 
-## Current implementation state (handover notes)
+## Setup
 
-**Phase 0 — repo scaffolding: done. Phase 1 — domain model & schema
-package: done.** Phase 2 (Learn mode, per
-[implementation-plan.md](docs/implementation-plan.md)) is next.
+**Prerequisites**
 
-- npm workspaces root with `packages/domain`, `packages/server`,
-  `packages/web`; shared `tsconfig.base.json`; flat-config ESLint +
-  Prettier.
-- `packages/domain`: `zod` schemas + inferred TypeScript types for every
-  shape in architecture.md §5 (`TokenCount`, `TurnUsage`, `ToolCallRecord`,
-  `Turn`, `SystemPromptComponent`, `ToolInventoryEntry`, `Session`,
-  `ConfigWarning`, `ConfigStatus`), each with a schema-validation test
-  written before its schema. No dependency on `server`/`web`.
-- `packages/server`: Express app (`src/app.ts`) with `GET /api/health`,
-  bound to `127.0.0.1` only (architecture.md §11.2); entry point
-  `src/server.ts` (`npm run dev` uses `tsx watch`).
-- `packages/web`: Vite + React app (`src/App.tsx`) that fetches
-  `/api/health` and renders the result.
-- Vitest wired per package, TDD-first: each package's smoke test was
-  written and confirmed failing before its implementation.
+- Node.js 22+ (the server uses the built-in, still-experimental
+  `node:sqlite` module).
+- Linux, with VS Code (Stable or Insiders) and the GitHub Copilot Chat
+  extension installed. The app only reads local files VS Code already
+  writes — the local session-store SQLite database and per-session debug
+  logs — so it works fully offline. (Other platforms aren't wired up yet;
+  see [architecture.md](docs/architecture.md).)
 
-Commands (from repo root):
+**Install and run**
 
 ```sh
 npm install
-npm test          # runs vitest for every workspace
-npm run lint       # eslint across the repo
-npm run dev        # starts server + web dev servers
+npm run dev        # starts the API server (127.0.0.1:3000) and the web app (127.0.0.1:5173)
 ```
 
-No SQLite/`main.jsonl` adapters or Learn/Analyze mode UI exist yet. Start
-Phase 2 by following [implementation-plan.md](docs/implementation-plan.md)'s
-TDD order for the Learn-mode scenario fixtures, API routes, and shared UI
-components — validating fixtures against the `domain` package's
-`sessionSchema`.
+Open http://127.0.0.1:5173 in a browser. Learn mode works immediately —
+its scenarios are bundled fixtures. Analyze mode lists any real Copilot
+Chat sessions it finds in your local VS Code session store.
+
+Other commands (from the repo root):
+
+```sh
+npm test           # runs vitest for every workspace
+npm run lint        # eslint across the repo
+npm run build        # type-checks/builds every workspace
+```
+
+## Enabling GitHub Copilot Chat debug logging
+
+Analyze mode's real per-turn token/cache numbers (cache write/read,
+uncached input, tool, vision, reasoning, output, and cost) come from
+Copilot Chat's own debug log (`main.jsonl`). By default VS Code only
+writes a minimal log with no usage data, so this setting has to be turned
+on explicitly:
+
+1. Open your VS Code user `settings.json` (Command Palette → **Preferences:
+   Open User Settings (JSON)**), normally at
+   `~/.config/Code/User/settings.json` (Stable) or
+   `~/.config/Code - Insiders/User/settings.json` (Insiders) on Linux.
+2. Add:
+   ```json
+   "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+   "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200
+   ```
+   The retention setting is optional but recommended — VS Code's own
+   default (50) can prune logs for sessions you'd still want to analyze
+   later.
+3. Reload the VS Code window (Command Palette → **Developer: Reload
+   Window**) for the setting to take effect.
+
+Only *future* sessions started after this reload will have full token/cache
+detail — logging is not retroactive. The app checks this automatically on
+startup: if the setting is missing, off, or the retention is too low, a
+warning banner explains exactly what to fix and where (see
+`GET /api/config/status`). Sessions recorded before enabling it still show
+up in Analyze mode, just without per-token figures.
+
+## Using the app
+
+The app has two modes that share the same layout — a turns table, an
+explanation/detail panel, and a timeline scrubber to step through a
+session turn by turn:
+
+- **Learn mode** — pick one of the bundled scenarios (cache basics, context
+  compaction, an MCP tool change mid-session, a model switch mid-session,
+  …) to see a guided, turn-by-turn walkthrough of how caching and token
+  accounting work, with a plain-language explanation for each turn.
+- **Analyze mode** — pick one of your own real Copilot Chat sessions to see
+  the same breakdown for what actually happened, plus (once debug logging
+  is enabled, above) a system-prompt breakdown, the full tool inventory
+  cross-referenced against which tools were actually invoked, and per-turn
+  tool-call/file detail.
 
 ## License
 
 [MIT](LICENSE)
-

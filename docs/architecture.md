@@ -881,3 +881,38 @@ Carried over from vision §7 plus new ones raised while designing this layer:
   [agentic-coding-explained.md](agentic-coding-explained.md) as it evolves —
   the vision doc doesn't mandate automated drift-checking, but a periodic
   manual review is worth deciding on explicitly.
+
+**Raised by the Phase 8 design handoff** (`Design/GitHub chat analyser
+design.zip`) — gaps between the mock and either this repo's domain model or
+scale/interaction concerns the mock doesn't address; to confirm with the
+designer before or during Phase 8:
+
+- The mock has no cost-trend visualization at all, but `CostSparkline`
+  (Phase 7) already exists — where should it live, or should it be dropped?
+- `TurnDetail` (per-selected-turn tool calls + files touched) has no home
+  in the mock's three right-panel tabs (Explanation / System prompt /
+  Tools) — fold into the Tools tab, add a fourth tab, or drop it?
+- No zero-data state is designed: what does the screen look like with zero
+  sessions (fresh install, no Copilot Chat history yet) or zero Learn
+  scenarios?
+- Clicking the header "Config" button when `warnings[]` is empty currently
+  has no visible effect (the banner has nothing to show) — should there be
+  a positive "config OK" state, or should the button hide/disable itself?
+- The left-column session list has no designed behavior for the volume the
+  retention-warning banner itself asks users to grow the pool to (200+
+  sessions): no scroll boundary, search, filter, sort, or pagination.
+- No truncation/ellipsis rule for long session titles, tool names, or
+  trigger/model labels that overflow their cell/card.
+- The mock's card kicker ("Learn · Prompt caching" / "Analyze ·
+  2026-08-06") assumes two fields not in today's domain model — confirm
+  the intended format for Learn's topic label and Analyze's date (exact
+  date? relative time?) before `sessionSchema` gains `category`/`startedAt`.
+- The prototype's session cards and table rows are plain `div`/`tr` with
+  `onClick` only, no `tabIndex`/`role`/keyboard handler — confirm whether
+  keyboard accessibility is in scope for this local single-developer tool.
+- No dark-theme tokens exist in `styles.css` — intentional light-only, or
+  should dark variants be requested?
+- No app icon/favicon asset was provided (relevant if Phase 9's VS Code
+  extension packaging ever needs one).
+- Cost formatting precision: the prototype's mock logic uses 3 decimals
+  (`$0.031`); the shipped app currently uses 4 — confirm one.

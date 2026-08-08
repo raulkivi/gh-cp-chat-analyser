@@ -37,5 +37,6 @@ content here.
   config-warning banner, Analyze-mode-only breakdown/inventory/turn-detail
   panels, D3-based `charts/*` — per-token-type bars, cache-hit ratio, cost
   sparkline — shared by both modes via `TurnsTable`), Vitest wired with
-  TDD-first tests. Phase 8 (VS Code extension packaging) is future/out of
-  MVP scope — see implementation-plan.md.
+  TDD-first tests. Phase 8 (apply the "Industry" design system from
+  `Design/`) is planned but not started. Phase 9 (VS Code extension
+  packaging) is future/out of MVP scope — see implementation-plan.md.

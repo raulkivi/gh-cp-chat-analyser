@@ -380,7 +380,146 @@ latest stable versions, `npm audit` clean. Facts/decisions from this slice:
   sparkline, per-turn usage bars, and cache-hit bars all render correctly
   from real turn data, not just fixtures.
 
-## Phase 8 — VS Code extension packaging (future, out of MVP scope)
+## Phase 8 — Apply the "Industry" design system (visual UI polish)
+
+**Goal**: replace the unstyled semantic-HTML frontend with the high-fidelity
+visual design handed off in `Design/GitHub chat analyser design.zip`
+(`design_handoff_session_analyser_ui/README.md`, `styles.css`, and the
+`Session Analyser.dc.html` interactive prototype) — the "Industry" system:
+steel-blue mono-accent palette, Barlow/Barlow Condensed type, flat
+hairline-bordered "blueprint" cards with corner registration marks, square
+corners throughout. The prototype is a design reference only (its own
+`README.md` §"About the Design Files" says so explicitly) — this phase
+recreates its layout/markup/behavior natively in `packages/web` (Vite +
+React + TS per architecture.md §4.2/§10), wired to the real `GET /api/*`
+endpoints, not the prototype's mock data.
+
+This is a **visual/structural** phase, not a data phase: no new usage
+numbers are computed and constraint 6 (never fabricate a token count) still
+applies — every formatting change below only changes how an already-real
+`TokenCount`/`ConfigWarning`/`Session` value is displayed.
+
+**Decisions this phase makes** (the handoff doc leaves some gaps between
+the mock and this repo's actual domain model/shipped features — resolved
+here so the phase isn't blocked; each is revisitable):
+
+- **Card kickers need two small, real domain fields, not fabricated ones.**
+  The mock's session/scenario cards show a kicker like "Learn · Prompt
+  caching" or "Analyze · 2026-08-06". Neither a topic label nor a date
+  exists on `Session` today. Add two **optional** fields to
+  `sessionSchema`: `category?: string` (Learn mode — authored once per
+  fixture file, e.g. `"Prompt caching"`, `"Model switching"`; not derived
+  at render time) and `startedAt?: string` (Analyze mode — ISO date,
+  sourced from the real `sessions.created_at` column already read in
+  `data-sources/sqlite/session-store.ts:14` but not yet surfaced through
+  `session-enricher`/the API). Card kicker renders `Learn · {category}` /
+  `Analyze · {formatted startedAt}` when present, or falls back to just
+  `Learn` / `Analyze` (never a fabricated date) when not.
+- **TurnsTable adopts the mock's exact 11-column spec**, which differs from
+  what's currently shipped: `Turn, Trigger, Uncached in, Cache read, Cache
+  write, Tool, Vision, Reasoning, Output, Cost, Model` — adding the missing
+  **Trigger** (`Turn.triggeredEvent`, pill or em dash) and **Model**
+  (`TurnUsage.model`, muted 12px) columns, and reordering the token columns
+  to match.
+- **Phase 7's per-row `TokenTypeBars`/`CacheHitRatio` chart columns are
+  retired from the table.** The handoff's column list and prototype markup
+  are exact and deliberate (the "Industry" system is explicitly flat/
+  wireframe, no embellishment) and don't include them; keeping them would
+  mean 13 columns duplicating numbers the 11 spec'd columns already show.
+  Delete `charts/TokenTypeBars.tsx`/`CacheHitRatio.tsx` and their tests,
+  and update Phase 7's status note above to record the supersession rather
+  than leaving it to drift. `CostSparkline` is **kept** (it shows a trend
+  the plain table can't) but relocates to the center column's header row,
+  next to the title/model tag/usage tag — a placement the mock doesn't
+  show but doesn't conflict with either, since a session-level trend line
+  fits there better than duplicated per-row bars.
+- **`TurnDetail`'s per-turn tool-call table folds into the "Tools" tab**
+  instead of becoming a 4th tab. The mock specs exactly three right-panel
+  tabs (Explanation / System prompt / Tools); `TurnDetail`'s content (tools
+  called + files touched + token count for the *selected* turn) is
+  thematically tool data, so it renders as a second block underneath
+  `ToolInventoryPanel`'s loaded-vs-invoked list, inside the same tab.
+- **`ConfigWarningBanner` keeps its full structured content**
+  (architecture.md §6.3 requires the exact setting name, current vs.
+  recommended value, and step-by-step fix instructions — more than the
+  mock's single illustrative sentence) but adopts the mock's visual chrome
+  exactly: `.blueprint` accent-100 frame, "!" badge, bold lead line, and a
+  `showConfigBanner` boolean (default true) toggled by the new header
+  "Config" button and the banner's own "Dismiss" button — independent of
+  whether `warnings[]` is non-empty, matching the mock's decoupled state.
+- **Numeric table cells switch from the literal string `"unavailable"` to
+  a muted em dash "—"** for an unknown `TokenCount`, per the handoff's
+  explicit convention (§3b) — prose contexts (explanation panel body text,
+  the two panels' "no artifacts captured" empty states) keep full
+  sentences, including surfacing `TokenCount`'s `reason` where one exists.
+
+**Deliverables**:
+
+- **Tokens**: port `styles.css`'s custom properties and base component
+  classes (`.blueprint`/`.corner`, `.btn`, `.tag`, `.seg`/`.seg-opt`,
+  `.table`, `.card*`, spacing/type scale) into `packages/web/src/theme.css`,
+  imported once in `main.tsx`. Keep the Google Fonts `@import` — both font
+  stacks already fall back to `system-ui` so it degrades gracefully
+  offline; revisit if this tool needs to run fully air-gapped.
+- **Primitives** (new, small, composable — SOLID/CUPID per
+  architecture.md §11.5, and shared rather than duplicating the four-`<i>`
+  corner-mark markup at every call site): `components/ui/Blueprint.tsx`
+  (wraps children + the four corner marks), `components/ui/Tag.tsx`
+  (`variant: "accent" | "accent-2" | "neutral" | "outline"`),
+  `components/ui/SegmentedControl.tsx` (generic radio/button group — reused
+  for both the header's Learn/Analyze mode switch and the right column's
+  three-tab switcher, so there's exactly one segmented-control
+  implementation, not two).
+- **New layout components**: `components/AppHeader.tsx` (brand mark,
+  wordmark + caption, mode `SegmentedControl`, Config button — new; not in
+  today's component table) and `components/SessionList.tsx` (left-column
+  scenario/session cards; replaces the current inline `<ul><li><button>`
+  lists in `App.tsx`).
+- **State**: extend `state/session-store.ts` with `mode: 'learn' |
+  'analyze'` and `rightTab: 'explanation' | 'system-prompt' | 'tools'` —
+  both are tightly coupled to "what's selected," matching the store's
+  existing responsibility, and `setMode`/session-select reset turn index +
+  `rightTab` together exactly as the prototype's `setMode`/card `select`
+  do. `showConfigBanner` stays local `useState` in `App.tsx` — page chrome,
+  not session state.
+- **Restyle existing components** against the ported tokens/primitives,
+  each getting its markup/classes updated to match the mock 1:1 (colors,
+  spacing, blueprint frames) while keeping each component's existing
+  props/data contract: `TurnsTable`, `ExplanationPanel`, `TimelineScrubber`,
+  `SystemPromptBreakdown`, `ToolInventoryPanel`, `TurnDetail`,
+  `ConfigWarningBanner`.
+- **Docs**: update architecture.md §4.2's component table (add
+  `AppHeader`, `SessionList`, `components/ui/*`, the `mode`/`rightTab`
+  additions to `session-store`) and vision.md §3.3's shared-layout diagram
+  (header + mode switch + session list + tabbed right column, not just the
+  two-panel sketch) in the same change that lands the code — per this
+  repo's "treat docs as source of truth, update rather than let drift"
+  rule — plus `sessionSchema`'s new `category`/`startedAt` fields in
+  architecture.md §5.
+- TDD order: for each restyled/new component, write the failing test for
+  its new markup/behavior first (e.g. em-dash formatting, `Trigger`/`Model`
+  cell rendering, `SegmentedControl`'s selection callback, `AppHeader`'s
+  mode toggle, `SessionList`'s card click resetting turn index + tab) —
+  then the minimum implementation to pass it. Chart-column removal is a
+  delete-and-update-the-test-file change, not new TDD. The `category`/
+  `startedAt` schema additions get their own schema test (optional fields,
+  existing fixtures/API responses still validate unchanged) before
+  `session-enricher`/the learn-scenario fixtures are touched.
+
+**Exit criterion**: the app visually matches the "Industry" design
+handoff — header with brand mark/wordmark/mode switch/Config button,
+dismissible config banner, three-column layout (session list / turns table
++ scrubber / tabbed explanation-system-prompt-tools panel), all using the
+ported design tokens and `.blueprint` treatment pixel-for-pixel per
+`styles.css` — while every numeric cell still correctly distinguishes a
+known value from `{known: false}` (em dash, never a fabricated 0), and all
+existing tests (updated for the new markup) plus new tests for the added
+components/behavior pass.
+
+**Dependencies**: Phases 2, 4, 6, 7 (needs both modes' real data end-to-end
+and the Analyze-only panels this phase restyles).
+
+## Phase 9 — VS Code extension packaging (future, out of MVP scope)
 
 Not part of the initial build (vision §5 "future path"); tracked here only
 so the seam stays intentional:
@@ -405,7 +544,9 @@ flowchart LR
     P4 --> P6["Phase 6<br/>Analyze extras"]
     P2 --> P7["Phase 7<br/>Viz polish"]
     P4 --> P7
-    P6 --> P8["Phase 8<br/>VS Code extension (future)"]
-    P5 --> P8
+    P6 --> P8["Phase 8<br/>Design system polish"]
     P7 --> P8
+    P6 --> P9["Phase 9<br/>VS Code extension (future)"]
+    P5 --> P9
+    P8 --> P9
 ```

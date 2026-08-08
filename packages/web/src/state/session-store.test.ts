@@ -60,6 +60,19 @@ describe("useSessionStore", () => {
     expect(result.current.session).toBeNull();
   });
 
+  it("setMode is a no-op when the mode is unchanged (re-clicking the active tab)", () => {
+    const { result } = renderHook(() => useSessionStore());
+
+    act(() => result.current.loadSession(session));
+    act(() => result.current.selectTurn(2));
+    act(() => result.current.setRightTab("tools"));
+    act(() => result.current.setMode("learn"));
+
+    expect(result.current.session).toEqual(session);
+    expect(result.current.selectedTurnIndex).toBe(2);
+    expect(result.current.rightTab).toBe("tools");
+  });
+
   it("loadSession also resets the right tab to explanation", () => {
     const { result } = renderHook(() => useSessionStore());
 

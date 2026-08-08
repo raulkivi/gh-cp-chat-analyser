@@ -148,7 +148,11 @@ export function classifyEnvelopesAvailability(
   if (envelopes.length > 1) {
     return "events-present";
   }
-  return rawLineCount > 1 ? "parse-failures" : "logging-never-enabled";
+  // A raw line that didn't turn into an envelope (rawLineCount exceeds
+  // envelopes.length) means something failed to parse, even if that's the
+  // very first line — e.g. one corrupted line (rawLineCount 1, envelopes 0)
+  // is "parse-failures", not "logging-never-enabled".
+  return rawLineCount > envelopes.length ? "parse-failures" : "logging-never-enabled";
 }
 
 export async function classifyMainJsonlAvailability(

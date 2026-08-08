@@ -126,4 +126,8 @@ describe("classifyEnvelopesAvailability", () => {
       classifyEnvelopesAvailability([{ type: "session_start" }], 4),
     ).toBe("parse-failures");
   });
+
+  it("classifies a single corrupted line (one raw line, zero parsed envelopes) as 'parse-failures', not 'logging-never-enabled'", () => {
+    expect(classifyEnvelopesAvailability([], 1)).toBe("parse-failures");
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ConfigWarning, Session } from "@gh-cp-chat-analyser/domain";
 import { fetchConfigStatus } from "./api-client/config-status.js";
 import { fetchLearnScenarios } from "./api-client/learn-scenarios.js";
@@ -50,6 +50,7 @@ export function App() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const { session, selectedTurnIndex, mode, rightTab, loadSession, selectTurn, setMode, setRightTab } =
     useSessionStore();
+  const latestSessionRequestId = useRef(0);
 
   useEffect(() => {
     fetch("/api/health")
@@ -96,9 +97,21 @@ export function App() {
 
   function handleSelectSession(picked: Session): void {
     if (mode === "analyze") {
+      const requestId = ++latestSessionRequestId.current;
       fetchSession(picked.id)
-        .then(loadSession)
-        .catch((error: Error) => setFetchError(error.message));
+        .then((result) => {
+          // Ignore a response for a session the user has since navigated
+          // away from — otherwise a slower earlier request can resolve
+          // after a faster later one and overwrite it.
+          if (requestId === latestSessionRequestId.current) {
+            loadSession(result);
+          }
+        })
+        .catch((error: Error) => {
+          if (requestId === latestSessionRequestId.current) {
+            setFetchError(error.message);
+          }
+        });
     } else {
       loadSession(picked);
     }

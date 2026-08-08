@@ -17,6 +17,9 @@ export function useSessionStore() {
   }
 
   function setMode(next: Mode): void {
+    if (next === mode) {
+      return;
+    }
     setModeState(next);
     setSession(null);
     setSelectedTurnIndex(0);

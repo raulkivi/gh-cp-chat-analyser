@@ -1,18 +1,18 @@
 import type {
   Session,
-  SystemPromptComponent,
   TokenCount,
   ToolCallRecord,
-  ToolInventoryEntry,
   Turn,
   TurnUsage,
 } from "@gh-cp-chat-analyser/domain";
+import { unavailableTokenCount } from "@gh-cp-chat-analyser/domain";
 import type {
   SessionFileRow,
   SessionRow,
   TurnRow,
 } from "../../data-sources/sqlite/session-store.js";
 import type { MainJsonlAvailability } from "../../data-sources/jsonl/main-jsonl-reader.js";
+import type { AnalyzeModeExtras } from "./analyze-mode-extras.js";
 
 // Two reasons, per architecture.md §6.2: one is actionable (constraint 8),
 // the other isn't. Extraction of real numbers from "events-present" logs is
@@ -50,7 +50,7 @@ function deriveTitle(row: SessionRow): string {
 }
 
 function unavailableToolCallTokenCount(): TokenCount {
-  return { known: false, reason: TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON };
+  return unavailableTokenCount(TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON);
 }
 
 // SQLite's session_files rows only cover tools that touched a file — tools
@@ -59,13 +59,28 @@ function unavailableToolCallTokenCount(): TokenCount {
 // gap; a name already covered by a file-based entry isn't duplicated. Every
 // entry's tokenCount is explicit-unavailable (constraint 6): neither source
 // records a per-tool-call token figure.
-function buildToolCalls(
-  turnIndex: number,
+// fileRows is pre-grouped by turn_index once per buildSession call (rather
+// than re-filtered per turn here) so this is O(turns + fileRows), not
+// O(turns × fileRows).
+function groupFileRowsByTurn(
   fileRows: SessionFileRow[],
+): Map<number, SessionFileRow[]> {
+  const byTurn = new Map<number, SessionFileRow[]>();
+  for (const row of fileRows) {
+    if (row.turn_index === null) {
+      continue;
+    }
+    const rows = byTurn.get(row.turn_index) ?? [];
+    rows.push(row);
+    byTurn.set(row.turn_index, rows);
+  }
+  return byTurn;
+}
+
+function buildToolCalls(
+  filesForTurn: SessionFileRow[],
   invokedToolNames: string[],
 ): ToolCallRecord[] {
-  const filesForTurn = fileRows.filter((row) => row.turn_index === turnIndex);
-
   const filesByToolName = new Map<string, string[]>();
   for (const row of filesForTurn) {
     const name = row.tool_name ?? "unknown tool";
@@ -95,16 +110,16 @@ function buildToolCalls(
   return [...fileBasedCalls, ...invokedOnlyCalls];
 }
 
-function buildUnavailableUsage(unavailableTokenCount: TokenCount): TurnUsage {
+function buildUnavailableUsage(fallbackTokenCount: TokenCount): TurnUsage {
   return {
-    uncachedInput: unavailableTokenCount,
-    cacheWrite: unavailableTokenCount,
-    cacheRead: unavailableTokenCount,
-    tool: unavailableTokenCount,
-    vision: unavailableTokenCount,
-    reasoning: unavailableTokenCount,
-    output: unavailableTokenCount,
-    costUsd: unavailableTokenCount,
+    uncachedInput: fallbackTokenCount,
+    cacheWrite: fallbackTokenCount,
+    cacheRead: fallbackTokenCount,
+    tool: fallbackTokenCount,
+    vision: fallbackTokenCount,
+    reasoning: fallbackTokenCount,
+    output: fallbackTokenCount,
+    costUsd: fallbackTokenCount,
     model: UNKNOWN_MODEL,
   };
 }
@@ -125,17 +140,20 @@ function buildAnalyzeExplanation(usage: TurnUsage): string {
 
 function buildTurn(
   row: TurnRow,
-  fileRows: SessionFileRow[],
+  fileRowsByTurn: Map<number, SessionFileRow[]>,
   usage: TurnUsage | null | undefined,
-  unavailableTokenCount: TokenCount,
+  fallbackTokenCount: TokenCount,
   invokedToolNames: string[],
 ): Turn {
   return {
     index: row.turn_index,
     userMessage: row.user_message ?? "",
     assistantResponse: row.assistant_response ?? "",
-    toolCalls: buildToolCalls(row.turn_index, fileRows, invokedToolNames),
-    usage: usage ?? buildUnavailableUsage(unavailableTokenCount),
+    toolCalls: buildToolCalls(
+      fileRowsByTurn.get(row.turn_index) ?? [],
+      invokedToolNames,
+    ),
+    usage: usage ?? buildUnavailableUsage(fallbackTokenCount),
     explanation: usage ? buildAnalyzeExplanation(usage) : STUB_EXPLANATION,
   };
 }
@@ -153,24 +171,35 @@ export function buildSessionSummary(row: SessionRow): Session {
   };
 }
 
-export function buildSession(
-  sessionRow: SessionRow,
-  turnRows: TurnRow[],
-  fileRows: SessionFileRow[],
-  mainJsonlAvailability: MainJsonlAvailability,
-  turnUsages: (TurnUsage | null)[] = [],
-  invokedToolNamesByTurn: string[][] = [],
-  systemPrompt: SystemPromptComponent[] = [],
-  toolInventory: ToolInventoryEntry[] = [],
-): Session {
-  const unavailableTokenCount: TokenCount = {
-    known: false,
-    reason: reasonForAvailability(mainJsonlAvailability),
-  };
+export interface AnalyzeEnrichment extends Partial<AnalyzeModeExtras> {
+  sessionRow: SessionRow;
+  turnRows: TurnRow[];
+  fileRows: SessionFileRow[];
+  mainJsonlAvailability: MainJsonlAvailability;
+  turnUsages?: (TurnUsage | null)[];
+}
+
+export function buildSession(enrichment: AnalyzeEnrichment): Session {
+  const {
+    sessionRow,
+    turnRows,
+    fileRows,
+    mainJsonlAvailability,
+    turnUsages = [],
+    invokedToolNamesByTurn = [],
+    systemPrompt = [],
+    toolInventory = [],
+  } = enrichment;
+
+  const fallbackTokenCount = unavailableTokenCount(
+    reasonForAvailability(mainJsonlAvailability),
+  );
 
   const knownUsages = turnUsages.filter(
     (usage): usage is TurnUsage => usage !== null,
   );
+
+  const fileRowsByTurn = groupFileRowsByTurn(fileRows);
 
   return {
     ...buildSessionSummary(sessionRow),
@@ -185,9 +214,9 @@ export function buildSession(
     turns: turnRows.map((turnRow) =>
       buildTurn(
         turnRow,
-        fileRows,
+        fileRowsByTurn,
         turnUsages[turnRow.turn_index],
-        unavailableTokenCount,
+        fallbackTokenCount,
         invokedToolNamesByTurn[turnRow.turn_index] ?? [],
       ),
     ),

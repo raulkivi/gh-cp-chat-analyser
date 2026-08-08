@@ -129,7 +129,12 @@ describe("buildSession", () => {
     },
   ];
   it("produces a schema-valid Session with real turns", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "missing",
+    });
 
     expect(() => sessionSchema.parse(session)).not.toThrow();
     expect(session.mode).toBe("analyze");
@@ -140,13 +145,23 @@ describe("buildSession", () => {
   it("sets turnCount from the actual turns loaded, not the row's turn_count", () => {
     // sessionRow.turn_count is 3 (a summary-list value); the real turnRows
     // loaded here has 2 entries, which must win.
-    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "missing",
+    });
 
     expect(session.turnCount).toBe(2);
   });
 
   it("maps user/assistant messages and marks every usage field known:false", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "missing",
+    });
     const [firstTurn] = session.turns;
 
     expect(firstTurn.index).toBe(0);
@@ -171,7 +186,12 @@ describe("buildSession", () => {
   });
 
   it("groups session_files into toolCalls per turn by tool_name, token count marked unavailable", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "missing",
+    });
     const [firstTurn, secondTurn] = session.turns;
 
     expect(firstTurn.toolCalls).toEqual([
@@ -199,20 +219,24 @@ describe("buildSession", () => {
   });
 
   it("handles a turn with no touched files", () => {
-    const session = buildSession(sessionRow, turnRows, [], "missing");
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows: [],
+      mainJsonlAvailability: "missing",
+    });
 
     expect(session.turns[0].toolCalls).toEqual([]);
   });
 
   it("merges a jsonl-only tool invocation (no touched files) into toolCalls, token count unavailable", () => {
-    const session = buildSession(
+    const session = buildSession({
       sessionRow,
       turnRows,
       fileRows,
-      "missing",
-      [],
-      [["read_file", "manage_todo_list"], []],
-    );
+      mainJsonlAvailability: "missing",
+      invokedToolNamesByTurn: [["read_file", "manage_todo_list"], []],
+    });
     const [firstTurn] = session.turns;
 
     expect(firstTurn.toolCalls).toEqual([
@@ -248,35 +272,38 @@ describe("buildSession", () => {
       { name: "read_file", loaded: true, invokedInTurns: [0] },
     ];
 
-    const session = buildSession(
+    const session = buildSession({
       sessionRow,
       turnRows,
       fileRows,
-      "missing",
-      [],
-      [],
+      mainJsonlAvailability: "missing",
       systemPrompt,
       toolInventory,
-    );
+    });
 
     expect(session.systemPrompt).toEqual(systemPrompt);
     expect(session.toolInventory).toEqual(toolInventory);
   });
 
   it("defaults session.systemPrompt and session.toolInventory to empty arrays when omitted", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "missing",
+    });
 
     expect(session.systemPrompt).toEqual([]);
     expect(session.toolInventory).toEqual([]);
   });
 
   it("uses the actionable reason when logging was never enabled for this session", () => {
-    const session = buildSession(
+    const session = buildSession({
       sessionRow,
       turnRows,
       fileRows,
-      "logging-never-enabled",
-    );
+      mainJsonlAvailability: "logging-never-enabled",
+    });
 
     expect(session.turns[0].usage.uncachedInput).toEqual({
       known: false,
@@ -285,7 +312,12 @@ describe("buildSession", () => {
   });
 
   it("uses the parse-failures reason (distinct from logging-never-enabled) when the log has content but nothing parsed", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "parse-failures");
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "parse-failures",
+    });
 
     expect(session.turns[0].usage.uncachedInput).toEqual({
       known: false,
@@ -294,7 +326,12 @@ describe("buildSession", () => {
   });
 
   it("uses the generic reason when main.jsonl is missing", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "missing",
+    });
 
     expect(session.turns[0].usage.uncachedInput).toEqual({
       known: false,
@@ -303,12 +340,12 @@ describe("buildSession", () => {
   });
 
   it("uses the generic reason when events are present but no turn usages were extracted", () => {
-    const session = buildSession(
+    const session = buildSession({
       sessionRow,
       turnRows,
       fileRows,
-      "events-present",
-    );
+      mainJsonlAvailability: "events-present",
+    });
 
     expect(session.turns[0].usage.uncachedInput).toEqual({
       known: false,
@@ -330,18 +367,26 @@ describe("buildSession", () => {
   };
 
   it("populates a turn's real usage numbers when extraction found them, and sets usageDataAvailable", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "events-present", [
-      knownUsage,
-    ]);
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "events-present",
+      turnUsages: [knownUsage],
+    });
 
     expect(session.turns[0].usage).toEqual(knownUsage);
     expect(session.usageDataAvailable).toBe(true);
   });
 
   it("writes a non-stub, numbers-based explanation for a turn with known usage", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "events-present", [
-      knownUsage,
-    ]);
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "events-present",
+      turnUsages: [knownUsage],
+    });
 
     expect(session.turns[0].explanation).not.toBe(
       "Token and cost usage data is not available for this turn (main.jsonl parsing is not implemented yet).",
@@ -353,10 +398,13 @@ describe("buildSession", () => {
   });
 
   it("degrades a single turn to the fallback reason when only some turns in the session got extracted usage", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "events-present", [
-      knownUsage,
-      null,
-    ]);
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "events-present",
+      turnUsages: [knownUsage, null],
+    });
 
     expect(session.turns[0].usage).toEqual(knownUsage);
     expect(session.turns[1].usage.uncachedInput).toEqual({
@@ -367,16 +415,24 @@ describe("buildSession", () => {
   });
 
   it("derives Session.model from the last turn with known usage", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "events-present", [
-      knownUsage,
-      { ...knownUsage, model: "gpt-4o-mini" },
-    ]);
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "events-present",
+      turnUsages: [knownUsage, { ...knownUsage, model: "gpt-4o-mini" }],
+    });
 
     expect(session.model).toBe("gpt-4o-mini");
   });
 
   it("keeps Session.model 'unknown' when no turn usage was extracted", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "missing",
+    });
 
     expect(session.model).toBe("unknown");
   });

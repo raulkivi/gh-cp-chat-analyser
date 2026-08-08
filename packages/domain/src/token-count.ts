@@ -6,3 +6,7 @@ export const tokenCountSchema = z.union([
 ]);
 
 export type TokenCount = z.infer<typeof tokenCountSchema>;
+
+export function unavailableTokenCount(reason: string): TokenCount {
+  return { known: false, reason };
+}

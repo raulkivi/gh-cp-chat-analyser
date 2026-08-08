@@ -1,4 +1,5 @@
 import type { SystemPromptComponent, TokenCount } from "@gh-cp-chat-analyser/domain";
+import { unavailableTokenCount } from "@gh-cp-chat-analyser/domain";
 import type { JsonlEnvelope } from "./main-jsonl-reader.js";
 
 export const PROMPT_TOKEN_COUNT_UNAVAILABLE_REASON =
@@ -7,7 +8,7 @@ export const PROMPT_TOKEN_COUNT_UNAVAILABLE_REASON =
   "the whole request is available (see the turns table).";
 
 function unavailable(): TokenCount {
-  return { known: false, reason: PROMPT_TOKEN_COUNT_UNAVAILABLE_REASON };
+  return unavailableTokenCount(PROMPT_TOKEN_COUNT_UNAVAILABLE_REASON);
 }
 
 function dedupe(names: string[]): string[] {

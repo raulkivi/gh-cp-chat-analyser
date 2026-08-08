@@ -1,4 +1,5 @@
-import type { TokenCount, TurnUsage } from "@gh-cp-chat-analyser/domain";
+import type { TurnUsage } from "@gh-cp-chat-analyser/domain";
+import { unavailableTokenCount as unavailable } from "@gh-cp-chat-analyser/domain";
 import type { JsonlEnvelope } from "./main-jsonl-reader.js";
 import {
   extractLlmRequestUsage,
@@ -15,10 +16,6 @@ export const COST_NOT_AVAILABLE_REASON =
   "Cost in USD is not available: GitHub Copilot Chat's local debug log only " +
   "records an internal usage unit (copilotUsageNanoAiu) per request, not a " +
   "documented USD conversion.";
-
-function unavailable(reason: string): TokenCount {
-  return { known: false, reason };
-}
 
 // The last request's model may be "unknown" (older/unrecognized attrs
 // shape) even when an earlier request in the same turn carried a real

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tokenCountSchema } from "./token-count.js";
+import { tokenCountSchema, unavailableTokenCount } from "./token-count.js";
 
 describe("tokenCountSchema", () => {
   it("accepts a known token count", () => {
@@ -20,5 +20,14 @@ describe("tokenCountSchema", () => {
 
   it("rejects an unknown token count missing a reason", () => {
     expect(() => tokenCountSchema.parse({ known: false })).toThrow();
+  });
+});
+
+describe("unavailableTokenCount", () => {
+  it("builds a known:false TokenCount carrying the given reason", () => {
+    expect(unavailableTokenCount("not recorded")).toEqual({
+      known: false,
+      reason: "not recorded",
+    });
   });
 });

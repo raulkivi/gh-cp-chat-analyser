@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import type { Session } from "@gh-cp-chat-analyser/domain";
+import type { ConfigWarning, Session } from "@gh-cp-chat-analyser/domain";
+import { fetchConfigStatus } from "./api-client/config-status.js";
 import { fetchLearnScenarios } from "./api-client/learn-scenarios.js";
 import { fetchSession, fetchSessions } from "./api-client/sessions.js";
+import { ConfigWarningBanner } from "./components/ConfigWarningBanner.js";
 import { ExplanationPanel } from "./components/ExplanationPanel.js";
 import { TimelineScrubber } from "./components/TimelineScrubber.js";
 import { TurnsTable } from "./components/TurnsTable.js";
@@ -15,6 +17,7 @@ export function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [scenarios, setScenarios] = useState<Session[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [configWarnings, setConfigWarnings] = useState<ConfigWarning[]>([]);
   const { session, selectedTurnIndex, loadSession, selectTurn } = useSessionStore();
 
   useEffect(() => {
@@ -31,10 +34,15 @@ export function App() {
     fetchSessions().then(setSessions);
   }, []);
 
+  useEffect(() => {
+    fetchConfigStatus().then((status) => setConfigWarnings(status.warnings));
+  }, []);
+
   const selectedTurn = session?.turns[selectedTurnIndex] ?? null;
 
   return (
     <main>
+      <ConfigWarningBanner warnings={configWarnings} />
       <h1>GitHub Copilot Chat Session Analyser</h1>
       <p>{health ? `status: ${health.status}` : "Checking server…"}</p>
 

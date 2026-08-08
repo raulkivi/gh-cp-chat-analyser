@@ -4,7 +4,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { sessionSchema } from "@gh-cp-chat-analyser/domain";
+import { configStatusSchema, sessionSchema } from "@gh-cp-chat-analyser/domain";
 import { createApp } from "./app.js";
 import { listLearnScenarios } from "./data-sources/learn-scenarios/loader.js";
 import {
@@ -365,5 +365,48 @@ describe("GET /api/sessions/:id", () => {
     const response = await request(app).get("/api/sessions/session-1");
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe("GET /api/config/status", () => {
+  let dir: string;
+  let settingsPath: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "app-test-vscode-settings-"));
+    settingsPath = path.join(dir, "settings.json");
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("returns a settings-not-found warning when no settings.json is configured", async () => {
+    const app = createApp({ vscodeSettingsPath: null });
+
+    const response = await request(app).get("/api/config/status");
+
+    expect(response.status).toBe(200);
+    expect(() => configStatusSchema.parse(response.body)).not.toThrow();
+    expect(response.body.warnings).toEqual([
+      expect.objectContaining({ code: "settings-not-found" }),
+    ]);
+  });
+
+  it("returns no warnings once logging is enabled and retention is at least 200", async () => {
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+        "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+      }),
+    );
+    const app = createApp({ vscodeSettingsPath: settingsPath });
+
+    const response = await request(app).get("/api/config/status");
+
+    expect(response.status).toBe(200);
+    expect(() => configStatusSchema.parse(response.body)).not.toThrow();
+    expect(response.body.warnings).toEqual([]);
   });
 });

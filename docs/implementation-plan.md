@@ -217,6 +217,34 @@ next `GET /api/config/status`.
 **Dependencies**: Phase 3 (reuses `platform/vscode-paths`). Independent of
 Phase 4 — can be built in parallel with it.
 
+**Status (2026-08-08): done.** `data-sources/vscode-settings` (a new
+`resolveVscodeSettingsPath` alongside the existing `platform/vscode-paths`,
+plus `readVscodeSettings` parsing via `jsonc-parser`) and
+`services/config-check` (`checkConfig`) were built TDD-first per
+architecture §11.4, then wired into `GET /api/config/status` and a
+startup console warning in `server.ts`. Decisions/facts from this slice:
+
+- Scope matches this phase's bullet list exactly: only the **user**
+  `settings.json` is read, not a workspace-level merge — architecture§4.1's
+  "and workspace, if present" is not yet implemented (this is a
+  single-developer machine with no workspace-level override observed; a
+  workspace merge is a candidate for later per architecture §13, not
+  required for this phase's exit criterion).
+- The deprecated alias `github.copilot.chat.agentDebugLog.enabled` (noted
+  in architecture §7) is also honored as satisfying "logging enabled", in
+  addition to the current `agentDebugLog.fileLogging.enabled` key.
+- `maxRetainedSessionLogs: null` in `ConfigStatus` means "the setting is
+  unset in `settings.json`", which `config-check` treats as VS Code's own
+  default of 50 (below the 200 minimum) when deciding whether to warn —
+  matching the domain schema's documented meaning for that field (§5).
+- Verified against this machine's own real `settings.json`
+  (`~/.config/Code - Insiders/User/settings.json`, where logging is
+  already enabled from Phase 4 but retention was never explicitly raised):
+  `GET /api/config/status` correctly returns exactly one
+  `retention-too-low` warning with the real settings.json path in its
+  `helpSteps` — the exit criterion's "default retention" case, observed
+  directly rather than only via fixtures.
+
 ## Phase 6 — Analyze-mode-only extras
 
 **Goal**: the remaining vision §3.2 features that go beyond the shared

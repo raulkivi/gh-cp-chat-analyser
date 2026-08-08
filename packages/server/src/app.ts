@@ -24,14 +24,17 @@ import {
   listSessionRows,
   openReadOnlyDb,
 } from "./data-sources/sqlite/session-store.js";
+import { resolveVscodeSettingsPath } from "./data-sources/vscode-settings/vscode-settings-path.js";
 import {
   buildSession,
   buildSessionSummary,
 } from "./services/session-enricher/session-enricher.js";
+import { checkConfig } from "./services/config-check/config-check.js";
 
 export interface CreateAppOptions {
   sessionStoreDbPath?: string;
   debugLogsDirPaths?: string[];
+  vscodeSettingsPath?: string | null;
 }
 
 export function createApp(options: CreateAppOptions = {}): Express {
@@ -40,6 +43,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
     options.sessionStoreDbPath ?? resolveSessionStoreDbPath();
   const resolvedDebugLogsDirPaths =
     options.debugLogsDirPaths ?? listWorkspaceDebugLogsDirPaths();
+  const resolvedVscodeSettingsPath =
+    options.vscodeSettingsPath !== undefined
+      ? options.vscodeSettingsPath
+      : resolveVscodeSettingsPath();
 
   function openSessionStoreDb(): DatabaseSync | null {
     if (!resolvedDbPath || !existsSync(resolvedDbPath)) {
@@ -50,6 +57,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
+  });
+
+  app.get("/api/config/status", (_req, res) => {
+    res.json(checkConfig({ settingsPath: resolvedVscodeSettingsPath }));
   });
 
   app.get("/api/learn/scenarios", (_req, res) => {

@@ -485,6 +485,32 @@ endpoint: this is guidance, not a hard failure, applying constraint 6's
 "explicit, not fabricated" philosophy to the app's own health rather than
 to token data.
 
+**Implementation note (Phase 5, complete).** Built TDD-first
+(`data-sources/vscode-settings`, `services/config-check`) per architecture
+§11.4, then wired into `GET /api/config/status` and a `server.ts` startup
+console warning. Facts/decisions from this slice:
+
+- Only the **user** `settings.json` is read (`resolveVscodeSettingsPath`
+  reuses `platform/vscode-paths`' `resolveUserDataDir`, then
+  `<userDataDir>/User/settings.json`) — the §4.1 table's "and workspace, if
+  present" merge is not implemented; no workspace-level override exists on
+  this single-developer machine to motivate it yet, so it's deferred (§13
+  candidate) rather than built speculatively.
+- The deprecated alias `github.copilot.chat.agentDebugLog.enabled` (§7) is
+  also honored as "logging enabled", alongside the current
+  `agentDebugLog.fileLogging.enabled` key.
+- `ConfigStatus.maxRetainedSessionLogs: null` means "unset in
+  `settings.json`"; `config-check` treats that as VS Code's own default of
+  50 (below the 200 minimum) when deciding whether to emit
+  `retention-too-low` — the null/default distinction lives in the domain
+  type (§5), not duplicated ad hoc in the service.
+- Verified against this machine's own real `settings.json`: logging is
+  already enabled (from Phase 4), but retention was never explicitly
+  raised, so `GET /api/config/status` returns exactly one
+  `retention-too-low` warning with the real settings.json path in
+  `helpSteps` — the exit criterion's default-retention case, confirmed
+  directly rather than only via fixtures.
+
 ## 7. `main.jsonl` parsing strategy
 
 This is the riskiest part of the system (vision §7 open question: the

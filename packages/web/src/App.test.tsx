@@ -29,6 +29,16 @@ const fullSession = {
   turns: [makeTurn({ index: 0, explanation: "analyze turn explanation" })],
 };
 
+const cleanConfigStatus = {
+  checkedAt: "2026-08-08T00:00:00.000Z",
+  vscodeUserSettingsPath: "/home/user/.config/Code/User/settings.json",
+  loggingEnabled: true,
+  maxRetainedSessionLogs: 200,
+  warnings: [],
+};
+
+let configStatus = cleanConfigStatus;
+
 function fakeFetch(url: string) {
   if (url === "/api/health") {
     return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: "ok" }) });
@@ -42,11 +52,15 @@ function fakeFetch(url: string) {
   if (url === "/api/sessions/session-1") {
     return Promise.resolve({ ok: true, json: () => Promise.resolve(fullSession) });
   }
+  if (url === "/api/config/status") {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(configStatus) });
+  }
   return Promise.reject(new Error(`Unhandled fetch url in test: ${url}`));
 }
 
 describe("App", () => {
   beforeEach(() => {
+    configStatus = cleanConfigStatus;
     vi.stubGlobal("fetch", vi.fn(fakeFetch));
   });
 
@@ -92,5 +106,28 @@ describe("App", () => {
     fireEvent.click(sessionButton);
 
     expect(await screen.findByText("analyze turn explanation")).toBeInTheDocument();
+  });
+
+  it("renders the config warning banner when prerequisites aren't met", async () => {
+    configStatus = {
+      ...cleanConfigStatus,
+      loggingEnabled: false,
+      maxRetainedSessionLogs: null,
+      warnings: [
+        {
+          code: "retention-too-low",
+          settingId: "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs",
+          currentValue: 50,
+          recommendedValue: 200,
+          message: "Only the last 50 sessions' logs are retained on disk.",
+          helpSteps: ["Set maxRetainedSessionLogs to 200 in settings.json"],
+        },
+      ],
+    };
+    render(<App />);
+
+    expect(
+      await screen.findByText("Only the last 50 sessions' logs are retained on disk."),
+    ).toBeInTheDocument();
   });
 });

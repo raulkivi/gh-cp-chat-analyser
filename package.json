@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "GitHub Copilot Chat Session Analyser — monorepo root",
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "packages/domain",

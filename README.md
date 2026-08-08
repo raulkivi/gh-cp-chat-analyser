@@ -54,3 +54,7 @@ TDD order for the Learn-mode scenario fixtures, API routes, and shared UI
 components — validating fixtures against the `domain` package's
 `sessionSchema`.
 
+## License
+
+[MIT](LICENSE)
+

@@ -179,7 +179,10 @@ describe("GET /api/sessions/:id", () => {
   });
 
   it("returns the full analyzed session with real turns, usage marked unavailable", async () => {
-    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+    });
 
     const response = await request(app).get("/api/sessions/session-1");
 
@@ -201,7 +204,10 @@ describe("GET /api/sessions/:id", () => {
       path.join(sessionLogDir, "main.jsonl"),
       `${JSON.stringify({ v: 1, ts: 1, dur: 0, sid: "session-1", type: "session_start", name: "session_start", spanId: "a", status: "ok", attrs: {} })}\n`,
     );
-    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+    });
 
     const response = await request(app).get("/api/sessions/session-1");
 
@@ -211,7 +217,7 @@ describe("GET /api/sessions/:id", () => {
     });
   });
 
-  it("uses the generic reason when main.jsonl has events but no extractor produced usage yet", async () => {
+  it("uses the generic reason when main.jsonl has events but the llm_request span has an older/unknown attrs shape", async () => {
     const sessionLogDir = path.join(debugLogsDirPath, "session-1");
     mkdirSync(sessionLogDir, { recursive: true });
     const lines = [
@@ -242,7 +248,10 @@ describe("GET /api/sessions/:id", () => {
       path.join(sessionLogDir, "main.jsonl"),
       lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
     );
-    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+    });
 
     const response = await request(app).get("/api/sessions/session-1");
 
@@ -253,8 +262,83 @@ describe("GET /api/sessions/:id", () => {
     expect(response.body.usageDataAvailable).toBe(false);
   });
 
+  it("returns real per-turn token numbers extracted from a session's llm_request spans", async () => {
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    const lines = [
+      {
+        v: 1,
+        ts: 1,
+        dur: 0,
+        sid: "session-1",
+        type: "session_start",
+        name: "session_start",
+        spanId: "a",
+        status: "ok",
+        attrs: {},
+      },
+      {
+        v: 1,
+        ts: 2,
+        dur: 0,
+        sid: "session-1",
+        type: "user_message",
+        name: "user_message",
+        spanId: "u0",
+        status: "ok",
+        attrs: { content: "hi" },
+      },
+      {
+        v: 1,
+        ts: 3,
+        dur: 5,
+        sid: "session-1",
+        type: "llm_request",
+        name: "llm_request",
+        spanId: "b",
+        status: "ok",
+        attrs: {
+          model: "claude-sonnet-5",
+          inputTokens: 1000,
+          outputTokens: 50,
+          cachedTokens: 200,
+        },
+      },
+    ];
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
+    );
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+    });
+
+    const response = await request(app).get("/api/sessions/session-1");
+
+    expect(() => sessionSchema.parse(response.body)).not.toThrow();
+    expect(response.body.turns[0].usage.uncachedInput).toEqual({
+      known: true,
+      value: 800,
+    });
+    expect(response.body.turns[0].usage.cacheRead).toEqual({
+      known: true,
+      value: 200,
+    });
+    expect(response.body.turns[0].usage.output).toEqual({
+      known: true,
+      value: 50,
+    });
+    expect(response.body.turns[0].usage.model).toBe("claude-sonnet-5");
+    expect(response.body.usageDataAvailable).toBe(true);
+    expect(response.body.model).toBe("claude-sonnet-5");
+  });
+
   it("returns 404 for a session filtered out by the agent_name scoping rule", async () => {
-    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+    });
 
     const response = await request(app).get("/api/sessions/session-2");
 
@@ -262,7 +346,10 @@ describe("GET /api/sessions/:id", () => {
   });
 
   it("returns 404 for an unknown session id", async () => {
-    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+    });
 
     const response = await request(app).get("/api/sessions/does-not-exist");
 
@@ -272,7 +359,7 @@ describe("GET /api/sessions/:id", () => {
   it("returns 404 when no session store db is available", async () => {
     const app = createApp({
       sessionStoreDbPath: path.join(dir, "does-not-exist.db"),
-      debugLogsDirPath,
+      debugLogsDirPaths: [debugLogsDirPath],
     });
 
     const response = await request(app).get("/api/sessions/session-1");

@@ -324,12 +324,18 @@ way that weren't previously documented:
 - The local session-store database (tables listed in vision/
   agentic-coding-explained §18.1) lives at
   `<user-data-dir>/User/globalStorage/github.copilot-chat/session-store.db`
-  (WAL mode) — sibling to the `debug-logs/<session-id>/main.jsonl` path
-  already noted in §7/§18.3, both under `globalStorage`, not
-  `workspaceStorage`. `<user-data-dir>` resolution (§13's open question) is
-  currently: prefer `~/.config/Code - Insiders`, fall back to
-  `~/.config/Code`, Linux only — other platforms return "not found" until a
-  later phase.
+  (WAL mode). **Correction (Phase 4):** this note originally claimed
+  `debug-logs/<session-id>/main.jsonl` was a sibling under the same
+  `globalStorage` path — verified wrong once real logs existed to check
+  against. `main.jsonl` actually lives per-workspace, at
+  `<user-data-dir>/User/workspaceStorage/<workspace-hash>/GitHub.copilot-chat/debug-logs/<session-id>/`
+  (note the differing case, `GitHub.copilot-chat` vs. `github.copilot-chat`),
+  matching what agentic-coding-explained.md §18.3 and vision.md §4 said all
+  along. See the Phase 4 note below for how the adapter handles not knowing
+  a session's workspace hash ahead of time. `<user-data-dir>` resolution
+  (§13's open question) is currently: prefer `~/.config/Code - Insiders`,
+  fall back to `~/.config/Code`, Linux only — other platforms return "not
+  found" until a later phase.
 - `sessions` has no `title`/`model` column, but `Session` requires both:
   `title` falls back through `summary → repository → cwd → "Session <id>"`;
   `model` is the literal string `"unknown"` on both `Session.model` and
@@ -353,46 +359,84 @@ way that weren't previously documented:
   needs timestamp-correlation heuristics that belong in a later phase, not
   "structural data only."
 
-**Implementation note (Phase 4, partial — extractor registry still
-blocked).** The `main.jsonl` streaming reader/envelope parser and the §7
-cheap gating check are implemented and wired into `session-enricher`; the
-per-event-type extractor registry (the part that turns `attrs` into real
-`TurnUsage` numbers) is not, because it has no real fixture data to be
-built/tested against yet (TDD requires real captured lines, per §11.4).
-Facts discovered doing this slice:
+**Implementation note (Phase 4, complete).** `agentDebugLog.fileLogging`
+was confirmed enabled and, once real sessions had run under it, real
+`llm_request` spans were captured, redacted into fixtures, and used to
+build the extractor registry per TDD (§11.4). Facts and decisions from
+this slice:
 
-- `github.copilot.chat.agentDebugLog.fileLogging.enabled` was verified
-  **off** on this machine as of 2026-08-08, despite Phase 0's "parallel
-  task" note — the setting was never actually applied. It has now been
-  turned on; real usage-span fixtures should start accumulating from new
-  GitHub Copilot Chat sessions run after the next VS Code window reload.
-  Until then, every real local session's `main.jsonl` still only contains
-  `session_start`.
 - `data-sources/jsonl/main-jsonl-reader.ts` streams a file via `readline`
   and defensively parses each line into the generic envelope, skipping
-  malformed/unrecognizable lines; `classifyMainJsonlAvailability` applies
-  the §7 gating check and returns one of `"missing"` (file not found —
-  e.g. rotated away per `maxRetainedSessionLogs`), `"logging-never-enabled"`
-  (file has at most the one `session_start` line), or `"events-present"`
-  (more than that — the case the extractor registry will eventually handle).
-- `data-sources/jsonl/session-log-path.ts` resolves the
-  `debug-logs` directory (sibling to `session-store.db` under
-  `globalStorage/github.copilot-chat`) and validates a session id against
-  an allow-list pattern before joining it into a filesystem path (§11.2).
-- `session-enricher.buildSession` now takes the resolved
-  `MainJsonlAvailability` and picks between the two §6.2 reasons:
-  `LOGGING_NEVER_ENABLED_REASON` (actionable — constraint 8) for
-  `"logging-never-enabled"`, and `USAGE_UNAVAILABLE_REASON` (generic) for
-  both `"missing"` and `"events-present"` — the latter because no extractor
-  exists yet to turn a present event into a known number, which is
-  functionally the same "can't retroactively fix this" case for the user
-  right now. `usageDataAvailable` stays `false` on the `Session` regardless,
-  since no field is ever actually populated by this slice.
-- This also fixed a pre-existing build break: `app.ts` was calling
-  `buildSession` with a 4th `checkpointRows` argument the function didn't
-  accept (a half-finished edit left in the Phase 3 commit). The unused
-  checkpoint-rows wiring was removed rather than threaded through, since
-  `Turn.triggeredEvent` mapping is still out of scope (see the note above).
+  malformed/unrecognizable lines. `classifyEnvelopesAvailability` (pure,
+  sync) applies the §7 gating check to an already-parsed envelope array;
+  `classifyMainJsonlAvailability` is a thin file-reading wrapper around it
+  for callers that don't need the envelopes themselves. Returns one of
+  `"missing"` (file not found — e.g. rotated away per
+  `maxRetainedSessionLogs`), `"logging-never-enabled"` (file has at most
+  the one `session_start` line), or `"events-present"`.
+- **Real event shape, captured from this machine's own logs once logging
+  was on.** A session's `main.jsonl` (once populated) contains
+  `session_start`, `user_message`, `turn_start`/`turn_end`, `discovery`,
+  `generic`, `tool_call`, `llm_request`, and `agent_response` spans. Only
+  `llm_request` carries usage numbers, in `attrs`: `model`, `inputTokens`
+  (the request's total input, cached + uncached), `outputTokens`,
+  `cachedTokens` (the subset of `inputTokens` served from cache), plus
+  non-usage fields (`ttft`, `copilotUsageNanoAiu`, `debugName`,
+  `requestOptions`, `requestShape`, `systemPromptFile`, `toolsFile`, and the
+  full prompt/message content in `userRequest`/`inputMessages`, which the
+  adapter never reads). There is **no separate cache-write figure, and no
+  tool/vision/reasoning token breakdown** in this event shape — those
+  `TurnUsage` fields stay `{ known: false }` for every turn, not just when
+  extraction fails. `copilotUsageNanoAiu` is a per-request internal usage
+  unit with no documented USD conversion, so `costUsd` also stays
+  `{ known: false }` — showing a number here would be constraint 6
+  fabrication, not a real dollar figure.
+- **The join key is positional, not `turnId`.** `main.jsonl`'s own
+  `turnId` (on `turn_start`/`turn_end`) is an internal per-agent-iteration
+  counter that **resets to 0 at every `user_message`**, not a running
+  SQLite `turn_index` — verified against this project's own session
+  history (turn 0 and turn 1's `user_message` events both start their
+  internal `turnId` back at 0). The correct join (confirmed against
+  `turns` rows for real sessions) is: the Nth `user_message` event in
+  `main.jsonl` corresponds to SQLite `turn_index` N, and everything up to
+  (not including) the next `user_message` belongs to that turn —
+  `data-sources/jsonl/session-usage-spans.ts`'s
+  `groupEnvelopesByUserMessage` implements this. A single SQLite turn can
+  contain more than one `llm_request` span this way (the agent looping
+  through several tool-call round-trips before answering); `extractTurnUsages`
+  sums every `llm_request` span's numbers within a turn's group rather than
+  taking just the first/last one, and uses the last span's `model`.
+- `data-sources/jsonl/llm-request-extractor.ts` is the single per-event-type
+  extractor (§7's extension point) for `llm_request` spans: defensively
+  requires numeric `inputTokens`/`outputTokens` (an older/unrecognized shape
+  — e.g. missing those fields — yields `null`, not a fabricated number);
+  missing `cachedTokens` defaults to `0` (a legitimate value already
+  observed for uncached requests, not an assumption about hidden data).
+- `data-sources/jsonl/session-log-path.ts`'s `listWorkspaceDebugLogsDirPaths`
+  replaces the old single-`globalStorage`-dir resolution (see the corrected
+  Phase 3 note above): it lists every `workspaceStorage/<hash>` directory
+  and returns one candidate `.../GitHub.copilot-chat/debug-logs` path per
+  workspace, since a session id's workspace hash isn't known ahead of time.
+  `resolveMainJsonlPath` tries each candidate and returns whichever one's
+  `<sessionId>/main.jsonl` actually exists — `app.ts` reads the envelopes
+  once at that resolved path and reuses them for both the gating
+  classification and extraction, rather than reading the file twice.
+- `session-enricher.buildSession` now takes an optional `turnUsages`
+  array (one `TurnUsage | null` per SQLite `turn_index`, `[]` by default so
+  Phase 3 callers are unaffected). A turn with a known usage gets its real
+  numbers, a plain-language explanation built from them (e.g. "This turn
+  sent 21,370 new input token(s) and reused 42,559 from cache, producing
+  1,146 output token(s) using claude-sonnet-5."), and contributes to
+  `usageDataAvailable`/`Session.model` (last known turn's model); a turn
+  with no extracted usage still falls back to Phase 3's per-availability
+  reason (`LOGGING_NEVER_ENABLED_REASON`/`USAGE_UNAVAILABLE_REASON`) — a
+  session can have some turns known and others not (e.g. the last turn's
+  events not yet flushed per the `flushIntervalMs` note below).
+- Verified end-to-end against this machine's own real, live local data
+  (not just fixtures): this project's own session history and another
+  project's longer session both return real per-turn numbers through
+  `GET /api/sessions/:id` once resolved via the corrected workspace-based
+  path.
 
 ### 6.3 Startup configuration check
 
@@ -689,12 +733,12 @@ this architecture that means:
 
 Carried over from vision §7 plus new ones raised while designing this layer:
 
-- Confirming the extractor registry (§7) against a real, multi-version corpus
-  of `main.jsonl` files now that
-  `github.copilot.chat.agentDebugLog.fileLogging.enabled` has been turned on
-  on this machine (previously blocked: every local log only had
-  `session_start`) — still need fixture captures across more event `type`s
-  than have been observed so far.
+- The Phase 4 extractor registry only has one extractor (`llm_request`) and
+  one real provider (`claude-sonnet-5`, plus one `gpt-4o-mini` sample) to
+  test against so far — still open whether other providers/older VS Code
+  versions use a differently-shaped `llm_request.attrs`, and whether other
+  event `type`s (`tool_call`, `agent_response`) are worth extracting from
+  for Phase 6's tool/file-detail work.
 - How `platform/vscode-paths` should behave when multiple VS Code
   variants/installs exist on one machine (Stable + Insiders, or several
   profiles) — Phase 3 resolved this minimally (Linux only: prefer Insiders,

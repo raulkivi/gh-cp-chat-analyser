@@ -68,7 +68,15 @@ export type MainJsonlAvailability =
 
 // Cheap gating check (§7): a session's main.jsonl containing at most the
 // single session_start line means logging was never enabled while it ran —
-// the expected default case (constraint 8), not an error.
+// the expected default case (constraint 8), not an error. Pure/sync so a
+// caller that already has the parsed envelopes (e.g. to also run the
+// extractor registry on them) doesn't need to read the file twice.
+export function classifyEnvelopesAvailability(
+  envelopes: JsonlEnvelope[],
+): MainJsonlAvailability {
+  return envelopes.length > 1 ? "events-present" : "logging-never-enabled";
+}
+
 export async function classifyMainJsonlAvailability(
   filePath: string,
 ): Promise<MainJsonlAvailability> {
@@ -77,5 +85,5 @@ export async function classifyMainJsonlAvailability(
   }
 
   const envelopes = await readMainJsonlEnvelopes(filePath);
-  return envelopes.length > 1 ? "events-present" : "logging-never-enabled";
+  return classifyEnvelopesAvailability(envelopes);
 }

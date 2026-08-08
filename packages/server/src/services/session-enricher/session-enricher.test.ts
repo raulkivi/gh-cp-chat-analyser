@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sessionSchema } from "@gh-cp-chat-analyser/domain";
+import { sessionSchema, type TurnUsage } from "@gh-cp-chat-analyser/domain";
 import type {
   SessionFileRow,
   SessionRow,
@@ -184,7 +184,7 @@ describe("buildSession", () => {
     });
   });
 
-  it("uses the generic reason when events are present but no extractor produced usage yet", () => {
+  it("uses the generic reason when events are present but no turn usages were extracted", () => {
     const session = buildSession(
       sessionRow,
       turnRows,
@@ -197,5 +197,69 @@ describe("buildSession", () => {
       reason: USAGE_UNAVAILABLE_REASON,
     });
     expect(session.usageDataAvailable).toBe(false);
+  });
+
+  const knownUsage: TurnUsage = {
+    uncachedInput: { known: true, value: 21370 },
+    cacheWrite: { known: false, reason: "not exposed" },
+    cacheRead: { known: true, value: 42559 },
+    tool: { known: false, reason: "not exposed" },
+    vision: { known: false, reason: "not exposed" },
+    reasoning: { known: false, reason: "not exposed" },
+    output: { known: true, value: 1146 },
+    costUsd: { known: false, reason: "not available" },
+    model: "claude-sonnet-5",
+  };
+
+  it("populates a turn's real usage numbers when extraction found them, and sets usageDataAvailable", () => {
+    const session = buildSession(sessionRow, turnRows, fileRows, "events-present", [
+      knownUsage,
+    ]);
+
+    expect(session.turns[0].usage).toEqual(knownUsage);
+    expect(session.usageDataAvailable).toBe(true);
+  });
+
+  it("writes a non-stub, numbers-based explanation for a turn with known usage", () => {
+    const session = buildSession(sessionRow, turnRows, fileRows, "events-present", [
+      knownUsage,
+    ]);
+
+    expect(session.turns[0].explanation).not.toBe(
+      "Token and cost usage data is not available for this turn (main.jsonl parsing is not implemented yet).",
+    );
+    expect(session.turns[0].explanation).toContain("21,370");
+    expect(session.turns[0].explanation).toContain("42,559");
+    expect(session.turns[0].explanation).toContain("1,146");
+    expect(session.turns[0].explanation).toContain("claude-sonnet-5");
+  });
+
+  it("degrades a single turn to the fallback reason when only some turns in the session got extracted usage", () => {
+    const session = buildSession(sessionRow, turnRows, fileRows, "events-present", [
+      knownUsage,
+      null,
+    ]);
+
+    expect(session.turns[0].usage).toEqual(knownUsage);
+    expect(session.turns[1].usage.uncachedInput).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
+    expect(session.usageDataAvailable).toBe(true);
+  });
+
+  it("derives Session.model from the last turn with known usage", () => {
+    const session = buildSession(sessionRow, turnRows, fileRows, "events-present", [
+      knownUsage,
+      { ...knownUsage, model: "gpt-4o-mini" },
+    ]);
+
+    expect(session.model).toBe("gpt-4o-mini");
+  });
+
+  it("keeps Session.model 'unknown' when no turn usage was extracted", () => {
+    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+
+    expect(session.model).toBe("unknown");
   });
 });

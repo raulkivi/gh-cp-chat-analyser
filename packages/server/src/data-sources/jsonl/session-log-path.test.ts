@@ -1,14 +1,14 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   isValidSessionId,
-  resolveDebugLogsDirPath,
+  listWorkspaceDebugLogsDirPaths,
   resolveMainJsonlPath,
 } from "./session-log-path.js";
 
-describe("resolveDebugLogsDirPath", () => {
+describe("listWorkspaceDebugLogsDirPaths", () => {
   let fakeHome: string;
 
   beforeEach(() => {
@@ -19,29 +19,43 @@ describe("resolveDebugLogsDirPath", () => {
     rmSync(fakeHome, { recursive: true, force: true });
   });
 
-  it("returns null when no VS Code install is present", () => {
+  it("returns [] when no VS Code install is present", () => {
     expect(
-      resolveDebugLogsDirPath({ platform: "linux", homeDir: fakeHome }),
-    ).toBeNull();
+      listWorkspaceDebugLogsDirPaths({ platform: "linux", homeDir: fakeHome }),
+    ).toEqual([]);
   });
 
-  it("returns the debug-logs dir path (even if it doesn't exist yet) when VS Code is installed", () => {
-    mkdirSync(path.join(fakeHome, ".config", "Code - Insiders"), {
+  it("returns [] when workspaceStorage doesn't exist yet", () => {
+    mkdirSync(path.join(fakeHome, ".config", "Code - Insiders", "User"), {
       recursive: true,
     });
 
     expect(
-      resolveDebugLogsDirPath({ platform: "linux", homeDir: fakeHome }),
-    ).toBe(
-      path.join(
-        fakeHome,
-        ".config",
-        "Code - Insiders",
-        "User",
-        "globalStorage",
-        "github.copilot-chat",
-        "debug-logs",
-      ),
+      listWorkspaceDebugLogsDirPaths({ platform: "linux", homeDir: fakeHome }),
+    ).toEqual([]);
+  });
+
+  it("returns one debug-logs dir per workspace-storage subdirectory (real logs live per-workspace, not in globalStorage)", () => {
+    const workspaceStorageDir = path.join(
+      fakeHome,
+      ".config",
+      "Code - Insiders",
+      "User",
+      "workspaceStorage",
+    );
+    mkdirSync(path.join(workspaceStorageDir, "hash1"), { recursive: true });
+    mkdirSync(path.join(workspaceStorageDir, "hash2"), { recursive: true });
+
+    const dirs = listWorkspaceDebugLogsDirPaths({
+      platform: "linux",
+      homeDir: fakeHome,
+    });
+
+    expect(dirs.sort()).toEqual(
+      [
+        path.join(workspaceStorageDir, "hash1", "GitHub.copilot-chat", "debug-logs"),
+        path.join(workspaceStorageDir, "hash2", "GitHub.copilot-chat", "debug-logs"),
+      ].sort(),
     );
   });
 });
@@ -61,17 +75,40 @@ describe("isValidSessionId", () => {
 });
 
 describe("resolveMainJsonlPath", () => {
-  it("joins the debug-logs dir, session id, and main.jsonl for a valid id", () => {
-    expect(resolveMainJsonlPath("/debug-logs", "session-1")).toBe(
-      path.join("/debug-logs", "session-1", "main.jsonl"),
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "session-log-path-resolve-test-"));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("returns the path from whichever candidate dir actually contains the session's main.jsonl", () => {
+    const dirA = path.join(dir, "workspace-a", "debug-logs");
+    const dirB = path.join(dir, "workspace-b", "debug-logs");
+    const sessionDirB = path.join(dirB, "session-1");
+    mkdirSync(sessionDirB, { recursive: true });
+    writeFileSync(path.join(sessionDirB, "main.jsonl"), "");
+
+    expect(resolveMainJsonlPath([dirA, dirB], "session-1")).toBe(
+      path.join(sessionDirB, "main.jsonl"),
     );
   });
 
-  it("returns null for an invalid session id", () => {
-    expect(resolveMainJsonlPath("/debug-logs", "../etc/passwd")).toBeNull();
+  it("returns null when no candidate dir contains the session", () => {
+    const dirA = path.join(dir, "workspace-a", "debug-logs");
+    mkdirSync(dirA, { recursive: true });
+
+    expect(resolveMainJsonlPath([dirA], "session-1")).toBeNull();
   });
 
-  it("returns null when the debug-logs dir path is null", () => {
-    expect(resolveMainJsonlPath(null, "session-1")).toBeNull();
+  it("returns null for an invalid session id", () => {
+    expect(resolveMainJsonlPath([dir], "../etc/passwd")).toBeNull();
+  });
+
+  it("returns null when there are no candidate dirs", () => {
+    expect(resolveMainJsonlPath([], "session-1")).toBeNull();
   });
 });

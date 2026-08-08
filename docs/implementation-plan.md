@@ -169,16 +169,25 @@ requires the Phase 0 window-reload step to have happened and some time to
 pass generating real sessions — start capturing fixtures as early as
 possible so this phase isn't blocked when it starts.
 
-**Status (2026-08-08): partially done, extractor registry still blocked.**
-The streaming line reader + generic envelope parser, the §7 cheap gating
-check, and `session-enricher`'s two-reason split (see architecture.md §6.2
-implementation note) are built and tested. The extractor registry itself —
-the part that actually produces real per-turn numbers, and the whole point
-of this phase — is not, because `github.copilot.chat.agentDebugLog
-.fileLogging.enabled` turned out to still be off on this machine (Phase 0's
-note that it was already on was wrong). It's now been turned on; this phase
-finishes once a real GitHub Copilot Chat session (post window-reload) has
-produced a `main.jsonl` with real usage spans to capture as fixtures.
+**Status (2026-08-08): done.** With `agentDebugLog.fileLogging.enabled` on
+and real GitHub Copilot Chat sessions run since, real `llm_request` spans
+were captured (redacted into `packages/server/fixtures/jsonl/`) and used to
+build the `llm_request` extractor and per-turn aggregator (which sums the
+possibly-multiple `llm_request` spans within one SQLite turn — see
+architecture.md §6.2's Phase 4 note for why the join is positional by
+`user_message`, not by the log's own `turnId`). This also uncovered and
+fixed a real bug: the debug-logs path was resolved as a single
+`globalStorage` directory, but real logs live per-workspace under
+`workspaceStorage/<hash>/GitHub.copilot-chat/debug-logs/<session-id>/` —
+without that fix the extractor would never have found any real file. Two
+`TurnUsage` categories stay permanently unavailable regardless of extraction
+success: `cacheWrite`/`tool`/`vision`/`reasoning` (not broken out by this
+event shape) and `costUsd` (no documented USD conversion for the log's
+internal usage unit) — both marked `known: false` with a specific reason
+rather than a fabricated number, per constraint 6. Verified against this
+machine's own real, live session data (this project's own history, and a
+longer session from another project), not just fixtures — exit criterion
+met.
 
 ## Phase 5 — Startup configuration check
 

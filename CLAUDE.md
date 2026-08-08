@@ -25,13 +25,12 @@ content here.
   met.
 - Commit all changes to git as soon as a phase's exit criterion is met,
   before starting the next phase.
-- Repo status: Phases 0-3 complete — npm workspaces with `packages/domain`
+- Repo status: Phases 0-4 complete — npm workspaces with `packages/domain`
   (zod schemas + types for every architecture.md §5 shape), `packages/server`
   (Express API: Learn-mode fixtures plus real Analyze-mode sessions read
-  read-only from the local VS Code SQLite store via `node:sqlite`),
+  read-only from the local VS Code SQLite store via `node:sqlite`, enriched
+  with real per-turn token/cache numbers extracted from `main.jsonl`),
   `packages/web` (Vite + React, shared Learn/Analyze layout), Vitest wired
-  with TDD-first tests. Phase 4 (`main.jsonl` parsing & enrichment) is
-  **partially done**: the streaming reader/envelope parser, §7 gating check,
-  and session-enricher's two-reason split are built; the extractor registry
-  (real per-turn numbers) is blocked on real usage-span fixture data — see
-  implementation-plan.md's Phase 4 status note.
+  with TDD-first tests. Phase 5 (startup configuration check) and Phase 6
+  (Analyze-mode-only extras, which extends the Phase 4 extractor registry)
+  are next — see implementation-plan.md.

@@ -3,6 +3,7 @@ import type {
   TokenCount,
   ToolCallRecord,
   Turn,
+  TurnUsage,
 } from "@gh-cp-chat-analyser/domain";
 import type {
   SessionFileRow,
@@ -57,9 +58,38 @@ function buildToolCalls(
   }));
 }
 
+function buildUnavailableUsage(unavailableTokenCount: TokenCount): TurnUsage {
+  return {
+    uncachedInput: unavailableTokenCount,
+    cacheWrite: unavailableTokenCount,
+    cacheRead: unavailableTokenCount,
+    tool: unavailableTokenCount,
+    vision: unavailableTokenCount,
+    reasoning: unavailableTokenCount,
+    output: unavailableTokenCount,
+    costUsd: unavailableTokenCount,
+    model: UNKNOWN_MODEL,
+  };
+}
+
+function tokenCountValue(tokenCount: TokenCount): number {
+  return tokenCount.known ? tokenCount.value : 0;
+}
+
+function buildAnalyzeExplanation(usage: TurnUsage): string {
+  const uncachedInput = tokenCountValue(usage.uncachedInput).toLocaleString();
+  const cacheRead = tokenCountValue(usage.cacheRead).toLocaleString();
+  const output = tokenCountValue(usage.output).toLocaleString();
+  return (
+    `This turn sent ${uncachedInput} new input token(s) and reused ` +
+    `${cacheRead} from cache, producing ${output} output token(s) using ${usage.model}.`
+  );
+}
+
 function buildTurn(
   row: TurnRow,
   fileRows: SessionFileRow[],
+  usage: TurnUsage | null | undefined,
   unavailableTokenCount: TokenCount,
 ): Turn {
   return {
@@ -67,18 +97,8 @@ function buildTurn(
     userMessage: row.user_message ?? "",
     assistantResponse: row.assistant_response ?? "",
     toolCalls: buildToolCalls(row.turn_index, fileRows),
-    usage: {
-      uncachedInput: unavailableTokenCount,
-      cacheWrite: unavailableTokenCount,
-      cacheRead: unavailableTokenCount,
-      tool: unavailableTokenCount,
-      vision: unavailableTokenCount,
-      reasoning: unavailableTokenCount,
-      output: unavailableTokenCount,
-      costUsd: unavailableTokenCount,
-      model: UNKNOWN_MODEL,
-    },
-    explanation: STUB_EXPLANATION,
+    usage: usage ?? buildUnavailableUsage(unavailableTokenCount),
+    explanation: usage ? buildAnalyzeExplanation(usage) : STUB_EXPLANATION,
   };
 }
 
@@ -98,16 +118,31 @@ export function buildSession(
   turnRows: TurnRow[],
   fileRows: SessionFileRow[],
   mainJsonlAvailability: MainJsonlAvailability,
+  turnUsages: (TurnUsage | null)[] = [],
 ): Session {
   const unavailableTokenCount: TokenCount = {
     known: false,
     reason: reasonForAvailability(mainJsonlAvailability),
   };
 
+  const knownUsages = turnUsages.filter(
+    (usage): usage is TurnUsage => usage !== null,
+  );
+
   return {
     ...buildSessionSummary(sessionRow),
+    model:
+      knownUsages.length > 0
+        ? knownUsages[knownUsages.length - 1].model
+        : UNKNOWN_MODEL,
+    usageDataAvailable: knownUsages.length > 0,
     turns: turnRows.map((turnRow) =>
-      buildTurn(turnRow, fileRows, unavailableTokenCount),
+      buildTurn(
+        turnRow,
+        fileRows,
+        turnUsages[turnRow.turn_index],
+        unavailableTokenCount,
+      ),
     ),
   };
 }

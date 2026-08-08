@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  classifyEnvelopesAvailability,
   classifyMainJsonlAvailability,
   readMainJsonlEnvelopes,
 } from "./main-jsonl-reader.js";
@@ -56,5 +57,20 @@ describe("classifyMainJsonlAvailability", () => {
     expect(await classifyMainJsonlAvailability(syntheticMultiEventPath)).toBe(
       "events-present",
     );
+  });
+});
+
+describe("classifyEnvelopesAvailability", () => {
+  it("classifies from an already-read envelope array, without touching the filesystem", () => {
+    expect(classifyEnvelopesAvailability([])).toBe("logging-never-enabled");
+    expect(
+      classifyEnvelopesAvailability([{ type: "session_start" }]),
+    ).toBe("logging-never-enabled");
+    expect(
+      classifyEnvelopesAvailability([
+        { type: "session_start" },
+        { type: "llm_request" },
+      ]),
+    ).toBe("events-present");
   });
 });

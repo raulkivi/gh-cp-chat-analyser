@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { DOMAIN_PACKAGE_READY } from "@gh-cp-chat-analyser/domain";
 
 interface HealthResponse {
   status: string;
@@ -18,7 +17,6 @@ export function App() {
     <main>
       <h1>GitHub Copilot Chat Session Analyser</h1>
       <p>{health ? `status: ${health.status}` : "Checking server…"}</p>
-      {!DOMAIN_PACKAGE_READY && <p role="alert">Domain package unavailable</p>}
     </main>
   );
 }

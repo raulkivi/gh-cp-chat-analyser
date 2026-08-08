@@ -23,7 +23,10 @@ content here.
 - Follow `implementation-plan.md`'s phase order and each phase's exit
   criterion; don't start a later phase's work before its dependencies are
   met.
-- Repo status: Phase 0 (repo scaffolding) complete — npm workspaces with
-  `packages/domain`, `packages/server` (Express health check), `packages/web`
-  (Vite + React), Vitest wired with TDD-first smoke tests. Phase 1 (domain
-  model & schema package) is next.
+- Commit all changes to git as soon as a phase's exit criterion is met,
+  before starting the next phase.
+- Repo status: Phase 0 (repo scaffolding) and Phase 1 (domain model &
+  schema package) complete — npm workspaces with `packages/domain` (zod
+  schemas + types for every architecture.md §5 shape), `packages/server`
+  (Express health check), `packages/web` (Vite + React), Vitest wired with
+  TDD-first tests. Phase 2 (Learn mode) is next.

@@ -19,16 +19,18 @@ sessions.
 
 ## Current implementation state (handover notes)
 
-**Phase 0 — repo scaffolding: done.** Phase 1 (domain model & schema
-package, per [implementation-plan.md](docs/implementation-plan.md)) is
-next.
+**Phase 0 — repo scaffolding: done. Phase 1 — domain model & schema
+package: done.** Phase 2 (Learn mode, per
+[implementation-plan.md](docs/implementation-plan.md)) is next.
 
 - npm workspaces root with `packages/domain`, `packages/server`,
   `packages/web`; shared `tsconfig.base.json`; flat-config ESLint +
   Prettier.
-- `packages/domain`: empty placeholder export only (`DOMAIN_PACKAGE_READY`)
-  — no real types/schemas yet. Both other packages import it to prove the
-  workspace-dependency wiring (architecture.md constraint 3) end-to-end.
+- `packages/domain`: `zod` schemas + inferred TypeScript types for every
+  shape in architecture.md §5 (`TokenCount`, `TurnUsage`, `ToolCallRecord`,
+  `Turn`, `SystemPromptComponent`, `ToolInventoryEntry`, `Session`,
+  `ConfigWarning`, `ConfigStatus`), each with a schema-validation test
+  written before its schema. No dependency on `server`/`web`.
 - `packages/server`: Express app (`src/app.ts`) with `GET /api/health`,
   bound to `127.0.0.1` only (architecture.md §11.2); entry point
   `src/server.ts` (`npm run dev` uses `tsx watch`).
@@ -46,8 +48,9 @@ npm run lint       # eslint across the repo
 npm run dev        # starts server + web dev servers
 ```
 
-Nothing beyond the health-check smoke tests exists yet — no domain types,
-no SQLite/`main.jsonl` adapters, no Learn/Analyze mode UI. Start Phase 1 by
-following [implementation-plan.md](docs/implementation-plan.md)'s TDD order
-for the `domain` package's `zod` schemas.
+No SQLite/`main.jsonl` adapters or Learn/Analyze mode UI exist yet. Start
+Phase 2 by following [implementation-plan.md](docs/implementation-plan.md)'s
+TDD order for the Learn-mode scenario fixtures, API routes, and shared UI
+components — validating fixtures against the `domain` package's
+`sessionSchema`.
 

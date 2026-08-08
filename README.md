@@ -23,6 +23,8 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
 - [Agentic coding explained](docs/agentic-coding-explained.md) — reference
   document on sessions, turns, tool calls, prompt caching, and token
   accounting; the source material Learn mode's scenarios are seeded from.
+- [Code review remediation plan](docs/code-review-remediation-plan.md) —
+  phased plan to address the findings from the issue #5 code review.
 
 ## Setup
 

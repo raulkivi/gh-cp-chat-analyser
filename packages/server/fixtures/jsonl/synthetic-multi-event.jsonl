@@ -1,0 +1,5 @@
+{"v":1,"ts":1,"dur":0,"sid":"synthetic-session","type":"session_start","name":"session_start","spanId":"session-start-synthetic-session","status":"ok","attrs":{"copilotVersion":"0.0.0","vscodeVersion":"0.0.0"}}
+not valid json {{{
+{"v":1,"ts":2,"dur":120,"sid":"synthetic-session","type":"llm_request","name":"llm_request","spanId":"span-b","status":"ok","attrs":{"foo":"bar"}}
+
+{"v":1,"ts":3,"dur":5,"sid":"synthetic-session","type":"some_future_event_type","name":"unknown","spanId":"span-c","status":"ok"}

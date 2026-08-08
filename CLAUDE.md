@@ -30,4 +30,8 @@ content here.
   (Express API: Learn-mode fixtures plus real Analyze-mode sessions read
   read-only from the local VS Code SQLite store via `node:sqlite`),
   `packages/web` (Vite + React, shared Learn/Analyze layout), Vitest wired
-  with TDD-first tests. Phase 4 (`main.jsonl` parsing & enrichment) is next.
+  with TDD-first tests. Phase 4 (`main.jsonl` parsing & enrichment) is
+  **partially done**: the streaming reader/envelope parser, §7 gating check,
+  and session-enricher's two-reason split are built; the extractor registry
+  (real per-turn numbers) is blocked on real usage-span fixture data — see
+  implementation-plan.md's Phase 4 status note.

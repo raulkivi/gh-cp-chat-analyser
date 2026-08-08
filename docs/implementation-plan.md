@@ -169,6 +169,17 @@ requires the Phase 0 window-reload step to have happened and some time to
 pass generating real sessions — start capturing fixtures as early as
 possible so this phase isn't blocked when it starts.
 
+**Status (2026-08-08): partially done, extractor registry still blocked.**
+The streaming line reader + generic envelope parser, the §7 cheap gating
+check, and `session-enricher`'s two-reason split (see architecture.md §6.2
+implementation note) are built and tested. The extractor registry itself —
+the part that actually produces real per-turn numbers, and the whole point
+of this phase — is not, because `github.copilot.chat.agentDebugLog
+.fileLogging.enabled` turned out to still be off on this machine (Phase 0's
+note that it was already on was wrong). It's now been turned on; this phase
+finishes once a real GitHub Copilot Chat session (post window-reload) has
+produced a `main.jsonl` with real usage spans to capture as fixtures.
+
 ## Phase 5 — Startup configuration check
 
 **Goal**: the app tells the user proactively when its core prerequisite

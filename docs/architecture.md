@@ -353,6 +353,47 @@ way that weren't previously documented:
   needs timestamp-correlation heuristics that belong in a later phase, not
   "structural data only."
 
+**Implementation note (Phase 4, partial — extractor registry still
+blocked).** The `main.jsonl` streaming reader/envelope parser and the §7
+cheap gating check are implemented and wired into `session-enricher`; the
+per-event-type extractor registry (the part that turns `attrs` into real
+`TurnUsage` numbers) is not, because it has no real fixture data to be
+built/tested against yet (TDD requires real captured lines, per §11.4).
+Facts discovered doing this slice:
+
+- `github.copilot.chat.agentDebugLog.fileLogging.enabled` was verified
+  **off** on this machine as of 2026-08-08, despite Phase 0's "parallel
+  task" note — the setting was never actually applied. It has now been
+  turned on; real usage-span fixtures should start accumulating from new
+  GitHub Copilot Chat sessions run after the next VS Code window reload.
+  Until then, every real local session's `main.jsonl` still only contains
+  `session_start`.
+- `data-sources/jsonl/main-jsonl-reader.ts` streams a file via `readline`
+  and defensively parses each line into the generic envelope, skipping
+  malformed/unrecognizable lines; `classifyMainJsonlAvailability` applies
+  the §7 gating check and returns one of `"missing"` (file not found —
+  e.g. rotated away per `maxRetainedSessionLogs`), `"logging-never-enabled"`
+  (file has at most the one `session_start` line), or `"events-present"`
+  (more than that — the case the extractor registry will eventually handle).
+- `data-sources/jsonl/session-log-path.ts` resolves the
+  `debug-logs` directory (sibling to `session-store.db` under
+  `globalStorage/github.copilot-chat`) and validates a session id against
+  an allow-list pattern before joining it into a filesystem path (§11.2).
+- `session-enricher.buildSession` now takes the resolved
+  `MainJsonlAvailability` and picks between the two §6.2 reasons:
+  `LOGGING_NEVER_ENABLED_REASON` (actionable — constraint 8) for
+  `"logging-never-enabled"`, and `USAGE_UNAVAILABLE_REASON` (generic) for
+  both `"missing"` and `"events-present"` — the latter because no extractor
+  exists yet to turn a present event into a known number, which is
+  functionally the same "can't retroactively fix this" case for the user
+  right now. `usageDataAvailable` stays `false` on the `Session` regardless,
+  since no field is ever actually populated by this slice.
+- This also fixed a pre-existing build break: `app.ts` was calling
+  `buildSession` with a 4th `checkpointRows` argument the function didn't
+  accept (a half-finished edit left in the Phase 3 commit). The unused
+  checkpoint-rows wiring was removed rather than threaded through, since
+  `Turn.triggeredEvent` mapping is still out of scope (see the note above).
+
 ### 6.3 Startup configuration check
 
 ```mermaid

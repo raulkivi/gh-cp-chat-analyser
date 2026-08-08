@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { sessionSchema } from "@gh-cp-chat-analyser/domain";
-import type { SessionFileRow, SessionRow, TurnRow } from "../../data-sources/sqlite/session-store.js";
-import { buildSession, buildSessionSummary } from "./session-enricher.js";
+import type {
+  SessionFileRow,
+  SessionRow,
+  TurnRow,
+} from "../../data-sources/sqlite/session-store.js";
+import {
+  buildSession,
+  buildSessionSummary,
+  LOGGING_NEVER_ENABLED_REASON,
+  USAGE_UNAVAILABLE_REASON,
+} from "./session-enricher.js";
 
 const sessionRow: SessionRow = {
   id: "session-1",
@@ -29,12 +38,20 @@ describe("buildSessionSummary", () => {
   });
 
   it("falls back to repository, then cwd, then a generated title when summary is missing", () => {
-    expect(buildSessionSummary({ ...sessionRow, summary: null }).title).toBe("org/repo");
+    expect(buildSessionSummary({ ...sessionRow, summary: null }).title).toBe(
+      "org/repo",
+    );
     expect(
-      buildSessionSummary({ ...sessionRow, summary: null, repository: null }).title,
+      buildSessionSummary({ ...sessionRow, summary: null, repository: null })
+        .title,
     ).toBe("/repo");
     expect(
-      buildSessionSummary({ ...sessionRow, summary: null, repository: null, cwd: null }).title,
+      buildSessionSummary({
+        ...sessionRow,
+        summary: null,
+        repository: null,
+        cwd: null,
+      }).title,
     ).toBe("Session session-1");
   });
 });
@@ -85,7 +102,7 @@ describe("buildSession", () => {
     },
   ];
   it("produces a schema-valid Session with real turns", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows);
+    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
 
     expect(() => sessionSchema.parse(session)).not.toThrow();
     expect(session.mode).toBe("analyze");
@@ -94,7 +111,7 @@ describe("buildSession", () => {
   });
 
   it("maps user/assistant messages and marks every usage field known:false", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows);
+    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
     const [firstTurn] = session.turns;
 
     expect(firstTurn.index).toBe(0);
@@ -112,27 +129,73 @@ describe("buildSession", () => {
     ] as const) {
       expect(firstTurn.usage[field]).toEqual({
         known: false,
-        reason: "main.jsonl parsing not yet implemented",
+        reason: USAGE_UNAVAILABLE_REASON,
       });
     }
     expect(firstTurn.usage.model).toBe("unknown");
   });
 
   it("groups session_files into toolCalls per turn by tool_name", () => {
-    const session = buildSession(sessionRow, turnRows, fileRows);
+    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
     const [firstTurn, secondTurn] = session.turns;
 
     expect(firstTurn.toolCalls).toEqual([
-      { name: "read_file", argsSummary: "src/a.ts, src/b.ts", filesTouched: ["src/a.ts", "src/b.ts"] },
+      {
+        name: "read_file",
+        argsSummary: "src/a.ts, src/b.ts",
+        filesTouched: ["src/a.ts", "src/b.ts"],
+      },
     ]);
     expect(secondTurn.toolCalls).toEqual([
-      { name: "edit_file", argsSummary: "src/c.ts", filesTouched: ["src/c.ts"] },
+      {
+        name: "edit_file",
+        argsSummary: "src/c.ts",
+        filesTouched: ["src/c.ts"],
+      },
     ]);
   });
 
   it("handles a turn with no touched files", () => {
-    const session = buildSession(sessionRow, turnRows, []);
+    const session = buildSession(sessionRow, turnRows, [], "missing");
 
     expect(session.turns[0].toolCalls).toEqual([]);
+  });
+
+  it("uses the actionable reason when logging was never enabled for this session", () => {
+    const session = buildSession(
+      sessionRow,
+      turnRows,
+      fileRows,
+      "logging-never-enabled",
+    );
+
+    expect(session.turns[0].usage.uncachedInput).toEqual({
+      known: false,
+      reason: LOGGING_NEVER_ENABLED_REASON,
+    });
+  });
+
+  it("uses the generic reason when main.jsonl is missing", () => {
+    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+
+    expect(session.turns[0].usage.uncachedInput).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
+  });
+
+  it("uses the generic reason when events are present but no extractor produced usage yet", () => {
+    const session = buildSession(
+      sessionRow,
+      turnRows,
+      fileRows,
+      "events-present",
+    );
+
+    expect(session.turns[0].usage.uncachedInput).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
+    expect(session.usageDataAvailable).toBe(false);
   });
 });

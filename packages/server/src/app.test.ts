@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -7,6 +7,10 @@ import request from "supertest";
 import { sessionSchema } from "@gh-cp-chat-analyser/domain";
 import { createApp } from "./app.js";
 import { listLearnScenarios } from "./data-sources/learn-scenarios/loader.js";
+import {
+  LOGGING_NEVER_ENABLED_REASON,
+  USAGE_UNAVAILABLE_REASON,
+} from "./services/session-enricher/session-enricher.js";
 
 const SESSION_STORE_SCHEMA = `
   CREATE TABLE sessions (
@@ -99,7 +103,9 @@ describe("GET /api/learn/scenarios/:id", () => {
     const app = createApp();
     const [expected] = listLearnScenarios();
 
-    const response = await request(app).get(`/api/learn/scenarios/${expected.id}`);
+    const response = await request(app).get(
+      `/api/learn/scenarios/${expected.id}`,
+    );
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual(expected);
@@ -108,7 +114,9 @@ describe("GET /api/learn/scenarios/:id", () => {
   it("returns 404 for an unknown scenario id", async () => {
     const app = createApp();
 
-    const response = await request(app).get("/api/learn/scenarios/does-not-exist");
+    const response = await request(app).get(
+      "/api/learn/scenarios/does-not-exist",
+    );
 
     expect(response.status).toBe(404);
   });
@@ -143,7 +151,9 @@ describe("GET /api/sessions", () => {
   });
 
   it("returns an empty list when no session store db is available", async () => {
-    const app = createApp({ sessionStoreDbPath: path.join(dir, "does-not-exist.db") });
+    const app = createApp({
+      sessionStoreDbPath: path.join(dir, "does-not-exist.db"),
+    });
 
     const response = await request(app).get("/api/sessions");
 
@@ -155,11 +165,13 @@ describe("GET /api/sessions", () => {
 describe("GET /api/sessions/:id", () => {
   let dir: string;
   let dbPath: string;
+  let debugLogsDirPath: string;
 
   beforeEach(() => {
     dir = mkdtempSync(path.join(tmpdir(), "app-test-session-store-"));
     dbPath = path.join(dir, "session-store.db");
     seedFixtureDb(dbPath);
+    debugLogsDirPath = path.join(dir, "debug-logs");
   });
 
   afterEach(() => {
@@ -167,7 +179,7 @@ describe("GET /api/sessions/:id", () => {
   });
 
   it("returns the full analyzed session with real turns, usage marked unavailable", async () => {
-    const app = createApp({ sessionStoreDbPath: dbPath });
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
 
     const response = await request(app).get("/api/sessions/session-1");
 
@@ -177,13 +189,72 @@ describe("GET /api/sessions/:id", () => {
     expect(response.body.turns[0].userMessage).toBe("hi");
     expect(response.body.turns[0].usage.uncachedInput).toEqual({
       known: false,
-      reason: "main.jsonl parsing not yet implemented",
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
+    expect(response.body.usageDataAvailable).toBe(false);
+  });
+
+  it("uses the actionable reason when main.jsonl only has a session_start line", async () => {
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      `${JSON.stringify({ v: 1, ts: 1, dur: 0, sid: "session-1", type: "session_start", name: "session_start", spanId: "a", status: "ok", attrs: {} })}\n`,
+    );
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
+
+    const response = await request(app).get("/api/sessions/session-1");
+
+    expect(response.body.turns[0].usage.uncachedInput).toEqual({
+      known: false,
+      reason: LOGGING_NEVER_ENABLED_REASON,
+    });
+  });
+
+  it("uses the generic reason when main.jsonl has events but no extractor produced usage yet", async () => {
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    const lines = [
+      {
+        v: 1,
+        ts: 1,
+        dur: 0,
+        sid: "session-1",
+        type: "session_start",
+        name: "session_start",
+        spanId: "a",
+        status: "ok",
+        attrs: {},
+      },
+      {
+        v: 1,
+        ts: 2,
+        dur: 5,
+        sid: "session-1",
+        type: "llm_request",
+        name: "llm_request",
+        spanId: "b",
+        status: "ok",
+        attrs: {},
+      },
+    ];
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
+    );
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
+
+    const response = await request(app).get("/api/sessions/session-1");
+
+    expect(response.body.turns[0].usage.uncachedInput).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
     });
     expect(response.body.usageDataAvailable).toBe(false);
   });
 
   it("returns 404 for a session filtered out by the agent_name scoping rule", async () => {
-    const app = createApp({ sessionStoreDbPath: dbPath });
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
 
     const response = await request(app).get("/api/sessions/session-2");
 
@@ -191,7 +262,7 @@ describe("GET /api/sessions/:id", () => {
   });
 
   it("returns 404 for an unknown session id", async () => {
-    const app = createApp({ sessionStoreDbPath: dbPath });
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPath });
 
     const response = await request(app).get("/api/sessions/does-not-exist");
 
@@ -199,7 +270,10 @@ describe("GET /api/sessions/:id", () => {
   });
 
   it("returns 404 when no session store db is available", async () => {
-    const app = createApp({ sessionStoreDbPath: path.join(dir, "does-not-exist.db") });
+    const app = createApp({
+      sessionStoreDbPath: path.join(dir, "does-not-exist.db"),
+      debugLogsDirPath,
+    });
 
     const response = await request(app).get("/api/sessions/session-1");
 

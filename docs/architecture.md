@@ -501,6 +501,9 @@ gh-cp-chat-analyser/
 - No secrets are logged; any credentials that happen to appear in captured
   terminal-output tool results are treated as opaque strings, never parsed or
   echoed into error messages.
+- Only the latest stable, non-vulnerable version of each dependency may be
+  added or upgraded to (see §11.6); a dependency with a known unpatched
+  vulnerability is not introduced regardless of how minor its role is.
 
 ### 11.3 Graceful degradation
 
@@ -562,6 +565,27 @@ module should be justified against these before being added:
   package's types/schemas as the shared abstraction; neither depends on the
   other's implementation. This is the concrete mechanism behind constraint
   3's decoupling requirement.
+
+### 11.6 Dependency management
+
+- **Only the latest stable, non-vulnerable release of a dependency may be
+  used**, at time of adding it and at time of any upgrade. "Stable" excludes
+  pre-release/alpha/beta/RC tags and anything below `1.0.0` unless no stable
+  release exists at all; "non-vulnerable" means no known unpatched advisory
+  (e.g. from `npm audit` or GitHub Dependabot alerts) at that version.
+- Before adding a new dependency, check its latest stable version and run
+  `npm audit` (or check its advisory database entry) as part of the same
+  change — don't pin to an older version "for safety" without recording why
+  in the PR/commit.
+- If a dependency's only non-vulnerable release is a major version bump with
+  breaking changes, take the breaking upgrade rather than staying on a
+  vulnerable older major — update the affected code in the same change.
+- Applies to every `package.json` in the workspace (`domain`, `server`,
+  `web`, and the workspace root), including dev dependencies.
+- If a fix isn't yet available upstream for a reported vulnerability, this is
+  the one allowed exception — pin to the latest available version and leave
+  a comment in `package.json`/the PR noting the advisory being tracked and
+  why it can't yet be resolved.
 
 ## 12. Future path: VS Code extension packaging
 

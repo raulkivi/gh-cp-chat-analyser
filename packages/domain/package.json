@@ -1,0 +1,15 @@
+{
+  "name": "@gh-cp-chat-analyser/domain",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}

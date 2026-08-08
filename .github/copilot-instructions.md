@@ -23,5 +23,7 @@ their content here.
 - Follow `implementation-plan.md`'s phase order and each phase's exit
   criterion; don't start a later phase's work before its dependencies are
   met.
-- Repo status: docs-only, pre-implementation (Phase 0 of the implementation
-  plan hasn't started yet).
+- Repo status: Phase 0 (repo scaffolding) complete — npm workspaces with
+  `packages/domain`, `packages/server` (Express health check), `packages/web`
+  (Vite + React), Vitest wired with TDD-first smoke tests. Phase 1 (domain
+  model & schema package) is next.

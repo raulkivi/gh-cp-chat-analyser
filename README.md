@@ -91,10 +91,12 @@ The app has two modes that share the same layout — a turns table, an
 explanation/detail panel, and a timeline scrubber to step through a
 session turn by turn:
 
-- **Learn mode** — pick one of the bundled scenarios (cache basics, context
-  compaction, an MCP tool change mid-session, a model switch mid-session,
-  …) to see a guided, turn-by-turn walkthrough of how caching and token
-  accounting work, with a plain-language explanation for each turn.
+- **Learn mode** — pick one of the 9 bundled scenarios (cache basics, a
+  subagent's own session, context compaction, a model switch mid-session,
+  an MCP tool change mid-session, `/clear`, `/rewind`, session forking,
+  cache TTL expiry) to see a guided, turn-by-turn walkthrough of how
+  caching and token accounting work, with a plain-language explanation for
+  each turn.
 
   ![Learn mode with a scenario selected: turns table, cost sparkline, timeline scrubber, and the explanation panel](docs/images/learn-scenario.png)
 

@@ -35,7 +35,7 @@ sessions.
 
 ```sh
 npm install
-npm run dev        # starts the API server (127.0.0.1:3000) and the web app (127.0.0.1:5173)
+npm run dev        # starts the API server (127.0.0.1:3001) and the web app (127.0.0.1:5173)
 ```
 
 Open http://127.0.0.1:5173 in a browser. Learn mode works immediately —

@@ -1,7 +1,7 @@
 import { createApp } from "./app.js";
 import { checkConfig } from "./services/config-check/config-check.js";
 
-const port = 3000;
+const port = 3001;
 // Loopback-only per architecture.md §11.2 — never expose to other hosts.
 const host = "127.0.0.1";
 

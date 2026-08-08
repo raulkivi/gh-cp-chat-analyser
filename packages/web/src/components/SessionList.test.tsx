@@ -10,6 +10,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     title: "Cache write then read",
     model: "gpt-4o",
     turns: [{ index: 0 } as Session["turns"][number], { index: 1 } as Session["turns"][number]],
+    turnCount: 2,
     usageDataAvailable: false,
     ...overrides,
   };
@@ -33,6 +34,13 @@ describe("SessionList", () => {
     expect(screen.getByText("First")).toBeInTheDocument();
     expect(screen.getByText("Second")).toBeInTheDocument();
     expect(screen.getAllByText("2 turns")).toHaveLength(2);
+  });
+
+  it("renders the card's turn count from turnCount, not turns.length (Analyze-mode summaries omit turn detail)", () => {
+    const sessions = [makeSession({ id: "s1", title: "Real session", turns: [], turnCount: 7 })];
+    render(<SessionList mode="analyze" sessions={sessions} selectedSessionId={null} onSelect={vi.fn()} />);
+
+    expect(screen.getByText("7 turns")).toBeInTheDocument();
   });
 
   it("renders the Learn kicker with category when present, falling back to bare 'Learn'", () => {

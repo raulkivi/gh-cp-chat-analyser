@@ -105,6 +105,17 @@ describe("session-store", () => {
     db.close();
   });
 
+  it("listSessionRows includes each session's turn_count without a per-session query", () => {
+    const db = new DatabaseSync(dbFile);
+    seedDb(db);
+
+    const rows = listSessionRows(db);
+
+    expect(rows.find((row) => row.id === "session-1")?.turn_count).toBe(2);
+    expect(rows.find((row) => row.id === "session-2")?.turn_count).toBe(0);
+    db.close();
+  });
+
   it("getSessionRow returns a single Copilot Chat session by id, undefined otherwise", () => {
     const db = new DatabaseSync(dbFile);
     seedDb(db);

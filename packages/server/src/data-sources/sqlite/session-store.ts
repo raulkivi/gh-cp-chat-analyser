@@ -13,6 +13,7 @@ export interface SessionRow {
   agent_description: string | null;
   created_at: string | null;
   updated_at: string | null;
+  turn_count: number;
 }
 
 export interface TurnRow {
@@ -51,15 +52,23 @@ export function openReadOnlyDb(dbPath: string): DatabaseSync {
   return new DatabaseSync(dbPath, { readOnly: true });
 }
 
+// turn_count is a correlated subquery rather than a JOIN so each session row
+// stays one row (a JOIN against turns would multiply rows per turn) — one
+// query for the whole list, no N+1 per-session follow-up query.
+const TURN_COUNT_SELECT =
+  "SELECT sessions.*, " +
+  "(SELECT COUNT(*) FROM turns WHERE turns.session_id = sessions.id) AS turn_count " +
+  "FROM sessions";
+
 export function listSessionRows(db: DatabaseSync): SessionRow[] {
   return db
-    .prepare("SELECT * FROM sessions WHERE agent_name = ? ORDER BY updated_at DESC")
+    .prepare(`${TURN_COUNT_SELECT} WHERE agent_name = ? ORDER BY updated_at DESC`)
     .all(COPILOT_CHAT_AGENT_NAME) as unknown as SessionRow[];
 }
 
 export function getSessionRow(db: DatabaseSync, id: string): SessionRow | undefined {
   return db
-    .prepare("SELECT * FROM sessions WHERE agent_name = ? AND id = ?")
+    .prepare(`${TURN_COUNT_SELECT} WHERE agent_name = ? AND id = ?`)
     .get(COPILOT_CHAT_AGENT_NAME, id) as unknown as SessionRow | undefined;
 }
 

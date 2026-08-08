@@ -73,6 +73,29 @@ function seedFixtureDb(dbPath: string): void {
   db.close();
 }
 
+// Missing "turns" table: the sessions table's turn_count subquery (and
+// getTurnRows) throws a genuine SQLite error, simulating a corrupted store.
+function seedCorruptedDb(dbPath: string): void {
+  const db = new DatabaseSync(dbPath);
+  db.exec(`
+    CREATE TABLE sessions (
+      id TEXT PRIMARY KEY,
+      cwd TEXT,
+      repository TEXT,
+      branch TEXT,
+      host_type TEXT,
+      summary TEXT,
+      agent_name TEXT,
+      agent_description TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+    INSERT INTO sessions (id, cwd, repository, branch, host_type, summary, agent_name, agent_description, created_at, updated_at)
+    VALUES ('session-1', '/repo', 'org/repo', 'main', 'desktop', 'Fix the bug', 'GitHub Copilot Chat', 'chat', '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z');
+  `);
+  db.close();
+}
+
 describe("GET /api/health", () => {
   it("returns ok status and the app version", async () => {
     const app = createApp();
@@ -196,6 +219,23 @@ describe("GET /api/sessions/:id", () => {
       reason: USAGE_UNAVAILABLE_REASON,
     });
     expect(response.body.usageDataAvailable).toBe(false);
+  });
+
+  it("returns a 500 instead of hanging when an error occurs while building the session", async () => {
+    const corruptDir = mkdtempSync(path.join(tmpdir(), "app-test-corrupt-store-"));
+    const corruptDbPath = path.join(corruptDir, "session-store.db");
+    seedCorruptedDb(corruptDbPath);
+
+    const app = createApp({
+      sessionStoreDbPath: corruptDbPath,
+      debugLogsDirPaths: [path.join(corruptDir, "debug-logs")],
+    });
+
+    const response = await request(app).get("/api/sessions/session-1");
+
+    expect(response.status).toBe(500);
+
+    rmSync(corruptDir, { recursive: true, force: true });
   });
 
   it("uses the actionable reason when main.jsonl only has a session_start line", async () => {

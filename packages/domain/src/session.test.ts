@@ -30,6 +30,7 @@ describe("sessionSchema", () => {
       title: "Cache write then read",
       model: "gpt-4o",
       turns: [turn],
+      turnCount: 1,
       usageDataAvailable: false,
     };
 
@@ -43,6 +44,7 @@ describe("sessionSchema", () => {
       title: "Real session",
       model: "gpt-4o",
       turns: [turn],
+      turnCount: 1,
       systemPrompt: [
         { kind: "built-in", label: "core instructions", tokenCount: { known: true, value: 500 } },
       ],
@@ -60,6 +62,7 @@ describe("sessionSchema", () => {
       title: "Cache write then read",
       model: "gpt-4o",
       turns: [turn],
+      turnCount: 1,
       usageDataAvailable: false,
       category: "Prompt caching",
     };
@@ -69,12 +72,27 @@ describe("sessionSchema", () => {
       title: "Real session",
       model: "gpt-4o",
       turns: [turn],
+      turnCount: 1,
       usageDataAvailable: true,
       startedAt: "2026-08-06T12:00:00.000Z",
     };
 
     expect(sessionSchema.parse(learnSample)).toEqual(learnSample);
     expect(sessionSchema.parse(analyzeSample)).toEqual(analyzeSample);
+  });
+
+  it("accepts turnCount independent of turns.length, as a session summary omits turn detail", () => {
+    const sample = {
+      id: "session-123",
+      mode: "analyze",
+      title: "Real session",
+      model: "gpt-4o",
+      turns: [],
+      turnCount: 12,
+      usageDataAvailable: false,
+    };
+
+    expect(sessionSchema.parse(sample)).toEqual(sample);
   });
 
   it("rejects an invalid mode", () => {

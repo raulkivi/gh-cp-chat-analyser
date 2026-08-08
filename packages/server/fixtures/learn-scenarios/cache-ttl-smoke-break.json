@@ -4,6 +4,7 @@
   "title": "Cache TTL: A 5+ Minute Smoke Break",
   "model": "example-model",
   "usageDataAvailable": true,
+  "turnCount": 10,
   "category": "Cache TTL",
   "turns": [
     {

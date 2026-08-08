@@ -4,6 +4,7 @@
   "title": "MCP Tool Change Mid-Session",
   "model": "example-model",
   "usageDataAvailable": true,
+  "turnCount": 5,
   "category": "Tool change",
   "turns": [
     {

@@ -4,6 +4,7 @@
   "title": "The Subagent's Own Session",
   "model": "example-model",
   "usageDataAvailable": true,
+  "turnCount": 3,
   "category": "Subagents",
   "turns": [
     {

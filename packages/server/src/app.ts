@@ -221,6 +221,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
           toolInventory,
         ),
       );
+    } catch (error) {
+      res.status(500).json({
+        error: `Failed to load session "${req.params.id}": ${(error as Error).message}`,
+      });
     } finally {
       db.close();
     }

@@ -4,6 +4,7 @@
   "title": "Cache Basics: An 8-Turn Session",
   "model": "example-model",
   "usageDataAvailable": true,
+  "turnCount": 8,
   "category": "Prompt caching",
   "turns": [
     {

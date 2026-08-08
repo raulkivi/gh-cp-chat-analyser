@@ -47,31 +47,39 @@ export function App() {
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [configWarnings, setConfigWarnings] = useState<ConfigWarning[]>([]);
   const [showConfigBanner, setShowConfigBanner] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const { session, selectedTurnIndex, mode, rightTab, loadSession, selectTurn, setMode, setRightTab } =
     useSessionStore();
 
   useEffect(() => {
     fetch("/api/health")
       .then((res) => res.json() as Promise<HealthResponse>)
-      .then(setHealth);
+      .then(setHealth)
+      .catch((error: Error) => setFetchError(error.message));
   }, []);
 
   useEffect(() => {
-    fetchLearnScenarios().then((result) => {
-      setScenarios(result);
-      setScenariosLoaded(true);
-    });
+    fetchLearnScenarios()
+      .then((result) => {
+        setScenarios(result);
+        setScenariosLoaded(true);
+      })
+      .catch((error: Error) => setFetchError(error.message));
   }, []);
 
   useEffect(() => {
-    fetchSessions().then((result) => {
-      setSessions(result);
-      setSessionsLoaded(true);
-    });
+    fetchSessions()
+      .then((result) => {
+        setSessions(result);
+        setSessionsLoaded(true);
+      })
+      .catch((error: Error) => setFetchError(error.message));
   }, []);
 
   useEffect(() => {
-    fetchConfigStatus().then((status) => setConfigWarnings(status.warnings));
+    fetchConfigStatus()
+      .then((status) => setConfigWarnings(status.warnings))
+      .catch((error: Error) => setFetchError(error.message));
   }, []);
 
   const selectedTurn = session?.turns[selectedTurnIndex] ?? null;
@@ -80,11 +88,17 @@ export function App() {
   const showEmptyState = listLoaded && listForMode.length === 0;
   const allCostsKnown =
     session !== null && session.turns.length > 0 && session.turns.every((turn) => turn.usage.costUsd.known);
-  const toolCallsAvailable = (session?.toolInventory?.length ?? 0) > 0;
+  // toolInventory only comes from a parsed main.jsonl; a turn's toolCalls
+  // come independently from SQLite session_files, so either source having
+  // data means tool-call detail is available for the selected turn.
+  const toolCallsAvailable =
+    (selectedTurn?.toolCalls.length ?? 0) > 0 || (session?.toolInventory?.length ?? 0) > 0;
 
   function handleSelectSession(picked: Session): void {
     if (mode === "analyze") {
-      fetchSession(picked.id).then(loadSession);
+      fetchSession(picked.id)
+        .then(loadSession)
+        .catch((error: Error) => setFetchError(error.message));
     } else {
       loadSession(picked);
     }
@@ -101,6 +115,14 @@ export function App() {
       <p className="text-muted" style={{ fontSize: 11, margin: "var(--space-2) var(--space-4) 0" }}>
         {health ? `status: ${health.status} · v${health.version}` : "Checking server…"}
       </p>
+      {fetchError && (
+        <p
+          role="alert"
+          style={{ fontSize: 12, margin: "var(--space-2) var(--space-4) 0", color: "var(--color-accent-800)" }}
+        >
+          {fetchError}
+        </p>
+      )}
       {showConfigBanner && (
         <ConfigWarningBanner warnings={configWarnings} onDismiss={() => setShowConfigBanner(false)} />
       )}

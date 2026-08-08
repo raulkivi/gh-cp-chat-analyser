@@ -30,6 +30,7 @@ const sessionRow: SessionRow = {
   agent_description: "chat",
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-02T00:00:00.000Z",
+  turn_count: 3,
 };
 
 describe("buildSessionSummary", () => {
@@ -42,6 +43,13 @@ describe("buildSessionSummary", () => {
     expect(session.title).toBe("Fix the bug");
     expect(session.turns).toEqual([]);
     expect(session.usageDataAvailable).toBe(false);
+  });
+
+  it("populates turnCount from the row's turn_count, independent of the (intentionally empty) turns array", () => {
+    const session = buildSessionSummary(sessionRow);
+
+    expect(session.turnCount).toBe(3);
+    expect(session.turns).toEqual([]);
   });
 
   it("falls back to repository, then cwd, then a generated title when summary is missing", () => {
@@ -127,6 +135,14 @@ describe("buildSession", () => {
     expect(session.mode).toBe("analyze");
     expect(session.usageDataAvailable).toBe(false);
     expect(session.turns).toHaveLength(2);
+  });
+
+  it("sets turnCount from the actual turns loaded, not the row's turn_count", () => {
+    // sessionRow.turn_count is 3 (a summary-list value); the real turnRows
+    // loaded here has 2 entries, which must win.
+    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+
+    expect(session.turnCount).toBe(2);
   });
 
   it("maps user/assistant messages and marks every usage field known:false", () => {

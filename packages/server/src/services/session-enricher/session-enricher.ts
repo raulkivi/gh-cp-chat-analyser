@@ -147,6 +147,7 @@ export function buildSessionSummary(row: SessionRow): Session {
     title: deriveTitle(row),
     model: UNKNOWN_MODEL,
     turns: [],
+    turnCount: row.turn_count,
     usageDataAvailable: false,
     ...(row.created_at ? { startedAt: row.created_at } : {}),
   };
@@ -180,6 +181,7 @@ export function buildSession(
     usageDataAvailable: knownUsages.length > 0,
     systemPrompt,
     toolInventory,
+    turnCount: turnRows.length,
     turns: turnRows.map((turnRow) =>
       buildTurn(
         turnRow,

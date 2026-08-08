@@ -4,6 +4,7 @@
   "title": "Session Forking",
   "model": "example-model",
   "usageDataAvailable": true,
+  "turnCount": 5,
   "category": "Forking",
   "turns": [
     {

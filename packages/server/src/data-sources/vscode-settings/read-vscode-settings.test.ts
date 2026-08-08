@@ -69,4 +69,24 @@ describe("readVscodeSettings", () => {
 
     expect(readVscodeSettings(settingsPath).maxRetainedSessionLogs).toBeNull();
   });
+
+  it("degrades to the 'not found' snapshot instead of throwing when the file can't be read", () => {
+    // Simulates the TOCTOU gap: settingsPath exists at check time but the
+    // read itself fails (e.g. deleted, permissions, or malformed JSONC).
+    const unreadablePath = path.join(dir, "does-not-exist-when-read.json");
+
+    expect(readVscodeSettings(unreadablePath)).toEqual({
+      loggingEnabled: false,
+      maxRetainedSessionLogs: null,
+    });
+  });
+
+  it("degrades to the 'not found' snapshot when the file contents can't be parsed as JSONC", () => {
+    writeFileSync(settingsPath, "{ this is not valid json ");
+
+    expect(readVscodeSettings(settingsPath)).toEqual({
+      loggingEnabled: false,
+      maxRetainedSessionLogs: null,
+    });
+  });
 });

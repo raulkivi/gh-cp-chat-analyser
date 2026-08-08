@@ -1,6 +1,18 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+// Allow-list: must be a bare filename, no path separators or ".." segments,
+// so an attacker-controlled systemPromptFile/toolsFile value from a parsed
+// llm_request span can never escape the session's debug-logs directory
+// (§11.2), mirroring isValidSessionId in session-log-path.ts.
+const ARTIFACT_FILE_NAME_PATTERN = /^[^/\\]+$/;
+
+function isValidArtifactFileName(fileName: string): boolean {
+  return (
+    ARTIFACT_FILE_NAME_PATTERN.test(fileName) && fileName !== ".."
+  );
+}
+
 // An `llm_request` span's `attrs.systemPromptFile`/`toolsFile` name a sibling
 // JSON file in the session's own debug-logs directory (architecture.md §6.2
 // Phase 6 note) — not inline data. Each artifact is double-encoded on disk:
@@ -11,6 +23,10 @@ async function readArtifactContentArray(
   dirPath: string,
   fileName: string,
 ): Promise<unknown[] | null> {
+  if (!isValidArtifactFileName(fileName)) {
+    return null;
+  }
+
   let raw: string;
   try {
     raw = await readFile(path.join(dirPath, fileName), "utf-8");

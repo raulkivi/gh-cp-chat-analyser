@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConfigStatus } from "@gh-cp-chat-analyser/domain";
 import { App } from "./App.js";
@@ -14,6 +14,7 @@ const scenario = {
     makeTurn({ index: 1, explanation: "first turn explanation" }),
     makeTurn({ index: 2, explanation: "second turn explanation" }),
   ],
+  turnCount: 2,
 };
 
 const sessionSummary = {
@@ -23,6 +24,7 @@ const sessionSummary = {
   model: "unknown",
   usageDataAvailable: false,
   turns: [],
+  turnCount: 0,
 };
 
 const fullSession = {
@@ -41,6 +43,7 @@ const fullSession = {
       ],
     }),
   ],
+  turnCount: 1,
   systemPrompt: [
     {
       kind: "built-in" as const,
@@ -49,6 +52,48 @@ const fullSession = {
     },
   ],
   toolInventory: [{ name: "read_file", loaded: true, invokedInTurns: [0] }],
+};
+
+// A session whose main.jsonl never parsed (toolInventory empty), but whose
+// turn's toolCalls came from SQLite session_files independently — finding
+// #4: toolCallsAvailable must not gate solely on toolInventory.
+const sessionSummaryNoInventory = {
+  id: "session-2",
+  mode: "analyze" as const,
+  title: "No system-prompt data",
+  model: "unknown",
+  usageDataAvailable: false,
+  turns: [],
+  turnCount: 1,
+};
+
+const fullSessionNoInventory = {
+  ...sessionSummaryNoInventory,
+  turns: [
+    makeTurn({
+      index: 0,
+      explanation: "no-inventory turn explanation",
+      toolCalls: [
+        {
+          name: "run_in_terminal",
+          argsSummary: "",
+          tokenCount: { known: false, reason: "not recorded" },
+        },
+      ],
+    }),
+  ],
+  systemPrompt: [],
+  toolInventory: [],
+};
+
+const sessionSummaryError = {
+  id: "session-error",
+  mode: "analyze" as const,
+  title: "Broken session",
+  model: "unknown",
+  usageDataAvailable: false,
+  turns: [],
+  turnCount: 0,
 };
 
 const cleanConfigStatus = {
@@ -72,10 +117,19 @@ function fakeFetch(url: string) {
     return Promise.resolve({ ok: true, json: () => Promise.resolve([scenario]) });
   }
   if (url === "/api/sessions") {
-    return Promise.resolve({ ok: true, json: () => Promise.resolve([sessionSummary]) });
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve([sessionSummary, sessionSummaryNoInventory, sessionSummaryError]),
+    });
   }
   if (url === "/api/sessions/session-1") {
     return Promise.resolve({ ok: true, json: () => Promise.resolve(fullSession) });
+  }
+  if (url === "/api/sessions/session-2") {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(fullSessionNoInventory) });
+  }
+  if (url === "/api/sessions/session-error") {
+    return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: "boom" }) });
   }
   if (url === "/api/config/status") {
     return Promise.resolve({ ok: true, json: () => Promise.resolve(configStatus) });
@@ -155,6 +209,78 @@ describe("App", () => {
 
     expect(screen.getByText("read_file")).toBeInTheDocument();
     expect(screen.getByText("src/a.ts")).toBeInTheDocument();
+  });
+
+  it("shows a visible error message instead of failing silently when fetching a session fails", async () => {
+    render(<App />);
+
+    switchToAnalyze();
+    fireEvent.click(await screen.findByRole("button", { name: "Fix the bug" }));
+    await screen.findByText("analyze turn explanation");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Broken session" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/failed/i);
+  });
+
+  it("shows only the most-recently-selected session when an earlier session's fetch resolves after a later one", async () => {
+    let resolveFirst: () => void = () => {};
+    let resolveSecond: () => void = () => {};
+    const firstGate = new Promise<void>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondGate = new Promise<void>((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url === "/api/sessions/session-1") {
+          return firstGate.then(() => ({ ok: true, json: () => Promise.resolve(fullSession) }));
+        }
+        if (url === "/api/sessions/session-2") {
+          return secondGate.then(() => ({
+            ok: true,
+            json: () => Promise.resolve(fullSessionNoInventory),
+          }));
+        }
+        return fakeFetch(url);
+      }),
+    );
+
+    render(<App />);
+    switchToAnalyze();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Fix the bug" }));
+    fireEvent.click(await screen.findByRole("button", { name: "No system-prompt data" }));
+
+    // Resolve out of order: the earlier click's request (session-1) settles
+    // last, after the later click's request (session-2) already settled.
+    await act(async () => {
+      resolveSecond();
+      await Promise.resolve();
+    });
+    await screen.findByText("no-inventory turn explanation");
+
+    await act(async () => {
+      resolveFirst();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.getByText("no-inventory turn explanation")).toBeInTheDocument();
+    expect(screen.queryByText("analyze turn explanation")).not.toBeInTheDocument();
+  });
+
+  it("renders tool-call detail from the turn's own toolCalls even when the session's toolInventory is empty", async () => {
+    render(<App />);
+
+    switchToAnalyze();
+    fireEvent.click(await screen.findByRole("button", { name: "No system-prompt data" }));
+    await screen.findByText("no-inventory turn explanation");
+
+    expect(screen.getByText("run_in_terminal")).toBeInTheDocument();
+    expect(screen.queryByText("Tool-call detail unavailable for this session.")).not.toBeInTheDocument();
   });
 
   it("renders the system prompt breakdown when that tab is selected", async () => {

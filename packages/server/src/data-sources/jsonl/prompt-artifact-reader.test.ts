@@ -29,6 +29,24 @@ describe("readSystemPromptText", () => {
 
     expect(text).toBeNull();
   });
+
+  it("returns null instead of reading when the file name contains a path separator, even if the traversal resolves back inside the directory", async () => {
+    // path.join collapses "sub/../system_prompt_0.json" to a legitimate
+    // read of system_prompt_0.json, so this would succeed unless the
+    // allow-list rejects the separator itself, before any path.join call.
+    const text = await readSystemPromptText(
+      fixturesDir,
+      "sub/../system_prompt_0.json",
+    );
+
+    expect(text).toBeNull();
+  });
+
+  it("returns null instead of reading when the file name is a bare '..' segment", async () => {
+    const text = await readSystemPromptText(fixturesDir, "..");
+
+    expect(text).toBeNull();
+  });
 });
 
 describe("readToolDefinitionNames", () => {
@@ -51,6 +69,21 @@ describe("readToolDefinitionNames", () => {
 
   it("returns null when the file's content is not valid JSON", async () => {
     const names = await readToolDefinitionNames(fixturesDir, "tools_malformed.json");
+
+    expect(names).toBeNull();
+  });
+
+  it("returns null instead of reading when the file name contains a path separator, even if the traversal resolves back inside the directory", async () => {
+    const names = await readToolDefinitionNames(
+      fixturesDir,
+      "sub/../tools_0.json",
+    );
+
+    expect(names).toBeNull();
+  });
+
+  it("returns null instead of reading when the file name is a bare '..' segment", async () => {
+    const names = await readToolDefinitionNames(fixturesDir, "..");
 
     expect(names).toBeNull();
   });

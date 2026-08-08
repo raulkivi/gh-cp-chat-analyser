@@ -9,6 +9,7 @@ export const sessionSchema = z.object({
   title: z.string(),
   model: z.string(),
   turns: z.array(turnSchema),
+  turnCount: z.number(),
   systemPrompt: z.array(systemPromptComponentSchema).optional(), // Analyze mode only
   toolInventory: z.array(toolInventoryEntrySchema).optional(), // Analyze mode only
   usageDataAvailable: z.boolean(),

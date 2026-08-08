@@ -1,4 +1,8 @@
-export { tokenCountSchema, type TokenCount } from "./token-count.js";
+export {
+  tokenCountSchema,
+  unavailableTokenCount,
+  type TokenCount,
+} from "./token-count.js";
 export { turnUsageSchema, type TurnUsage } from "./turn-usage.js";
 export { toolCallRecordSchema, type ToolCallRecord } from "./tool-call-record.js";
 export { turnSchema, triggeredEventSchema, type Turn, type TriggeredEvent } from "./turn.js";

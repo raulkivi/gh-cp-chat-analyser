@@ -4,6 +4,7 @@
   "title": "/rewind (or Editing a Previous Turn)",
   "model": "example-model",
   "usageDataAvailable": true,
+  "turnCount": 5,
   "category": "Rewind",
   "turns": [
     {

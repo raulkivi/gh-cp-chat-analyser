@@ -1,12 +1,5 @@
 import type { Session } from "@gh-cp-chat-analyser/domain";
-
-async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Request to ${url} failed with status ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
+import { getJson } from "./http.js";
 
 export function fetchLearnScenarios(): Promise<Session[]> {
   return getJson<Session[]>("/api/learn/scenarios");

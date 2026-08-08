@@ -1,6 +1,12 @@
-import type { TokenCount, TurnUsage } from "@gh-cp-chat-analyser/domain";
+import type { TurnUsage } from "@gh-cp-chat-analyser/domain";
+import { unavailableTokenCount as unavailable } from "@gh-cp-chat-analyser/domain";
 import type { JsonlEnvelope } from "./main-jsonl-reader.js";
-import { extractLlmRequestUsage } from "./llm-request-extractor.js";
+import {
+  extractLlmRequestUsage,
+  type LlmRequestUsage,
+} from "./llm-request-extractor.js";
+
+const UNKNOWN_MODEL = "unknown";
 
 export const USAGE_CATEGORY_NOT_EXPOSED_REASON =
   "GitHub Copilot Chat's local debug log (main.jsonl) does not expose this token " +
@@ -11,8 +17,17 @@ export const COST_NOT_AVAILABLE_REASON =
   "records an internal usage unit (copilotUsageNanoAiu) per request, not a " +
   "documented USD conversion.";
 
-function unavailable(reason: string): TokenCount {
-  return { known: false, reason };
+// The last request's model may be "unknown" (older/unrecognized attrs
+// shape) even when an earlier request in the same turn carried a real
+// model — prefer the latest *known* model, falling back to "unknown" only
+// if none of the turn's requests have one.
+function latestKnownModel(requests: LlmRequestUsage[]): string {
+  for (let i = requests.length - 1; i >= 0; i--) {
+    if (requests[i].model !== UNKNOWN_MODEL) {
+      return requests[i].model;
+    }
+  }
+  return UNKNOWN_MODEL;
 }
 
 // A SQLite `turns` row (one user message -> tool calls -> final assistant
@@ -61,7 +76,7 @@ export function extractTurnUsages(
     const uncachedInput = requests.reduce((sum, r) => sum + r.uncachedInput, 0);
     const cacheRead = requests.reduce((sum, r) => sum + r.cacheRead, 0);
     const output = requests.reduce((sum, r) => sum + r.output, 0);
-    const model = requests[requests.length - 1].model;
+    const model = latestKnownModel(requests);
 
     return {
       uncachedInput: { known: true, value: uncachedInput },

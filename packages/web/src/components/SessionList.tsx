@@ -68,7 +68,7 @@ export function SessionList({ mode, sessions, selectedSessionId, onSelect }: Ses
                 {session.title}
               </div>
               <div className="card-meta" style={{ marginTop: 6 }}>
-                {session.turns.length} {session.turns.length === 1 ? "turn" : "turns"}
+                {session.turnCount} {session.turnCount === 1 ? "turn" : "turns"}
               </div>
             </div>
           </Blueprint>

@@ -89,4 +89,49 @@ describe("extractTurnUsages", () => {
   it("returns an empty array when there is no user_message event", () => {
     expect(extractTurnUsages([{ type: "session_start" }])).toEqual([]);
   });
+
+  it("prefers the latest request with a known model over a later request missing attrs.model", () => {
+    const envelopes: JsonlEnvelope[] = [
+      { type: "user_message", spanId: "u1" },
+      {
+        type: "llm_request",
+        spanId: "r1",
+        attrs: {
+          model: "claude-sonnet-5",
+          inputTokens: 100,
+          outputTokens: 10,
+          cachedTokens: 0,
+        },
+      },
+      {
+        type: "llm_request",
+        spanId: "r2",
+        attrs: { inputTokens: 50, outputTokens: 5, cachedTokens: 0 },
+      },
+    ];
+
+    const [turn0] = extractTurnUsages(envelopes);
+
+    expect(turn0?.model).toBe("claude-sonnet-5");
+  });
+
+  it("falls back to 'unknown' only when none of the turn's requests have a known model", () => {
+    const envelopes: JsonlEnvelope[] = [
+      { type: "user_message", spanId: "u1" },
+      {
+        type: "llm_request",
+        spanId: "r1",
+        attrs: { inputTokens: 100, outputTokens: 10, cachedTokens: 0 },
+      },
+      {
+        type: "llm_request",
+        spanId: "r2",
+        attrs: { inputTokens: 50, outputTokens: 5, cachedTokens: 0 },
+      },
+    ];
+
+    const [turn0] = extractTurnUsages(envelopes);
+
+    expect(turn0?.model).toBe("unknown");
+  });
 });

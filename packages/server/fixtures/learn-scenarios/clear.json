@@ -4,6 +4,7 @@
   "title": "Claude Code's /clear",
   "model": "example-model",
   "usageDataAvailable": true,
+  "turnCount": 5,
   "category": "Clear",
   "turns": [
     {

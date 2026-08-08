@@ -14,14 +14,25 @@ export interface VscodeSettingsSnapshot {
   maxRetainedSessionLogs: number | null;
 }
 
+const NOT_FOUND_SNAPSHOT: VscodeSettingsSnapshot = {
+  loggingEnabled: false,
+  maxRetainedSessionLogs: null,
+};
+
 export function readVscodeSettings(
   settingsPath: string | null,
 ): VscodeSettingsSnapshot {
   if (!settingsPath) {
-    return { loggingEnabled: false, maxRetainedSessionLogs: null };
+    return NOT_FOUND_SNAPSHOT;
   }
 
-  const raw = readFileSync(settingsPath, "utf8");
+  let raw: string;
+  try {
+    raw = readFileSync(settingsPath, "utf8");
+  } catch {
+    return NOT_FOUND_SNAPSHOT;
+  }
+
   const settings = (parseJsonc(raw) ?? {}) as Record<string, unknown>;
 
   const loggingEnabled =

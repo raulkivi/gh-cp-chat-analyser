@@ -5,6 +5,7 @@ import {
   classifyEnvelopesAvailability,
   classifyMainJsonlAvailability,
   readMainJsonlEnvelopes,
+  readMainJsonlFile,
 } from "./main-jsonl-reader.js";
 
 const fixturesDir = path.resolve(
@@ -17,6 +18,7 @@ const syntheticMultiEventPath = path.join(
   "synthetic-multi-event.jsonl",
 );
 const missingPath = path.join(fixturesDir, "does-not-exist.jsonl");
+const parseFailuresOnlyPath = path.join(fixturesDir, "parse-failures-only.jsonl");
 
 describe("readMainJsonlEnvelopes", () => {
   it("returns an empty array when the file doesn't exist", async () => {
@@ -42,6 +44,25 @@ describe("readMainJsonlEnvelopes", () => {
   });
 });
 
+describe("readMainJsonlFile", () => {
+  it("reports rawLineCount (non-blank lines seen) alongside the parsed envelopes", async () => {
+    const result = await readMainJsonlFile(syntheticMultiEventPath);
+
+    // 4 non-blank raw lines (1 blank line in the fixture is excluded), only
+    // 3 of which parsed into envelopes — the malformed line is dropped from
+    // `envelopes` but still counted in `rawLineCount`.
+    expect(result.rawLineCount).toBe(4);
+    expect(result.envelopes).toHaveLength(3);
+  });
+
+  it("returns a zero rawLineCount when the file doesn't exist", async () => {
+    expect(await readMainJsonlFile(missingPath)).toEqual({
+      envelopes: [],
+      rawLineCount: 0,
+    });
+  });
+});
+
 describe("classifyMainJsonlAvailability", () => {
   it("returns 'missing' when the file doesn't exist", async () => {
     expect(await classifyMainJsonlAvailability(missingPath)).toBe("missing");
@@ -58,19 +79,37 @@ describe("classifyMainJsonlAvailability", () => {
       "events-present",
     );
   });
+
+  // code-and-security-review-2026-08-08.md medium finding: a log with many
+  // raw lines that all fail to parse must not be reported as
+  // "logging-never-enabled" (that would wrongly tell the user the setting
+  // was off, when really something else — a parser regression, a corrupted
+  // file — produced zero usable envelopes from a non-trivial file).
+  it("returns 'parse-failures' when the file has multiple raw lines but none parse into an envelope", async () => {
+    expect(await classifyMainJsonlAvailability(parseFailuresOnlyPath)).toBe(
+      "parse-failures",
+    );
+  });
 });
 
 describe("classifyEnvelopesAvailability", () => {
-  it("classifies from an already-read envelope array, without touching the filesystem", () => {
-    expect(classifyEnvelopesAvailability([])).toBe("logging-never-enabled");
+  it("classifies from an already-read envelope array + raw line count, without touching the filesystem", () => {
+    expect(classifyEnvelopesAvailability([], 0)).toBe("logging-never-enabled");
     expect(
-      classifyEnvelopesAvailability([{ type: "session_start" }]),
+      classifyEnvelopesAvailability([{ type: "session_start" }], 1),
     ).toBe("logging-never-enabled");
     expect(
-      classifyEnvelopesAvailability([
-        { type: "session_start" },
-        { type: "llm_request" },
-      ]),
+      classifyEnvelopesAvailability(
+        [{ type: "session_start" }, { type: "llm_request" }],
+        2,
+      ),
     ).toBe("events-present");
+  });
+
+  it("classifies as 'parse-failures' when raw lines outnumber the parsed envelopes by more than the single session_start case", () => {
+    expect(classifyEnvelopesAvailability([], 4)).toBe("parse-failures");
+    expect(
+      classifyEnvelopesAvailability([{ type: "session_start" }], 4),
+    ).toBe("parse-failures");
   });
 });

@@ -5,7 +5,10 @@ import { fetchLearnScenarios } from "./api-client/learn-scenarios.js";
 import { fetchSession, fetchSessions } from "./api-client/sessions.js";
 import { ConfigWarningBanner } from "./components/ConfigWarningBanner.js";
 import { ExplanationPanel } from "./components/ExplanationPanel.js";
+import { SystemPromptBreakdown } from "./components/SystemPromptBreakdown.js";
 import { TimelineScrubber } from "./components/TimelineScrubber.js";
+import { ToolInventoryPanel } from "./components/ToolInventoryPanel.js";
+import { TurnDetail } from "./components/TurnDetail.js";
 import { TurnsTable } from "./components/TurnsTable.js";
 import { useSessionStore } from "./state/session-store.js";
 
@@ -85,6 +88,13 @@ export function App() {
             selectedTurnIndex={selectedTurnIndex}
             onSelectTurn={selectTurn}
           />
+          {session.mode === "analyze" && (
+            <>
+              <TurnDetail turn={selectedTurn} />
+              <SystemPromptBreakdown components={session.systemPrompt ?? []} />
+              <ToolInventoryPanel entries={session.toolInventory ?? []} />
+            </>
+          )}
         </section>
       )}
     </main>

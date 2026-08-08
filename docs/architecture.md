@@ -438,6 +438,84 @@ this slice:
   `GET /api/sessions/:id` once resolved via the corrected workspace-based
   path.
 
+**Implementation note (medium security-review fix, done alongside Phase
+6).** `classifyEnvelopesAvailability` previously classified any file with
+`<= 1` parsed envelopes as `"logging-never-enabled"`, which conflated two
+different situations: a file that genuinely only has `session_start`, and a
+file with several raw lines that all failed to parse (a parser regression
+or corrupted file — see
+[code-and-security-review-2026-08-08.md](code-and-security-review-2026-08-08.md)'s
+medium finding). `readMainJsonlFile` (renamed from the old
+`readMainJsonlEnvelopes`, which is now a thin wrapper over it) now also
+returns `rawLineCount` — non-blank lines seen, independent of parse success
+— and `classifyEnvelopesAvailability`/`classifyMainJsonlAvailability` take
+it as a second input, returning a new `"parse-failures"`
+`MainJsonlAvailability` value when raw lines outnumber parsed envelopes.
+`session-enricher`'s `reasonForAvailability` gives this case its own
+message rather than the actionable "turn on logging" one, since the
+setting was very likely already on. The other, high-severity finding
+(full in-memory envelope array) is deliberately deferred past Phase 6 per
+implementation-plan.md's Phase 6 note.
+
+**Implementation note (Phase 6, complete).** The research spike (against
+this machine's own real, unredacted debug-logs directory — not just
+fixtures) found that `main.jsonl` and its sibling artifacts do **not**
+expose a per-system-prompt-component or per-tool-call token count anywhere:
+only the aggregate `inputTokens`/`outputTokens` per `llm_request` (already
+captured in Phase 4) exists. Every `SystemPromptComponent.tokenCount` and
+`ToolCallRecord.tokenCount` this phase adds is therefore
+`{ known: false, reason: ... }` — computing one via a bundled tokenizer
+would be an estimate under a *different* tokenizer than the one actually
+billed the request (VS Code's own model catalog, `models.json`, names
+`o200k_base` for Claude models — its own client-side prompt-budget
+estimator, not the real Anthropic-side tokenizer), which constraint 6
+treats the same as fabrication. What real, non-token data the spike did
+confirm:
+
+- An `llm_request` span's `attrs.systemPromptFile`/`toolsFile` name sibling
+  JSON files in the session's own debug-logs directory (`system_prompt_N.json`/
+  `tools_N.json`, not inline data) — each double-encoded on disk as
+  `{ content: "<JSON-stringified array>" }`. The system-prompt artifact
+  observed is a single-element `[{ type: "text", content: "<full prompt>" }]`;
+  the tools artifact is an array of tool-definition objects
+  (`type`/`name`/`description`/`parameters`) — the definitive list of tools
+  loaded for the request, independent of which ones were actually invoked.
+  `data-sources/jsonl/prompt-artifact-reader.ts` reads both, defensively
+  (missing file or unrecognized shape → `null`, never a throw).
+- `tool_call` events' `attrs` carry only `args`/`result` (both redacted in
+  fixtures) — no token count, confirming `ToolCallRecord.tokenCount` must
+  stay unavailable regardless of extraction success, the same permanent-gap
+  pattern as Phase 4's `cacheWrite`/`tool`/`vision`/`reasoning`.
+  `data-sources/jsonl/tool-inventory.ts`'s `extractInvokedToolNamesByTurn`
+  reuses `groupEnvelopesByUserMessage`'s positional join to attribute each
+  `tool_call` to a SQLite turn index; `buildToolInventory` unions that
+  against the tools-artifact list — a tool invoked but absent from the
+  artifact (schema drift) is still surfaced, marked `loaded: false`, rather
+  than dropped; if the artifact itself couldn't be read, only tools with
+  direct invocation evidence are reported (all `loaded: true`) rather than
+  guessing at the full inventory either way.
+- The "discovery"/"generic" events (`Skill Discovery`, `Custom
+  Instructions`, etc.) carry human-readable but *fixed-template* details
+  strings (Copilot Chat's own debug-log code generates them, not model/user
+  content) — e.g. `"context included: [3] CLAUDE.md, copilot-instructions.md, ..."`
+  and `"... | loaded: [graphify, ...] | ..."`. `system-prompt-breakdown.ts`
+  parses these defensively (regex miss → empty, never a throw) to name real
+  `repo-instructions`/`skill-manifest` components. No `path-scoped-instructions`
+  component is produced: no real captured log on this machine has shown an
+  `applyTo`-scoped instruction file actually applying (only "always added"
+  or "skipped: no applyTo pattern" have been observed), so there's no
+  confirmed template to parse — left as an architecture §13 open question
+  rather than guessed at.
+- `session-enricher.buildSession` gained three new optional parameters
+  (`invokedToolNamesByTurn`, `systemPrompt`, `toolInventory`, all
+  default-`[]` so Phase 3/4 callers are unaffected) and now merges
+  jsonl-only tool invocations into a turn's `toolCalls` alongside the
+  existing SQLite-`session_files`-based ones.
+- Verified against this project's own real session history: a real
+  `system_prompt_0.json`/`tools_0.json` pair (145 real tool definitions) and
+  real `tool_call` events round-trip correctly through
+  `GET /api/sessions/:id`.
+
 ### 6.3 Startup configuration check
 
 ```mermaid
@@ -759,12 +837,21 @@ this architecture that means:
 
 Carried over from vision §7 plus new ones raised while designing this layer:
 
-- The Phase 4 extractor registry only has one extractor (`llm_request`) and
-  one real provider (`claude-sonnet-5`, plus one `gpt-4o-mini` sample) to
-  test against so far — still open whether other providers/older VS Code
-  versions use a differently-shaped `llm_request.attrs`, and whether other
-  event `type`s (`tool_call`, `agent_response`) are worth extracting from
-  for Phase 6's tool/file-detail work.
+- The extractor registry has one usage extractor (`llm_request`) and one
+  real provider (`claude-sonnet-5`, plus one `gpt-4o-mini` sample) to test
+  against so far — still open whether other providers/older VS Code
+  versions use a differently-shaped `llm_request.attrs`. Phase 6 answered
+  the `tool_call`/`agent_response` half of this question: `tool_call.attrs`
+  carries no token data (confirmed real, unredacted), so it's only useful
+  for tool-name/invocation detail, never token detail; `agent_response` was
+  not found useful for anything this app currently models.
+- No `path-scoped-instructions` `SystemPromptComponent` has ever been
+  produced (Phase 6): no real captured log on the development machine has
+  shown an `applyTo`-scoped instruction file actually applying (only
+  "always added" or "skipped: no applyTo pattern" observed in the "Resolve
+  Customizations" generic event). Whoever hits this next should capture a
+  real example of that log line before writing the parser, rather than
+  guessing at its shape.
 - How `platform/vscode-paths` should behave when multiple VS Code
   variants/installs exist on one machine (Stable + Insiders, or several
   profiles) — Phase 3 resolved this minimally (Linux only: prefer Insiders,

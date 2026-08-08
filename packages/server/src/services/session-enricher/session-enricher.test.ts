@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { sessionSchema, type TurnUsage } from "@gh-cp-chat-analyser/domain";
+import {
+  sessionSchema,
+  type SystemPromptComponent,
+  type ToolInventoryEntry,
+  type TurnUsage,
+} from "@gh-cp-chat-analyser/domain";
 import type {
   SessionFileRow,
   SessionRow,
@@ -9,6 +14,8 @@ import {
   buildSession,
   buildSessionSummary,
   LOGGING_NEVER_ENABLED_REASON,
+  PARSE_FAILURES_REASON,
+  TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON,
   USAGE_UNAVAILABLE_REASON,
 } from "./session-enricher.js";
 
@@ -135,7 +142,7 @@ describe("buildSession", () => {
     expect(firstTurn.usage.model).toBe("unknown");
   });
 
-  it("groups session_files into toolCalls per turn by tool_name", () => {
+  it("groups session_files into toolCalls per turn by tool_name, token count marked unavailable", () => {
     const session = buildSession(sessionRow, turnRows, fileRows, "missing");
     const [firstTurn, secondTurn] = session.turns;
 
@@ -144,6 +151,10 @@ describe("buildSession", () => {
         name: "read_file",
         argsSummary: "src/a.ts, src/b.ts",
         filesTouched: ["src/a.ts", "src/b.ts"],
+        tokenCount: {
+          known: false,
+          reason: TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON,
+        },
       },
     ]);
     expect(secondTurn.toolCalls).toEqual([
@@ -151,6 +162,10 @@ describe("buildSession", () => {
         name: "edit_file",
         argsSummary: "src/c.ts",
         filesTouched: ["src/c.ts"],
+        tokenCount: {
+          known: false,
+          reason: TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON,
+        },
       },
     ]);
   });
@@ -159,6 +174,72 @@ describe("buildSession", () => {
     const session = buildSession(sessionRow, turnRows, [], "missing");
 
     expect(session.turns[0].toolCalls).toEqual([]);
+  });
+
+  it("merges a jsonl-only tool invocation (no touched files) into toolCalls, token count unavailable", () => {
+    const session = buildSession(
+      sessionRow,
+      turnRows,
+      fileRows,
+      "missing",
+      [],
+      [["read_file", "manage_todo_list"], []],
+    );
+    const [firstTurn] = session.turns;
+
+    expect(firstTurn.toolCalls).toEqual([
+      {
+        name: "read_file",
+        argsSummary: "src/a.ts, src/b.ts",
+        filesTouched: ["src/a.ts", "src/b.ts"],
+        tokenCount: {
+          known: false,
+          reason: TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON,
+        },
+      },
+      {
+        name: "manage_todo_list",
+        argsSummary: "",
+        tokenCount: {
+          known: false,
+          reason: TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON,
+        },
+      },
+    ]);
+  });
+
+  it("populates session.systemPrompt and session.toolInventory from the passed-in breakdown/inventory", () => {
+    const systemPrompt: SystemPromptComponent[] = [
+      {
+        kind: "built-in",
+        label: "Base system prompt (100 characters)",
+        tokenCount: { known: false, reason: "not broken down" },
+      },
+    ];
+    const toolInventory: ToolInventoryEntry[] = [
+      { name: "read_file", loaded: true, invokedInTurns: [0] },
+    ];
+
+    const session = buildSession(
+      sessionRow,
+      turnRows,
+      fileRows,
+      "missing",
+      [],
+      [],
+      systemPrompt,
+      toolInventory,
+    );
+
+    expect(session.systemPrompt).toEqual(systemPrompt);
+    expect(session.toolInventory).toEqual(toolInventory);
+  });
+
+  it("defaults session.systemPrompt and session.toolInventory to empty arrays when omitted", () => {
+    const session = buildSession(sessionRow, turnRows, fileRows, "missing");
+
+    expect(session.systemPrompt).toEqual([]);
+    expect(session.toolInventory).toEqual([]);
   });
 
   it("uses the actionable reason when logging was never enabled for this session", () => {
@@ -172,6 +253,15 @@ describe("buildSession", () => {
     expect(session.turns[0].usage.uncachedInput).toEqual({
       known: false,
       reason: LOGGING_NEVER_ENABLED_REASON,
+    });
+  });
+
+  it("uses the parse-failures reason (distinct from logging-never-enabled) when the log has content but nothing parsed", () => {
+    const session = buildSession(sessionRow, turnRows, fileRows, "parse-failures");
+
+    expect(session.turns[0].usage.uncachedInput).toEqual({
+      known: false,
+      reason: PARSE_FAILURES_REASON,
     });
   });
 

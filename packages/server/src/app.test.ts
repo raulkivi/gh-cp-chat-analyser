@@ -9,6 +9,7 @@ import { createApp } from "./app.js";
 import { listLearnScenarios } from "./data-sources/learn-scenarios/loader.js";
 import {
   LOGGING_NEVER_ENABLED_REASON,
+  TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON,
   USAGE_UNAVAILABLE_REASON,
 } from "./services/session-enricher/session-enricher.js";
 
@@ -332,6 +333,119 @@ describe("GET /api/sessions/:id", () => {
     expect(response.body.turns[0].usage.model).toBe("claude-sonnet-5");
     expect(response.body.usageDataAvailable).toBe(true);
     expect(response.body.model).toBe("claude-sonnet-5");
+  });
+
+  it("populates systemPrompt, toolInventory, and merges jsonl-only tool calls (Phase 6)", async () => {
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    const lines = [
+      {
+        v: 1,
+        ts: 1,
+        dur: 0,
+        sid: "session-1",
+        type: "session_start",
+        name: "session_start",
+        spanId: "a",
+        status: "ok",
+        attrs: {},
+      },
+      {
+        v: 1,
+        ts: 2,
+        dur: 0,
+        sid: "session-1",
+        type: "user_message",
+        name: "user_message",
+        spanId: "u0",
+        status: "ok",
+        attrs: { content: "hi" },
+      },
+      {
+        v: 1,
+        ts: 3,
+        dur: 5,
+        sid: "session-1",
+        type: "tool_call",
+        name: "read_file",
+        spanId: "t0",
+        status: "ok",
+        attrs: {},
+      },
+      {
+        v: 1,
+        ts: 4,
+        dur: 5,
+        sid: "session-1",
+        type: "llm_request",
+        name: "llm_request",
+        spanId: "b",
+        status: "ok",
+        attrs: {
+          model: "claude-sonnet-5",
+          inputTokens: 1000,
+          outputTokens: 50,
+          cachedTokens: 200,
+          systemPromptFile: "system_prompt_0.json",
+          toolsFile: "tools_0.json",
+        },
+      },
+    ];
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
+    );
+    writeFileSync(
+      path.join(sessionLogDir, "system_prompt_0.json"),
+      JSON.stringify({
+        content: JSON.stringify([
+          { type: "text", content: "You are a helpful assistant." },
+        ]),
+      }),
+    );
+    writeFileSync(
+      path.join(sessionLogDir, "tools_0.json"),
+      JSON.stringify({
+        content: JSON.stringify([
+          { type: "function", name: "read_file", description: "d", parameters: {} },
+          { type: "function", name: "create_file", description: "d", parameters: {} },
+        ]),
+      }),
+    );
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+    });
+
+    const response = await request(app).get("/api/sessions/session-1");
+
+    expect(() => sessionSchema.parse(response.body)).not.toThrow();
+    expect(response.body.toolInventory).toEqual([
+      { name: "read_file", loaded: true, invokedInTurns: [0] },
+      { name: "create_file", loaded: true, invokedInTurns: [] },
+    ]);
+    expect(response.body.systemPrompt).toEqual([
+      {
+        kind: "built-in",
+        label: "Base system prompt (28 characters)",
+        tokenCount: { known: false, reason: expect.any(String) },
+      },
+      {
+        kind: "tool-definitions",
+        label: "Tool definitions (2 tools)",
+        tokenCount: { known: false, reason: expect.any(String) },
+      },
+    ]);
+    expect(response.body.turns[0].toolCalls).toEqual([
+      {
+        name: "read_file",
+        argsSummary: "",
+        tokenCount: {
+          known: false,
+          reason: TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON,
+        },
+      },
+    ]);
   });
 
   it("returns 404 for a session filtered out by the agent_name scoping rule", async () => {

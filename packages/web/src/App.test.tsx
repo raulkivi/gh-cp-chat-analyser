@@ -26,7 +26,30 @@ const sessionSummary = {
 
 const fullSession = {
   ...sessionSummary,
-  turns: [makeTurn({ index: 0, explanation: "analyze turn explanation" })],
+  turns: [
+    makeTurn({
+      index: 0,
+      explanation: "analyze turn explanation",
+      toolCalls: [
+        {
+          name: "read_file",
+          argsSummary: "src/a.ts",
+          filesTouched: ["src/a.ts"],
+          tokenCount: { known: false, reason: "not recorded" },
+        },
+      ],
+    }),
+  ],
+  systemPrompt: [
+    {
+      kind: "built-in" as const,
+      label: "Base system prompt (100 characters)",
+      tokenCount: { known: false, reason: "not broken down" },
+    },
+  ],
+  toolInventory: [
+    { name: "read_file", loaded: true, invokedInTurns: [0] },
+  ],
 };
 
 const cleanConfigStatus = {
@@ -106,6 +129,29 @@ describe("App", () => {
     fireEvent.click(sessionButton);
 
     expect(await screen.findByText("analyze turn explanation")).toBeInTheDocument();
+  });
+
+  it("renders Analyze-mode-only panels (system prompt breakdown, tool inventory, turn detail) for a real session", async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Fix the bug" }));
+    await screen.findByText("analyze turn explanation");
+
+    expect(
+      screen.getByText("Base system prompt (100 characters)"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("read_file").length).toBeGreaterThan(0);
+    expect(screen.getByText("src/a.ts")).toBeInTheDocument();
+  });
+
+  it("does not render Analyze-mode-only panels for a Learn scenario", async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cache Basics" }));
+    await screen.findByText("first turn explanation");
+
+    expect(screen.queryByText(/system prompt breakdown/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/tool inventory/i)).not.toBeInTheDocument();
   });
 
   it("renders the config warning banner when prerequisites aren't met", async () => {

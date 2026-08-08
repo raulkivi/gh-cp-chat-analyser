@@ -268,6 +268,58 @@ loaded-vs-invoked status.
 
 **Dependencies**: Phase 4.
 
+**In parallel with this phase**: address
+[code-and-security-review-2026-08-08.md](code-and-security-review-2026-08-08.md)'s
+medium finding (availability classification masking parse failures in
+`classifyEnvelopesAvailability`) — isolated to `main-jsonl-reader.ts`'s
+classification path and its one `session-enricher` consumer, no overlap
+with this phase's extractors. Its high finding (full in-memory envelope
+array in `readMainJsonlEnvelopes`) is deferred until after this phase
+exits: this phase is adding new consumers
+(`tool-inventory.ts`, `prompt-artifact-reader.ts`, the system-prompt
+extractor) built against the current whole-array contract of
+`readMainJsonlEnvelopes`/`groupEnvelopesByUserMessage`, so reworking that
+contract now would mean redoing each extractor as it lands — tracked
+alongside architecture.md §13's existing "per-turn lazy loading vs.
+whole-session payloads" open question instead.
+
+**Status (2026-08-08): done.** The research spike (against this machine's
+own real, unredacted debug-logs directory) found that per-component/
+per-tool-call **token counts are not available anywhere** in `main.jsonl`
+or its sibling artifacts — see architecture.md §6.2's Phase 6 note for the
+full finding and why estimating them would be constraint-6 fabrication.
+What Phase 6 *does* deliver, all real (not estimated) data:
+
+- `data-sources/jsonl/prompt-artifact-reader.ts` reads the
+  `systemPromptFile`/`toolsFile` artifacts an `llm_request` span's `attrs`
+  point to (`system_prompt_N.json`/`tools_N.json`, siblings of `main.jsonl`
+  in the session's debug-logs directory) — the definitive system-prompt
+  text and loaded-tool-definitions list, previously unused by this app.
+- `data-sources/jsonl/tool-inventory.ts` builds `ToolInventoryEntry[]`
+  (loaded vs. invoked-per-turn) from that tools artifact plus `tool_call`
+  events, joined positionally the same way `session-usage-spans.ts` already
+  joins `llm_request` spans to SQLite turns.
+- `data-sources/jsonl/system-prompt-breakdown.ts` builds
+  `SystemPromptComponent[]` by defensively parsing the "Custom
+  Instructions"/"Skill Discovery" log templates (Copilot Chat's own fixed
+  debug strings, not model/user content) for repo-instructions/skill names,
+  plus one component each for the base prompt blob and the tool-definitions
+  list. No `path-scoped-instructions` component is produced yet — no real
+  captured log has shown an `applyTo`-scoped instruction actually applying,
+  so there's no confirmed template to parse (tracked as an architecture.md
+  §13 open question, not implemented speculatively).
+- `services/session-enricher` now also merges `tool_call`-only invocations
+  (tools with no touched files, e.g. `manage_todo_list`) into a turn's
+  `toolCalls`, and populates `Session.systemPrompt`/`toolInventory`.
+- `components/SystemPromptBreakdown`, `ToolInventoryPanel`, `TurnDetail`
+  render the above; `App.tsx` shows all three only when `session.mode ===
+  "analyze"`.
+
+Verified against this project's own real session history (the same
+workspace this repo lives in) — a real `system_prompt_0.json`/`tools_0.json`
+pair, 145 real tool definitions, and real `tool_call` events all round-trip
+through `GET /api/sessions/:id` correctly.
+
 ## Phase 7 — Visualization polish
 
 **Goal**: replace plain numbers/tables with the D3-based visual language

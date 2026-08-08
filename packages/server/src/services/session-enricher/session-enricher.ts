@@ -1,7 +1,9 @@
 import type {
   Session,
+  SystemPromptComponent,
   TokenCount,
   ToolCallRecord,
+  ToolInventoryEntry,
   Turn,
   TurnUsage,
 } from "@gh-cp-chat-analyser/domain";
@@ -23,23 +25,44 @@ export const LOGGING_NEVER_ENABLED_REASON =
 export const USAGE_UNAVAILABLE_REASON =
   "Usage data is unavailable for this session (main.jsonl is missing, uses an " +
   "older/unsupported log format, or its usage data could not be extracted).";
+export const PARSE_FAILURES_REASON =
+  "main.jsonl for this session has content, but none of its lines could be " +
+  "parsed into a usable event — this looks like a parser regression or a " +
+  "corrupted log file, not a settings problem.";
 const UNKNOWN_MODEL = "unknown";
 const STUB_EXPLANATION =
   "Token and cost usage data is not available for this turn (main.jsonl parsing is not implemented yet).";
+export const TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON =
+  "GitHub Copilot Chat's local debug log does not record a token count for individual tool calls.";
 
 function reasonForAvailability(availability: MainJsonlAvailability): string {
-  return availability === "logging-never-enabled"
-    ? LOGGING_NEVER_ENABLED_REASON
-    : USAGE_UNAVAILABLE_REASON;
+  if (availability === "logging-never-enabled") {
+    return LOGGING_NEVER_ENABLED_REASON;
+  }
+  if (availability === "parse-failures") {
+    return PARSE_FAILURES_REASON;
+  }
+  return USAGE_UNAVAILABLE_REASON;
 }
 
 function deriveTitle(row: SessionRow): string {
   return row.summary || row.repository || row.cwd || `Session ${row.id}`;
 }
 
+function unavailableToolCallTokenCount(): TokenCount {
+  return { known: false, reason: TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON };
+}
+
+// SQLite's session_files rows only cover tools that touched a file — tools
+// like manage_todo_list/run_in_terminal never appear there. invokedToolNames
+// (from main.jsonl's tool_call events, jsonl/tool-inventory.ts) fills that
+// gap; a name already covered by a file-based entry isn't duplicated. Every
+// entry's tokenCount is explicit-unavailable (constraint 6): neither source
+// records a per-tool-call token figure.
 function buildToolCalls(
   turnIndex: number,
   fileRows: SessionFileRow[],
+  invokedToolNames: string[],
 ): ToolCallRecord[] {
   const filesForTurn = fileRows.filter((row) => row.turn_index === turnIndex);
 
@@ -51,11 +74,25 @@ function buildToolCalls(
     filesByToolName.set(name, files);
   }
 
-  return Array.from(filesByToolName.entries()).map(([name, filesTouched]) => ({
+  const fileBasedCalls: ToolCallRecord[] = Array.from(
+    filesByToolName.entries(),
+  ).map(([name, filesTouched]) => ({
     name,
     argsSummary: filesTouched.join(", "),
     filesTouched,
+    tokenCount: unavailableToolCallTokenCount(),
   }));
+
+  const invokedOnlyNames = Array.from(
+    new Set(invokedToolNames.filter((name) => !filesByToolName.has(name))),
+  );
+  const invokedOnlyCalls: ToolCallRecord[] = invokedOnlyNames.map((name) => ({
+    name,
+    argsSummary: "",
+    tokenCount: unavailableToolCallTokenCount(),
+  }));
+
+  return [...fileBasedCalls, ...invokedOnlyCalls];
 }
 
 function buildUnavailableUsage(unavailableTokenCount: TokenCount): TurnUsage {
@@ -91,12 +128,13 @@ function buildTurn(
   fileRows: SessionFileRow[],
   usage: TurnUsage | null | undefined,
   unavailableTokenCount: TokenCount,
+  invokedToolNames: string[],
 ): Turn {
   return {
     index: row.turn_index,
     userMessage: row.user_message ?? "",
     assistantResponse: row.assistant_response ?? "",
-    toolCalls: buildToolCalls(row.turn_index, fileRows),
+    toolCalls: buildToolCalls(row.turn_index, fileRows, invokedToolNames),
     usage: usage ?? buildUnavailableUsage(unavailableTokenCount),
     explanation: usage ? buildAnalyzeExplanation(usage) : STUB_EXPLANATION,
   };
@@ -119,6 +157,9 @@ export function buildSession(
   fileRows: SessionFileRow[],
   mainJsonlAvailability: MainJsonlAvailability,
   turnUsages: (TurnUsage | null)[] = [],
+  invokedToolNamesByTurn: string[][] = [],
+  systemPrompt: SystemPromptComponent[] = [],
+  toolInventory: ToolInventoryEntry[] = [],
 ): Session {
   const unavailableTokenCount: TokenCount = {
     known: false,
@@ -136,12 +177,15 @@ export function buildSession(
         ? knownUsages[knownUsages.length - 1].model
         : UNKNOWN_MODEL,
     usageDataAvailable: knownUsages.length > 0,
+    systemPrompt,
+    toolInventory,
     turns: turnRows.map((turnRow) =>
       buildTurn(
         turnRow,
         fileRows,
         turnUsages[turnRow.turn_index],
         unavailableTokenCount,
+        invokedToolNamesByTurn[turnRow.turn_index] ?? [],
       ),
     ),
   };

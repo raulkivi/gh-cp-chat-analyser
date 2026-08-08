@@ -12,6 +12,8 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
 
 ## Documentation
 
+- [User Guide](docs/UserGuide.md) — illustrated walkthrough of Learn mode
+  and Analyze mode's features, screen by screen.
 - [Vision](docs/vision.md) — the problem, goals, product concept (Learn vs.
   Analyze mode), data sources, and non-goals.
 - [Architecture](docs/architecture.md) — system design: components, domain

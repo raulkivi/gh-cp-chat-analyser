@@ -42,6 +42,20 @@ describe("readMainJsonlEnvelopes", () => {
       "some_future_event_type",
     ]);
   });
+
+  // 2026-08-08 code/security review, high finding: no extractor in
+  // this codebase reads any `attrs` key beyond a small known set (see the
+  // KNOWN_ATTRS_KEYS allow-list) — an envelope's `attrs` can otherwise carry
+  // an arbitrarily large, per-provider payload (e.g. raw prompt/tool-call
+  // content) that would sit in memory for the whole file untouched.
+  // Dropping unrecognized keys at parse time keeps peak memory bounded by
+  // what's actually used instead of the raw log's full per-line payload.
+  it("drops attrs keys no extractor reads, keeping only the known allow-list", async () => {
+    const envelopes = await readMainJsonlEnvelopes(syntheticMultiEventPath);
+
+    expect(envelopes[0].attrs).toBeUndefined();
+    expect(envelopes[1].attrs).toBeUndefined();
+  });
 });
 
 describe("readMainJsonlFile", () => {
@@ -80,7 +94,7 @@ describe("classifyMainJsonlAvailability", () => {
     );
   });
 
-  // code-and-security-review-2026-08-08.md medium finding: a log with many
+  // 2026-08-08 code/security review, medium finding: a log with many
   // raw lines that all fail to parse must not be reported as
   // "logging-never-enabled" (that would wrongly tell the user the setting
   // was off, when really something else — a parser regression, a corrupted

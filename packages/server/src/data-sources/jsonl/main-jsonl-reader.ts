@@ -16,6 +16,44 @@ export interface JsonlEnvelope {
   attrs?: Record<string, unknown>;
 }
 
+// Every `attrs` key any extractor in this codebase reads (llm-request-
+// extractor.ts's inputTokens/outputTokens/cachedTokens/model, app.ts's
+// systemPromptFile/toolsFile, system-prompt-breakdown.ts's details).
+// `attrs` is otherwise an undocumented, per-provider payload that can carry
+// arbitrarily large content (raw prompt/tool-call data) nothing here reads
+// — a 2026-08-08 code/security review's high finding. Dropping
+// unrecognized keys at parse time keeps memory bounded by what's actually
+// used instead of the raw log's full per-line payload.
+const KNOWN_ATTRS_KEYS = [
+  "inputTokens",
+  "outputTokens",
+  "cachedTokens",
+  "model",
+  "systemPromptFile",
+  "toolsFile",
+  "details",
+] as const;
+
+function projectAttrs(
+  attrs: unknown,
+): Record<string, unknown> | undefined {
+  if (typeof attrs !== "object" || attrs === null) {
+    return undefined;
+  }
+
+  const source = attrs as Record<string, unknown>;
+  const projected: Record<string, unknown> = {};
+  let hasKnownKey = false;
+  for (const key of KNOWN_ATTRS_KEYS) {
+    if (key in source) {
+      projected[key] = source[key];
+      hasKnownKey = true;
+    }
+  }
+
+  return hasKnownKey ? projected : undefined;
+}
+
 function parseEnvelopeLine(line: string): JsonlEnvelope | null {
   const trimmed = line.trim();
   if (!trimmed) {
@@ -29,7 +67,8 @@ function parseEnvelopeLine(line: string): JsonlEnvelope | null {
       parsed !== null &&
       typeof (parsed as { type?: unknown }).type === "string"
     ) {
-      return parsed as JsonlEnvelope;
+      const envelope = parsed as JsonlEnvelope;
+      return { ...envelope, attrs: projectAttrs(envelope.attrs) };
     }
     return null;
   } catch {
@@ -42,7 +81,7 @@ export interface MainJsonlReadResult {
   // Non-blank raw lines seen, independent of whether they parsed into an
   // envelope — the signal classifyEnvelopesAvailability needs to tell a
   // truly-empty/session_start-only log apart from a non-trivial log that
-  // failed to parse (code-and-security-review-2026-08-08.md medium finding).
+  // failed to parse (a 2026-08-08 code/security review's medium finding).
   rawLineCount: number;
 }
 

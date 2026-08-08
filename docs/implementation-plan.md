@@ -268,9 +268,8 @@ loaded-vs-invoked status.
 
 **Dependencies**: Phase 4.
 
-**In parallel with this phase**: address
-[code-and-security-review-2026-08-08.md](code-and-security-review-2026-08-08.md)'s
-medium finding (availability classification masking parse failures in
+**In parallel with this phase**: address a 2026-08-08 code/security
+review's medium finding (availability classification masking parse failures in
 `classifyEnvelopesAvailability`) — isolated to `main-jsonl-reader.ts`'s
 classification path and its one `session-enricher` consumer, no overlap
 with this phase's extractors. Its high finding (full in-memory envelope
@@ -319,6 +318,11 @@ Verified against this project's own real session history (the same
 workspace this repo lives in) — a real `system_prompt_0.json`/`tools_0.json`
 pair, 145 real tool definitions, and real `tool_call` events all round-trip
 through `GET /api/sessions/:id` correctly.
+
+**Post-Phase-6 addendum (2026-08-08): high finding resolved.** The
+2026-08-08 code/security review's high finding (full in-memory envelope
+array) is now addressed — see architecture.md §6.2's implementation note.
+The review doc has been removed now that both its findings are closed.
 
 ## Phase 7 — Visualization polish
 

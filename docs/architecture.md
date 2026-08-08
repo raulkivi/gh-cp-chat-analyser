@@ -443,9 +443,8 @@ this slice:
 `<= 1` parsed envelopes as `"logging-never-enabled"`, which conflated two
 different situations: a file that genuinely only has `session_start`, and a
 file with several raw lines that all failed to parse (a parser regression
-or corrupted file — see
-[code-and-security-review-2026-08-08.md](code-and-security-review-2026-08-08.md)'s
-medium finding). `readMainJsonlFile` (renamed from the old
+or corrupted file — a 2026-08-08 code/security review's medium finding).
+`readMainJsonlFile` (renamed from the old
 `readMainJsonlEnvelopes`, which is now a thin wrapper over it) now also
 returns `rawLineCount` — non-blank lines seen, independent of parse success
 — and `classifyEnvelopesAvailability`/`classifyMainJsonlAvailability` take
@@ -454,8 +453,17 @@ it as a second input, returning a new `"parse-failures"`
 `session-enricher`'s `reasonForAvailability` gives this case its own
 message rather than the actionable "turn on logging" one, since the
 setting was very likely already on. The other, high-severity finding
-(full in-memory envelope array) is deliberately deferred past Phase 6 per
-implementation-plan.md's Phase 6 note.
+(full in-memory envelope array) was addressed after Phase 6: no extractor
+in the codebase reads any `attrs` key beyond a small known allow-list
+(`inputTokens`/`outputTokens`/`cachedTokens`/`model`/`systemPromptFile`/
+`toolsFile`/`details`), so `main-jsonl-reader.ts`'s `parseEnvelopeLine` now
+projects each envelope's `attrs` down to that allow-list at parse time,
+discarding the rest of the undocumented, per-provider payload (raw
+prompt/tool-call content) that no consumer reads. This bounds per-envelope
+memory to what's actually used instead of the raw log's full per-line
+payload, while keeping the existing whole-array contract the Phase 6
+extractors were built against (still tracked as an open question below for
+whether very long sessions eventually need per-turn lazy loading instead).
 
 **Implementation note (Phase 6, complete).** The research spike (against
 this machine's own real, unredacted debug-logs directory — not just

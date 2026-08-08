@@ -25,7 +25,7 @@ content here.
   met.
 - Commit all changes to git as soon as a phase's exit criterion is met,
   before starting the next phase.
-- Repo status: Phases 0-6 complete — npm workspaces with `packages/domain`
+- Repo status: Phases 0-7 complete — npm workspaces with `packages/domain`
   (zod schemas + types for every architecture.md §5 shape), `packages/server`
   (Express API: Learn-mode fixtures plus real Analyze-mode sessions read
   read-only from the local VS Code SQLite store via `node:sqlite`, enriched
@@ -35,5 +35,7 @@ content here.
   check reads `settings.json` and exposes `GET /api/config/status`),
   `packages/web` (Vite + React, shared Learn/Analyze layout, persistent
   config-warning banner, Analyze-mode-only breakdown/inventory/turn-detail
-  panels), Vitest wired with TDD-first tests. Phase 7 (visualization
-  polish) is next — see implementation-plan.md.
+  panels, D3-based `charts/*` — per-token-type bars, cache-hit ratio, cost
+  sparkline — shared by both modes via `TurnsTable`), Vitest wired with
+  TDD-first tests. Phase 8 (VS Code extension packaging) is future/out of
+  MVP scope — see implementation-plan.md.

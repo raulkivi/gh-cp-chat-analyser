@@ -10,12 +10,16 @@
   },
   "dependencies": {
     "@gh-cp-chat-analyser/domain": "*",
+    "d3-scale": "^4.0.2",
+    "d3-shape": "^3.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-shape": "^3.1.8",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",

@@ -34,4 +34,17 @@ describe("TurnsTable", () => {
 
     expect(onSelectTurn).toHaveBeenCalledWith(1);
   });
+
+  it("renders a token-usage chart and a cache-hit indicator per turn, plus one cost sparkline for the session", () => {
+    const turns = [
+      makeTurn({ index: 0, usage: { ...makeTurn().usage, costUsd: { known: true, value: 0.01 } } }),
+      makeTurn({ index: 1, usage: { ...makeTurn().usage, costUsd: { known: true, value: 0.02 } } }),
+    ];
+
+    render(<TurnsTable turns={turns} selectedTurnIndex={0} onSelectTurn={() => {}} />);
+
+    expect(screen.getAllByRole("img", { name: /token usage by type/i })).toHaveLength(turns.length);
+    expect(screen.getAllByRole("img", { name: /cache hit ratio/i })).toHaveLength(turns.length);
+    expect(screen.getByTestId("cost-sparkline-path")).toBeInTheDocument();
+  });
 });

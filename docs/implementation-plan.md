@@ -338,6 +338,44 @@ same `Turn`/`TurnUsage` data, with no mode-specific chart code.
 **Dependencies**: Phases 2 and 4 (needs real usage numbers to be meaningful,
 though it can be prototyped against Learn-mode data earlier if useful).
 
+**Status (2026-08-08): done.** Built TDD-first per architecture §11.4: each
+of `packages/web/src/charts/TokenTypeBars.tsx`, `CacheHitRatio.tsx`, and
+`CostSparkline.tsx` got a failing test against a fixed `TurnUsage`/`Turn[]`
+fixture before its D3-based rendering existed. `d3-scale`/`d3-shape` (the
+specific submodules actually used — linear scales and the line-path
+generator, not the full `d3` bundle) were added to `packages/web` at their
+latest stable versions, `npm audit` clean. Facts/decisions from this slice:
+
+- `TokenTypeBars` renders one SVG bar per token type (cache write/read,
+  uncached, tool, vision, reasoning, output), scaled via `d3-scale`'s
+  `scaleLinear` against the turn's own largest known value; an unavailable
+  `TokenCount` renders as a visually distinct short gray bar with an
+  `aria-label` ending in "unavailable" rather than a misleading zero-width
+  bar — constraint 6 applied to the chart layer, not just the numeric one.
+- `CacheHitRatio` renders `cacheRead / (cacheRead + uncachedInput)` as a
+  two-segment bar with a percentage `aria-label`; unavailable when either
+  input is unknown.
+- `CostSparkline` draws a `d3-shape` line path across a session's turns'
+  known `costUsd` points (skipping unknown ones); falls back to a "not
+  enough cost data" message when fewer than two turns have a known cost,
+  rather than drawing a misleading single-point or zero-value line.
+- All three consume only `Turn`/`TurnUsage` (no mode field), and are wired
+  once into the already-shared `components/TurnsTable.tsx` (`TokenTypeBars`/
+  `CacheHitRatio` per row, `CostSparkline` once above the table) — since
+  `TurnsTable` itself has no `session.mode` branching and is the same
+  component instance `App.tsx` renders for both modes, the exit criterion
+  ("no mode-specific chart code") holds by construction rather than needing
+  a separate check.
+- Chart "unavailable"/empty states use `aria-label`s rather than visible
+  text nodes, so they don't collide with `TurnsTable`'s existing plain-text
+  "unavailable" cells when asserting via `getByText` in tests (a real
+  session can have every `TurnUsage` field unavailable at once — Phase 3/4's
+  stubbed-enricher case).
+- Verified against this project's own real session history in a live
+  browser (Playwright + this machine's Chrome, `npm run dev`): the cost
+  sparkline, per-turn usage bars, and cache-hit bars all render correctly
+  from real turn data, not just fixtures.
+
 ## Phase 8 — VS Code extension packaging (future, out of MVP scope)
 
 Not part of the initial build (vision §5 "future path"); tracked here only

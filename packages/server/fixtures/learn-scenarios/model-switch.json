@@ -4,6 +4,7 @@
   "title": "Model Switch Mid-Session",
   "model": "model-a",
   "usageDataAvailable": true,
+  "category": "Model switching",
   "turns": [
     {
       "index": 1,

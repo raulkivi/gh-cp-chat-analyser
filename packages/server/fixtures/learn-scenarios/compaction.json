@@ -4,6 +4,7 @@
   "title": "Context Compaction Mid-Session",
   "model": "example-model",
   "usageDataAvailable": true,
+  "category": "Compaction",
   "turns": [
     {
       "index": 1,

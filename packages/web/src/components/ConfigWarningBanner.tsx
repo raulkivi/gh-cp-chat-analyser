@@ -1,30 +1,67 @@
 import type { ConfigWarning } from "@gh-cp-chat-analyser/domain";
+import { Blueprint } from "./ui/Blueprint.js";
 
 interface ConfigWarningBannerProps {
   warnings: ConfigWarning[];
+  onDismiss: () => void;
 }
 
-export function ConfigWarningBanner({ warnings }: ConfigWarningBannerProps) {
+export function ConfigWarningBanner({ warnings, onDismiss }: ConfigWarningBannerProps) {
   if (warnings.length === 0) {
     return null;
   }
 
   return (
-    <div role="alert">
-      {warnings.map((warning) => (
-        <section key={warning.code}>
-          <p>{warning.message}</p>
-          <p>
-            {warning.settingId}: current {String(warning.currentValue)}, recommended{" "}
-            {String(warning.recommendedValue)}
-          </p>
-          <ol>
-            {warning.helpSteps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </section>
-      ))}
-    </div>
+    <Blueprint
+      role="alert"
+      style={{
+        margin: "var(--space-3) var(--space-4) 0",
+        padding: "var(--space-2) var(--space-3)",
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-3)",
+        background: "var(--color-accent-100)",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", flex: 1 }}>
+        {warnings.map((warning) => (
+          <div key={warning.code} style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)" }}>
+            <div
+              style={{
+                width: 18,
+                height: 18,
+                flex: "none",
+                border: "1px solid var(--color-accent-800)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                fontFamily: "var(--font-heading)",
+                color: "var(--color-accent-800)",
+              }}
+            >
+              !
+            </div>
+            <div style={{ fontSize: 13 }}>
+              <p style={{ margin: 0 }}>
+                <strong>{warning.message}</strong>
+              </p>
+              <p style={{ margin: "4px 0 0" }}>
+                {warning.settingId}: current {String(warning.currentValue)}, recommended{" "}
+                {String(warning.recommendedValue)}
+              </p>
+              <ol style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                {warning.helpSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="btn btn-ghost" style={{ flex: "none" }} onClick={onDismiss}>
+        Dismiss
+      </button>
+    </Blueprint>
   );
 }

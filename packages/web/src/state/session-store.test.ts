@@ -31,4 +31,49 @@ describe("useSessionStore", () => {
 
     expect(result.current.selectedTurnIndex).toBe(2);
   });
+
+  it("starts in learn mode with the explanation tab selected", () => {
+    const { result } = renderHook(() => useSessionStore());
+
+    expect(result.current.mode).toBe("learn");
+    expect(result.current.rightTab).toBe("explanation");
+  });
+
+  it("setMode switches mode and resets turn index + right tab", () => {
+    const { result } = renderHook(() => useSessionStore());
+
+    act(() => result.current.selectTurn(3));
+    act(() => result.current.setRightTab("tools"));
+    act(() => result.current.setMode("analyze"));
+
+    expect(result.current.mode).toBe("analyze");
+    expect(result.current.selectedTurnIndex).toBe(0);
+    expect(result.current.rightTab).toBe("explanation");
+  });
+
+  it("setMode clears the loaded session so a stale cross-mode session isn't shown", () => {
+    const { result } = renderHook(() => useSessionStore());
+
+    act(() => result.current.loadSession(session));
+    act(() => result.current.setMode("analyze"));
+
+    expect(result.current.session).toBeNull();
+  });
+
+  it("loadSession also resets the right tab to explanation", () => {
+    const { result } = renderHook(() => useSessionStore());
+
+    act(() => result.current.setRightTab("system-prompt"));
+    act(() => result.current.loadSession(session));
+
+    expect(result.current.rightTab).toBe("explanation");
+  });
+
+  it("setRightTab updates the right tab", () => {
+    const { result } = renderHook(() => useSessionStore());
+
+    act(() => result.current.setRightTab("tools"));
+
+    expect(result.current.rightTab).toBe("tools");
+  });
 });

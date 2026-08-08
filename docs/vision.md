@@ -75,14 +75,22 @@ In addition to the shared layout, Analyze mode adds:
 
 ```mermaid
 flowchart TB
-    subgraph Main["Learn / Analyze mode (shared layout)"]
+    Header["Header: brand mark, wordmark,<br/>Learn/Analyze mode switch, Config button"]
+    Header --> Main
+    subgraph Main["Three-column body (shared layout)"]
         direction LR
-        Left["Turns table<br/>(one row per turn:<br/>cache write/read, uncached,<br/>tool, vision, reasoning, output, cost)"]
-        Right["Explanation panel<br/>(what happened this turn, and why)"]
-        Left --- Right
+        List["Session list<br/>(searchable scenario/session cards)"]
+        Center["Turns table<br/>(one row per turn:<br/>trigger, uncached, cache read/write,<br/>tool, vision, reasoning, output, cost, model)<br/>+ timeline scrubber"]
+        Right["Tabbed right panel<br/>(Explanation / System prompt / Tools —<br/>Learn mode: Explanation only)"]
+        List --- Center --- Right
     end
-    Main --> Slider["Timeline scrubber<br/>(drag to move between turns)"]
 ```
+
+Applies to both modes identically; Analyze mode additionally tabs the right
+panel between Explanation, System prompt breakdown, and Tool inventory.
+Visual treatment (the "Industry" design system — hairline-bordered
+"blueprint" cards, steel-blue mono accent, square corners) is specified in
+`docs/implementation-plan.md`'s Phase 8.
 
 ## 4. Data sources for Analyze mode
 

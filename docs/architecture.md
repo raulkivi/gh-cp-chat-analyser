@@ -133,16 +133,18 @@ SQLite, `main.jsonl`, or scenario fixtures.
 
 | Module | Responsibility |
 |---|---|
-| `components/TurnsTable` | Left panel: one row per turn (cache write/read, uncached, tool, vision, reasoning, output tokens, cost) |
-| `components/ExplanationPanel` | Right panel: plain-language explanation for the selected turn |
+| `components/AppHeader` | Brand mark/wordmark, the Learn/Analyze mode `SegmentedControl`, and the Config button (or a static "Config ✓" tag when there are no warnings) |
+| `components/SessionList` | Left panel: searchable, scrollable list of `Session` cards (Learn scenarios or Analyze sessions, per mode) with a category/relative-time kicker and turn count |
+| `components/TurnsTable` | Center panel: one row per turn — Turn, Trigger, Uncached in, Cache read, Cache write, Tool, Vision, Reasoning, Output, Cost, Model |
+| `components/ExplanationPanel` | Right panel: plain-language explanation for the selected turn, plus (Analyze mode only) a "Tool calls this turn" block listing that turn's tool calls and touched files |
 | `components/TimelineScrubber` | Bottom slider driving the shared "selected turn" state |
-| `components/SystemPromptBreakdown` | Analyze-mode-only: token contribution per system-prompt component |
+| `components/SystemPromptBreakdown` | Analyze-mode-only: token contribution per system-prompt component, rendered as a proportional bar-meter |
 | `components/ToolInventoryPanel` | Analyze-mode-only: tools loaded vs. tools actually invoked |
-| `components/TurnDetail` | Analyze-mode-only: tools called and files touched for the selected turn, each with its own token count |
-| `components/ConfigWarningBanner` | Persistent banner shown when `GET /api/config/status` reports unmet prerequisites; renders the exact setting name, current vs. recommended value, and step-by-step fix instructions (§6.3) |
-| `state/session-store` | Holds the currently loaded `Session` (Learn scenario or Analyze session) and the selected turn index; the rest of the UI is a pure function of this state |
+| `components/ConfigWarningBanner` | Dismissible banner shown when `GET /api/config/status` reports unmet prerequisites; renders the exact setting name, current vs. recommended value, and step-by-step fix instructions (§6.3) |
+| `components/ui/*` | Shared design-system primitives (`Blueprint`, `Tag`, `SegmentedControl`) used across the components above, per the "Industry" design tokens in `theme.css` |
+| `state/session-store` | Holds the currently loaded `Session`, the selected turn index, the Learn/Analyze `mode`, and the right-column `rightTab` (Analyze mode only); the rest of the UI is a pure function of this state |
 | `api-client` | Fetches from the local server's REST API; the only module that knows an HTTP boundary exists |
-| `charts/*` | D3-based rendering used by the turns table and scrubber (token bars, cost sparkline, cache-hit ratio) |
+| `charts/*` | D3-based cost sparkline rendered in the center column's header row |
 
 ### 4.3 Shared domain/schema package
 
@@ -211,6 +213,8 @@ interface Session {
   systemPrompt?: SystemPromptComponent[]; // Analyze mode only
   toolInventory?: ToolInventoryEntry[]; // Analyze mode only
   usageDataAvailable: boolean; // false ⇒ UI shows behavioral proxies, per constraint 6
+  category?: string; // Learn mode only — authored once per fixture, e.g. "Prompt caching"
+  startedAt?: string; // Analyze mode only — ISO date, sourced from sessions.created_at
 }
 ```
 
@@ -882,37 +886,33 @@ Carried over from vision §7 plus new ones raised while designing this layer:
   the vision doc doesn't mandate automated drift-checking, but a periodic
   manual review is worth deciding on explicitly.
 
-**Raised by the Phase 8 design handoff** (`Design/GitHub chat analyser
-design.zip`) — gaps between the mock and either this repo's domain model or
-scale/interaction concerns the mock doesn't address; to confirm with the
-designer before or during Phase 8:
+**Raised by the Phase 8 design handoff, resolved in the v2 handoff
+(`Design/GitHub chat analyser design 2.zip`) and implemented as designed**
+— kept here as a record of what was asked and how it was answered, not as
+open questions:
 
-- The mock has no cost-trend visualization at all, but `CostSparkline`
-  (Phase 7) already exists — where should it live, or should it be dropped?
-- `TurnDetail` (per-selected-turn tool calls + files touched) has no home
-  in the mock's three right-panel tabs (Explanation / System prompt /
-  Tools) — fold into the Tools tab, add a fourth tab, or drop it?
-- No zero-data state is designed: what does the screen look like with zero
-  sessions (fresh install, no Copilot Chat history yet) or zero Learn
-  scenarios?
-- Clicking the header "Config" button when `warnings[]` is empty currently
-  has no visible effect (the banner has nothing to show) — should there be
-  a positive "config OK" state, or should the button hide/disable itself?
-- The left-column session list has no designed behavior for the volume the
-  retention-warning banner itself asks users to grow the pool to (200+
-  sessions): no scroll boundary, search, filter, sort, or pagination.
-- No truncation/ellipsis rule for long session titles, tool names, or
-  trigger/model labels that overflow their cell/card.
-- The mock's card kicker ("Learn · Prompt caching" / "Analyze ·
-  2026-08-06") assumes two fields not in today's domain model — confirm
-  the intended format for Learn's topic label and Analyze's date (exact
-  date? relative time?) before `sessionSchema` gains `category`/`startedAt`.
-- The prototype's session cards and table rows are plain `div`/`tr` with
-  `onClick` only, no `tabIndex`/`role`/keyboard handler — confirm whether
-  keyboard accessibility is in scope for this local single-developer tool.
-- No dark-theme tokens exist in `styles.css` — intentional light-only, or
-  should dark variants be requested?
-- No app icon/favicon asset was provided (relevant if Phase 9's VS Code
-  extension packaging ever needs one).
-- Cost formatting precision: the prototype's mock logic uses 3 decimals
-  (`$0.031`); the shipped app currently uses 4 — confirm one.
+- `CostSparkline`'s home → kept, relocated to the center column's header
+  row next to the title/model tag/usage tag.
+- `TurnDetail`'s home → folded into the Explanation panel as a "Tool calls
+  this turn" block (Analyze mode only), not the Tools tab and not a 4th
+  tab.
+- Zero-data state → a centered `.blueprint` card with mode-specific copy,
+  replacing the whole three-column grid, gated on that mode's list fetch
+  having resolved.
+- Config button with no warnings → a static `.tag.tag-neutral` "Config ✓"
+  label, no click handler.
+- Session list at scale → a `.input` search box (title filter) above a
+  `max-height: 520px; overflow-y: auto` card list.
+- Truncation → a shared `.truncate` class plus a native `title` attribute
+  on card titles, table `Trigger`/`Model` cells, tool names, and file
+  paths.
+- Card kicker fields → `sessionSchema` gained optional `category` (Learn,
+  authored per fixture) and `startedAt` (Analyze, from
+  `sessions.created_at`); Analyze's kicker uses relative time ("2 days
+  ago"), not an absolute date.
+- Keyboard accessibility → in scope: session cards and table rows are
+  `tabIndex="0"` with an Enter/Space `onKeyDown` mirroring their `onClick`.
+- Dark theme → stayed out of scope, per the v2 handoff's explicit call.
+- App icon/favicon → stayed out of scope, deferred to Phase 9.
+- Cost formatting precision → standardized on 4 decimals (`$0.0310`),
+  matching the shipped code.

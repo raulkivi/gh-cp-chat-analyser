@@ -12,6 +12,8 @@ export const sessionSchema = z.object({
   systemPrompt: z.array(systemPromptComponentSchema).optional(), // Analyze mode only
   toolInventory: z.array(toolInventoryEntrySchema).optional(), // Analyze mode only
   usageDataAvailable: z.boolean(),
+  category: z.string().optional(), // Learn mode only — authored per fixture
+  startedAt: z.string().optional(), // Analyze mode only — ISO date from sessions.created_at
 });
 
 export type Session = z.infer<typeof sessionSchema>;

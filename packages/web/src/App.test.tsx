@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ConfigStatus } from "@gh-cp-chat-analyser/domain";
 import { App } from "./App.js";
 import { makeTurn } from "./test-support/turn-fixture.js";
 
@@ -47,9 +48,7 @@ const fullSession = {
       tokenCount: { known: false, reason: "not broken down" },
     },
   ],
-  toolInventory: [
-    { name: "read_file", loaded: true, invokedInTurns: [0] },
-  ],
+  toolInventory: [{ name: "read_file", loaded: true, invokedInTurns: [0] }],
 };
 
 const cleanConfigStatus = {
@@ -60,7 +59,7 @@ const cleanConfigStatus = {
   warnings: [],
 };
 
-let configStatus = cleanConfigStatus;
+let configStatus: ConfigStatus = cleanConfigStatus;
 
 function fakeFetch(url: string) {
   if (url === "/api/health") {
@@ -84,6 +83,10 @@ function fakeFetch(url: string) {
   return Promise.reject(new Error(`Unhandled fetch url in test: ${url}`));
 }
 
+function switchToAnalyze() {
+  fireEvent.click(screen.getByLabelText("Analyze"));
+}
+
 describe("App", () => {
   beforeEach(() => {
     configStatus = cleanConfigStatus;
@@ -97,9 +100,7 @@ describe("App", () => {
   it("renders a successful health check from the server, including the app version", async () => {
     render(<App />);
 
-    await waitFor(() =>
-      expect(screen.getByText(/status: ok/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/status: ok/i)).toBeInTheDocument());
     expect(screen.getByText(/v0\.1\.0/)).toBeInTheDocument();
     expect(fetch).toHaveBeenCalledWith("/api/health");
   });
@@ -107,8 +108,8 @@ describe("App", () => {
   it("lets the user pick a learn scenario and renders the shared layout", async () => {
     render(<App />);
 
-    const scenarioButton = await screen.findByRole("button", { name: "Cache Basics" });
-    fireEvent.click(scenarioButton);
+    const scenarioCard = await screen.findByRole("button", { name: "Cache Basics" });
+    fireEvent.click(scenarioCard);
 
     expect(await screen.findByText("first turn explanation")).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(3); // header + 2 turns
@@ -126,36 +127,71 @@ describe("App", () => {
     expect(screen.getAllByRole("row")[2]).toHaveAttribute("aria-selected", "true");
   });
 
+  it("switching to Analyze mode shows the sessions list instead of scenarios", async () => {
+    render(<App />);
+
+    await screen.findByRole("button", { name: "Cache Basics" });
+    switchToAnalyze();
+
+    expect(await screen.findByRole("button", { name: "Fix the bug" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cache Basics" })).not.toBeInTheDocument();
+  });
+
   it("lets the user pick a real Analyze session and renders the shared layout", async () => {
     render(<App />);
 
-    const sessionButton = await screen.findByRole("button", { name: "Fix the bug" });
-    fireEvent.click(sessionButton);
+    switchToAnalyze();
+    fireEvent.click(await screen.findByRole("button", { name: "Fix the bug" }));
 
     expect(await screen.findByText("analyze turn explanation")).toBeInTheDocument();
   });
 
-  it("renders Analyze-mode-only panels (system prompt breakdown, tool inventory, turn detail) for a real session", async () => {
+  it("folds tool-call detail for the selected turn into the Explanation tab in Analyze mode", async () => {
     render(<App />);
 
+    switchToAnalyze();
     fireEvent.click(await screen.findByRole("button", { name: "Fix the bug" }));
     await screen.findByText("analyze turn explanation");
 
-    expect(
-      screen.getByText("Base system prompt (100 characters)"),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText("read_file").length).toBeGreaterThan(0);
+    expect(screen.getByText("read_file")).toBeInTheDocument();
     expect(screen.getByText("src/a.ts")).toBeInTheDocument();
   });
 
-  it("does not render Analyze-mode-only panels for a Learn scenario", async () => {
+  it("renders the system prompt breakdown when that tab is selected", async () => {
+    render(<App />);
+
+    switchToAnalyze();
+    fireEvent.click(await screen.findByRole("button", { name: "Fix the bug" }));
+    await screen.findByText("analyze turn explanation");
+
+    fireEvent.click(screen.getByLabelText("System prompt"));
+
+    expect(screen.getByText("Base system prompt (100 characters)")).toBeInTheDocument();
+  });
+
+  it("renders the tool inventory when that tab is selected", async () => {
+    render(<App />);
+
+    switchToAnalyze();
+    fireEvent.click(await screen.findByRole("button", { name: "Fix the bug" }));
+    await screen.findByText("analyze turn explanation");
+
+    fireEvent.click(screen.getByLabelText("Tools"));
+
+    expect(screen.getByText("Tools: loaded vs. used")).toBeInTheDocument();
+    expect(screen.getAllByText("read_file").length).toBeGreaterThan(0);
+  });
+
+  it("does not render a tab switcher or Analyze-only panels for a Learn scenario", async () => {
     render(<App />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Cache Basics" }));
     await screen.findByText("first turn explanation");
 
+    expect(screen.queryByLabelText("System prompt")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Tools")).not.toBeInTheDocument();
     expect(screen.queryByText(/system prompt breakdown/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/tool inventory/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/tools: loaded vs\. used/i)).not.toBeInTheDocument();
   });
 
   it("renders the config warning banner when prerequisites aren't met", async () => {
@@ -179,5 +215,36 @@ describe("App", () => {
     expect(
       await screen.findByText("Only the last 50 sessions' logs are retained on disk."),
     ).toBeInTheDocument();
+  });
+
+  it("dismisses the config warning banner via its Dismiss button and can reopen it via the Config button", async () => {
+    configStatus = {
+      ...cleanConfigStatus,
+      warnings: [
+        {
+          code: "retention-too-low",
+          settingId: "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs",
+          currentValue: 50,
+          recommendedValue: 200,
+          message: "Only the last 50 sessions' logs are retained on disk.",
+          helpSteps: ["Set maxRetainedSessionLogs to 200 in settings.json"],
+        },
+      ],
+    };
+    render(<App />);
+
+    await screen.findByText("Only the last 50 sessions' logs are retained on disk.");
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Config" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("shows a static Config ✓ tag instead of a button when there are no warnings", async () => {
+    render(<App />);
+
+    expect(await screen.findByText("Config ✓")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Config" })).not.toBeInTheDocument();
   });
 });

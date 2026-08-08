@@ -148,6 +148,7 @@ export function buildSessionSummary(row: SessionRow): Session {
     model: UNKNOWN_MODEL,
     turns: [],
     usageDataAvailable: false,
+    ...(row.created_at ? { startedAt: row.created_at } : {}),
   };
 }
 

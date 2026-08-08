@@ -1,0 +1,11 @@
+import type { TriggeredEvent } from "@gh-cp-chat-analyser/domain";
+
+export const TRIGGER_LABELS: Record<TriggeredEvent, string> = {
+  "model-switch": "model switch",
+  "tool-change": "tool change",
+  compaction: "compaction",
+  clear: "/clear",
+  rewind: "/rewind",
+  fork: "fork",
+  "cache-expiry": "cache expiry",
+};

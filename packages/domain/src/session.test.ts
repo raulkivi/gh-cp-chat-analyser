@@ -53,6 +53,30 @@ describe("sessionSchema", () => {
     expect(sessionSchema.parse(sample)).toEqual(sample);
   });
 
+  it("accepts optional category (Learn) and startedAt (Analyze) fields", () => {
+    const learnSample = {
+      id: "learn-cache-write-read",
+      mode: "learn",
+      title: "Cache write then read",
+      model: "gpt-4o",
+      turns: [turn],
+      usageDataAvailable: false,
+      category: "Prompt caching",
+    };
+    const analyzeSample = {
+      id: "session-123",
+      mode: "analyze",
+      title: "Real session",
+      model: "gpt-4o",
+      turns: [turn],
+      usageDataAvailable: true,
+      startedAt: "2026-08-06T12:00:00.000Z",
+    };
+
+    expect(sessionSchema.parse(learnSample)).toEqual(learnSample);
+    expect(sessionSchema.parse(analyzeSample)).toEqual(analyzeSample);
+  });
+
   it("rejects an invalid mode", () => {
     const sample = {
       id: "session-123",

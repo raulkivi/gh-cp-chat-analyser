@@ -1,7 +1,13 @@
 import type { SystemPromptComponent, TokenCount } from "@gh-cp-chat-analyser/domain";
+import { Blueprint } from "./ui/Blueprint.js";
 
 function formatTokenCount(tokenCount: TokenCount): string {
-  return tokenCount.known ? tokenCount.value.toLocaleString() : "unavailable";
+  return tokenCount.known ? tokenCount.value.toLocaleString() : "—";
+}
+
+function barWidthPercent(tokenCount: TokenCount, maxValue: number): number {
+  if (!tokenCount.known || maxValue === 0) return 0;
+  return (tokenCount.value / maxValue) * 100;
 }
 
 interface SystemPromptBreakdownProps {
@@ -9,31 +15,39 @@ interface SystemPromptBreakdownProps {
 }
 
 export function SystemPromptBreakdown({ components }: SystemPromptBreakdownProps) {
+  const maxValue = Math.max(
+    0,
+    ...components.map((component) => (component.tokenCount.known ? component.tokenCount.value : 0)),
+  );
+
   return (
-    <section>
-      <h2>System prompt breakdown</h2>
+    <Blueprint style={{ padding: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      <div className="card-kicker">System prompt breakdown</div>
       {components.length === 0 ? (
-        <p>No system-prompt breakdown available for this session.</p>
+        <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
+          No prompt artifacts captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS
+          Code.
+        </p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Kind</th>
-              <th>Component</th>
-              <th>Token count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {components.map((component) => (
-              <tr key={`${component.kind}-${component.label}`}>
-                <td>{component.kind}</td>
-                <td>{component.label}</td>
-                <td>{formatTokenCount(component.tokenCount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        components.map((component) => (
+          <div key={`${component.kind}-${component.label}`}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
+              <span>{component.label}</span>
+              <span className="text-muted">{formatTokenCount(component.tokenCount)}</span>
+            </div>
+            <div style={{ height: 5, background: "var(--color-surface)", border: "1px solid var(--color-divider)" }}>
+              <div
+                data-testid={`prompt-bar-fill-${component.label}`}
+                style={{
+                  height: "100%",
+                  background: "var(--color-accent)",
+                  width: `${barWidthPercent(component.tokenCount, maxValue)}%`,
+                }}
+              />
+            </div>
+          </div>
+        ))
       )}
-    </section>
+    </Blueprint>
   );
 }

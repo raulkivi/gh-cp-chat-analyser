@@ -4,7 +4,7 @@ import type { ToolInventoryEntry } from "@gh-cp-chat-analyser/domain";
 import { ToolInventoryPanel } from "./ToolInventoryPanel.js";
 
 describe("ToolInventoryPanel", () => {
-  it("renders one row per tool plus a header row", () => {
+  it("renders the card kicker and each tool's name", () => {
     const entries: ToolInventoryEntry[] = [
       { name: "read_file", loaded: true, invokedInTurns: [0, 1] },
       { name: "create_file", loaded: true, invokedInTurns: [] },
@@ -12,7 +12,9 @@ describe("ToolInventoryPanel", () => {
 
     render(<ToolInventoryPanel entries={entries} />);
 
-    expect(screen.getAllByRole("row")).toHaveLength(entries.length + 1);
+    expect(screen.getByText("Tools: loaded vs. used")).toBeInTheDocument();
+    expect(screen.getByText("read_file")).toBeInTheDocument();
+    expect(screen.getByText("create_file")).toBeInTheDocument();
   });
 
   it("distinguishes loaded from not-loaded tools", () => {
@@ -22,22 +24,26 @@ describe("ToolInventoryPanel", () => {
 
     render(<ToolInventoryPanel entries={entries} />);
 
-    expect(screen.getByText(/not loaded/i)).toBeInTheDocument();
+    expect(screen.getByText("not loaded")).toBeInTheDocument();
   });
 
-  it("shows 'never invoked' for a loaded tool with no invocations", () => {
+  it("shows 'used in N turns' for an invoked tool and 'not invoked' otherwise", () => {
     const entries: ToolInventoryEntry[] = [
+      { name: "read_file", loaded: true, invokedInTurns: [0, 1] },
       { name: "create_file", loaded: true, invokedInTurns: [] },
     ];
 
     render(<ToolInventoryPanel entries={entries} />);
 
-    expect(screen.getByText(/never invoked/i)).toBeInTheDocument();
+    expect(screen.getByText("used in 2 turns")).toBeInTheDocument();
+    expect(screen.getByText("not invoked")).toBeInTheDocument();
   });
 
   it("shows a fallback message when no inventory is available", () => {
     render(<ToolInventoryPanel entries={[]} />);
 
-    expect(screen.getByText(/no tool inventory available/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("No tool inventory captured for this session."),
+    ).toBeInTheDocument();
   });
 });

@@ -20,4 +20,11 @@ describe("TimelineScrubber", () => {
 
     expect(onSelectTurn).toHaveBeenCalledWith(3);
   });
+
+  it("renders the Timeline label and a 1-indexed 'Turn N of M' readout", () => {
+    render(<TimelineScrubber turnCount={5} selectedTurnIndex={2} onSelectTurn={() => {}} />);
+
+    expect(screen.getByText("Timeline")).toBeInTheDocument();
+    expect(screen.getByText("Turn 3 of 5")).toBeInTheDocument();
+  });
 });

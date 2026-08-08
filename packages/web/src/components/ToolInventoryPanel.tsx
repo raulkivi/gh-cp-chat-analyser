@@ -1,4 +1,6 @@
 import type { ToolInventoryEntry } from "@gh-cp-chat-analyser/domain";
+import { Blueprint } from "./ui/Blueprint.js";
+import { Tag } from "./ui/Tag.js";
 
 interface ToolInventoryPanelProps {
   entries: ToolInventoryEntry[];
@@ -6,34 +8,37 @@ interface ToolInventoryPanelProps {
 
 export function ToolInventoryPanel({ entries }: ToolInventoryPanelProps) {
   return (
-    <section>
-      <h2>Tool inventory</h2>
+    <Blueprint style={{ padding: "var(--space-3)" }}>
+      <div className="card-kicker" style={{ marginBottom: "var(--space-3)" }}>
+        Tools: loaded vs. used
+      </div>
       {entries.length === 0 ? (
-        <p>No tool inventory available for this session.</p>
+        <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
+          No tool inventory captured for this session.
+        </p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Tool</th>
-              <th>Loaded</th>
-              <th>Invoked in turns</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => (
-              <tr key={entry.name}>
-                <td>{entry.name}</td>
-                <td>{entry.loaded ? "loaded" : "not loaded"}</td>
-                <td>
-                  {entry.invokedInTurns.length > 0
-                    ? entry.invokedInTurns.join(", ")
-                    : "never invoked"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          {entries.map((entry) => (
+            <div key={entry.name} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+              <span
+                title={entry.name}
+                className="truncate"
+                style={{ flex: 1, fontFamily: "monospace", fontSize: 12, maxWidth: 150 }}
+              >
+                {entry.name}
+              </span>
+              <Tag variant={entry.loaded ? "neutral" : "outline"}>
+                {entry.loaded ? "loaded" : "not loaded"}
+              </Tag>
+              <Tag variant={entry.invokedInTurns.length > 0 ? "accent" : "neutral"}>
+                {entry.invokedInTurns.length > 0
+                  ? `used in ${entry.invokedInTurns.length} turns`
+                  : "not invoked"}
+              </Tag>
+            </div>
+          ))}
+        </div>
       )}
-    </section>
+    </Blueprint>
   );
 }

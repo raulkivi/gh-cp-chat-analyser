@@ -380,10 +380,16 @@ latest stable versions, `npm audit` clean. Facts/decisions from this slice:
   sparkline, per-turn usage bars, and cache-hit bars all render correctly
   from real turn data, not just fixtures.
 
+**Superseded by Phase 8 (2026-08-08):** `TokenTypeBars`/`CacheHitRatio`
+(and their tests) were deleted — the Industry design handoff's 11-column
+`TurnsTable` spec doesn't include per-row charts. `CostSparkline` is the
+only chart that survived; it relocated out of `TurnsTable` into the center
+column's header row. See Phase 8 below.
+
 ## Phase 8 — Apply the "Industry" design system (visual UI polish)
 
 **Goal**: replace the unstyled semantic-HTML frontend with the high-fidelity
-visual design handed off in `Design/GitHub chat analyser design.zip`
+visual design handed off in `Design/GitHub chat analyser design 2.zip`
 (`design_handoff_session_analyser_ui/README.md`, `styles.css`, and the
 `Session Analyser.dc.html` interactive prototype) — the "Industry" system:
 steel-blue mono-accent palette, Barlow/Barlow Condensed type, flat
@@ -433,12 +439,18 @@ here so the phase isn't blocked; each is revisitable):
   next to the title/model tag/usage tag — a placement the mock doesn't
   show but doesn't conflict with either, since a session-level trend line
   fits there better than duplicated per-row bars.
-- **`TurnDetail`'s per-turn tool-call table folds into the "Tools" tab**
-  instead of becoming a 4th tab. The mock specs exactly three right-panel
-  tabs (Explanation / System prompt / Tools); `TurnDetail`'s content (tools
-  called + files touched + token count for the *selected* turn) is
-  thematically tool data, so it renders as a second block underneath
-  `ToolInventoryPanel`'s loaded-vs-invoked list, inside the same tab.
+- **`TurnDetail`'s per-turn tool-call content folds into the Explanation
+  panel** instead of becoming a 4th tab — per the handoff's v2 "resolved
+  open questions" §2. The mock specs exactly three right-panel tabs
+  (Explanation / System prompt / Tools); `TurnDetail`'s content (tool names
+  + files touched for the *selected* turn) renders as a "Tool calls this
+  turn" block underneath the explanation body, inside the same `.blueprint`
+  card, Analyze mode only — not as a separate table underneath
+  `ToolInventoryPanel`. `TurnDetail.tsx` as a standalone component is
+  retired; its rendering logic moves into `ExplanationPanel.tsx` as an
+  internal, non-exported subcomponent, since it's no longer reused
+  elsewhere and SOLID's single-responsibility principle doesn't require a
+  separate file for a private implementation detail of one component.
 - **`ConfigWarningBanner` keeps its full structured content**
   (architecture.md §6.3 requires the exact setting name, current vs.
   recommended value, and step-by-step fix instructions — more than the
@@ -452,6 +464,21 @@ here so the phase isn't blocked; each is revisitable):
   explicit convention (§3b) — prose contexts (explanation panel body text,
   the two panels' "no artifacts captured" empty states) keep full
   sentences, including surfacing `TokenCount`'s `reason` where one exists.
+- **Remaining v2 "resolved open questions" carried through as designed**,
+  with no further gap-filling needed: `SessionList` gets a `.input` search
+  box (filters by title client-side) above a `max-height: 520px;
+  overflow-y: auto` card list, with a muted "No matches." fallback; a
+  session/scenario card and a `TurnsTable` row are both `tabIndex="0"` with
+  an Enter/Space `onKeyDown` mirroring their `onClick` (`lib/on-key-
+  activate.ts`, one shared helper rather than duplicated per component);
+  card titles, table `Trigger`/`Model` cells, tool names, and file paths
+  get a shared `.truncate` class plus a native `title` attribute where the
+  full value matters; the header's Config button becomes a static
+  `.tag.tag-neutral` "Config ✓" label (no click handler) when
+  `ConfigStatus.warnings` is empty; and a zero-session/zero-scenario
+  response renders a centered `.blueprint` empty-state card (mode-specific
+  copy) in place of the whole three-column grid, gated on that mode's list
+  fetch having resolved (so it doesn't flash before the real data loads).
 
 **Deliverables**:
 
@@ -485,9 +512,10 @@ here so the phase isn't blocked; each is revisitable):
 - **Restyle existing components** against the ported tokens/primitives,
   each getting its markup/classes updated to match the mock 1:1 (colors,
   spacing, blueprint frames) while keeping each component's existing
-  props/data contract: `TurnsTable`, `ExplanationPanel`, `TimelineScrubber`,
-  `SystemPromptBreakdown`, `ToolInventoryPanel`, `TurnDetail`,
-  `ConfigWarningBanner`.
+  props/data contract: `TurnsTable`, `ExplanationPanel` (gains a `mode` and
+  `toolCallsAvailable` prop for the folded-in tool-call block),
+  `TimelineScrubber`, `SystemPromptBreakdown`, `ToolInventoryPanel`,
+  `ConfigWarningBanner` (gains an `onDismiss` prop).
 - **Docs**: update architecture.md §4.2's component table (add
   `AppHeader`, `SessionList`, `components/ui/*`, the `mode`/`rightTab`
   additions to `session-store`) and vision.md §3.3's shared-layout diagram
@@ -518,6 +546,30 @@ components/behavior pass.
 
 **Dependencies**: Phases 2, 4, 6, 7 (needs both modes' real data end-to-end
 and the Analyze-only panels this phase restyles).
+
+**Status (2026-08-08): done.** Built TDD-first per architecture §11.4/§11.5:
+`packages/web/src/theme.css` ports every token/base class from the v2
+handoff's `styles.css`; `components/ui/{Blueprint,Tag,SegmentedControl}.tsx`
+each got a failing test before implementation; `state/session-store.ts`
+gained `mode`/`rightTab`/`setMode` (with its own tests, including that
+`setMode` clears the loaded session so a stale cross-mode session isn't
+shown — a gap the mock's own `setMode` closes by auto-selecting the new
+mode's first item, addressed here by clearing to the empty-selection state
+instead, which is simpler and equally non-stale); `AppHeader`/`SessionList`
+are new; `TurnsTable`/`ExplanationPanel`/`SystemPromptBreakdown`/
+`ToolInventoryPanel`/`TimelineScrubber`/`ConfigWarningBanner` were restyled
+in place; `TurnDetail.tsx` and `charts/{TokenTypeBars,CacheHitRatio}.tsx`
+(plus their tests) were deleted per the retirement decisions above.
+`sessionSchema` gained optional `category`/`startedAt`; all four Learn
+fixtures got an authored `category`; `session-enricher.ts` now surfaces
+`SessionRow.created_at` as `Session.startedAt`. 93 web tests, 240 server
+tests, 49 domain tests pass; `tsc --noEmit` clean. Verified against this
+machine's real Copilot Chat/Claude Code session history in a live browser
+(Playwright + system Chrome, `npm run dev` for both `packages/server` and
+`packages/web`): Learn mode, Analyze mode (including a real session's
+non-trivial usage numbers, trigger em dashes, and the Tools tab's
+loaded/invoked tags), and the mode-switch empty-selection state all render
+correctly.
 
 ## Phase 9 — VS Code extension packaging (future, out of MVP scope)
 

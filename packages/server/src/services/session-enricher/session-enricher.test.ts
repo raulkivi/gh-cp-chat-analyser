@@ -61,6 +61,18 @@ describe("buildSessionSummary", () => {
       }).title,
     ).toBe("Session session-1");
   });
+
+  it("surfaces created_at as Session.startedAt", () => {
+    expect(buildSessionSummary(sessionRow).startedAt).toBe(
+      "2026-01-01T00:00:00.000Z",
+    );
+  });
+
+  it("omits startedAt when created_at is null", () => {
+    expect(
+      buildSessionSummary({ ...sessionRow, created_at: null }).startedAt,
+    ).toBeUndefined();
+  });
 });
 
 describe("buildSession", () => {

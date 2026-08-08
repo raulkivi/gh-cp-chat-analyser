@@ -25,18 +25,21 @@ content here.
   met.
 - Commit all changes to git as soon as a phase's exit criterion is met,
   before starting the next phase.
-- Repo status: Phases 0-7 complete — npm workspaces with `packages/domain`
-  (zod schemas + types for every architecture.md §5 shape), `packages/server`
-  (Express API: Learn-mode fixtures plus real Analyze-mode sessions read
-  read-only from the local VS Code SQLite store via `node:sqlite`, enriched
-  with real per-turn token/cache numbers extracted from `main.jsonl`, plus
+- Repo status: Phases 0-8 complete — npm workspaces with `packages/domain`
+  (zod schemas + types for every architecture.md §5 shape, including
+  `Session.category`/`startedAt`), `packages/server` (Express API:
+  Learn-mode fixtures plus real Analyze-mode sessions read read-only from
+  the local VS Code SQLite store via `node:sqlite`, enriched with real
+  per-turn token/cache numbers extracted from `main.jsonl`, plus
   Analyze-mode-only system-prompt breakdown and tool-inventory/tool-call
   detail extracted from `main.jsonl`'s sibling artifacts; a startup config
   check reads `settings.json` and exposes `GET /api/config/status`),
-  `packages/web` (Vite + React, shared Learn/Analyze layout, persistent
-  config-warning banner, Analyze-mode-only breakdown/inventory/turn-detail
-  panels, D3-based `charts/*` — per-token-type bars, cache-hit ratio, cost
-  sparkline — shared by both modes via `TurnsTable`), Vitest wired with
-  TDD-first tests. Phase 8 (apply the "Industry" design system from
-  `Design/`) is planned but not started. Phase 9 (VS Code extension
-  packaging) is future/out of MVP scope — see implementation-plan.md.
+  `packages/web` (Vite + React, styled with the "Industry" design system
+  ported from `Design/` into `theme.css` — header with mode switch, a
+  searchable session list, an 11-column turns table, a tabbed
+  Explanation/System-prompt/Tools right column, a dismissible structured
+  config-warning banner, zero-data empty states — built on shared
+  `components/ui/*` primitives; `charts/CostSparkline` is the sole
+  remaining D3 chart, in the center column's header row), Vitest wired
+  with TDD-first tests. Phase 9 (VS Code extension packaging) is
+  future/out of MVP scope — see implementation-plan.md.

@@ -9,7 +9,7 @@ export const turnUsageSchema = z.object({
   vision: tokenCountSchema,
   reasoning: tokenCountSchema,
   output: tokenCountSchema,
-  costUsd: tokenCountSchema,
+  costAiCredits: tokenCountSchema,
   model: z.string(),
 });
 

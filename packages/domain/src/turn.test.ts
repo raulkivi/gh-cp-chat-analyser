@@ -9,7 +9,7 @@ const usage = {
   vision: { known: true, value: 0 },
   reasoning: { known: true, value: 0 },
   output: { known: true, value: 200 },
-  costUsd: { known: true, value: 0.0042 },
+  costAiCredits: { known: true, value: 2.79598 },
   model: "gpt-4o",
 };
 

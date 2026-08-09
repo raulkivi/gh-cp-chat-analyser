@@ -179,12 +179,14 @@ architecture.md §6.2's Phase 4 note for why the join is positional by
 fixed a real bug: the debug-logs path was resolved as a single
 `globalStorage` directory, but real logs live per-workspace under
 `workspaceStorage/<hash>/GitHub.copilot-chat/debug-logs/<session-id>/` —
-without that fix the extractor would never have found any real file. Two
-`TurnUsage` categories stay permanently unavailable regardless of extraction
-success: `cacheWrite`/`tool`/`vision`/`reasoning` (not broken out by this
-event shape) and `costUsd` (no documented USD conversion for the log's
-internal usage unit) — both marked `known: false` with a specific reason
-rather than a fabricated number, per constraint 6. Verified against this
+without that fix the extractor would never have found any real file. The
+`cacheWrite`/`tool`/`vision`/`reasoning` `TurnUsage` categories stay
+permanently unavailable regardless of extraction success because this event
+shape does not break them out. Cost is available as `copilotUsageNanoAiu`:
+the extractor converts it to `costAiCredits` using
+$1\ \text{AI Credit}=10^9\ \text{nano-AIU}$ and sums every request in a turn.
+Missing credit data keeps that turn explicitly unavailable rather than
+producing a partial total, per constraint 6. Verified against this
 machine's own real, live session data (this project's own history, and a
 longer session from another project), not just fixtures — exit criterion
 met.
@@ -360,8 +362,8 @@ latest stable versions, `npm audit` clean. Facts/decisions from this slice:
   two-segment bar with a percentage `aria-label`; unavailable when either
   input is unknown.
 - `CostSparkline` draws a `d3-shape` line path across a session's turns'
-  known `costUsd` points (skipping unknown ones); falls back to a "not
-  enough cost data" message when fewer than two turns have a known cost,
+  known `costAiCredits` points (skipping unknown ones); falls back to a "not
+  enough credit data" message when fewer than two turns have a known cost,
   rather than drawing a misleading single-point or zero-value line.
 - All three consume only `Turn`/`TurnUsage` (no mode field), and are wired
   once into the already-shared `components/TurnsTable.tsx` (`TokenTypeBars`/

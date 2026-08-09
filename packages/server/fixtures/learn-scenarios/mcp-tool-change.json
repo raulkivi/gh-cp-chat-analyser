@@ -20,7 +20,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 150 },
         "output": { "known": true, "value": 150 },
-        "costUsd": { "known": true, "value": 0.0289 },
+        "costAiCredits": { "known": true, "value": 0.0289 },
         "model": "example-model"
       },
       "explanation": "Normal first turn — writes the static prefix (including the currently-enabled MCP toolset) plus this turn's own content."
@@ -38,7 +38,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 120 },
         "output": { "known": true, "value": 180 },
-        "costUsd": { "known": true, "value": 0.0115 },
+        "costAiCredits": { "known": true, "value": 0.0115 },
         "model": "example-model"
       },
       "explanation": "Normal turn reusing/extending the cache."
@@ -56,7 +56,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 200 },
         "output": { "known": true, "value": 220 },
-        "costUsd": { "known": true, "value": 0.0579 },
+        "costAiCredits": { "known": true, "value": 0.0579 },
         "model": "example-model"
       },
       "explanation": "The tool-definitions block sits early in the prompt, so changing the enabled MCP toolset invalidates the cache the same way a model switch does — the prior 4,100-token cache no longer matches and must be resent uncached (4,350 tokens). Unlike a model switch, the per-token rates stay exactly the same, so this spike (~5x a normal turn) is smaller than a model switch's (~10x).",
@@ -77,7 +77,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 130 },
         "output": { "known": true, "value": 160 },
-        "costUsd": { "known": true, "value": 0.0143 },
+        "costAiCredits": { "known": true, "value": 0.0143 },
         "model": "example-model"
       },
       "explanation": "Normal turn under the new toolset — actually invokes one of the newly enabled tools."
@@ -95,7 +95,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 70 },
         "output": { "known": true, "value": 100 },
-        "costUsd": { "known": true, "value": 0.0072 },
+        "costAiCredits": { "known": true, "value": 0.0072 },
         "model": "example-model"
       },
       "explanation": "Cache continues building normally under the new toolset, with no further disruption."

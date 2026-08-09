@@ -7,8 +7,10 @@ function formatTokenCount(tokenCount: TokenCount): string {
   return tokenCount.known ? tokenCount.value.toLocaleString() : "—";
 }
 
-function formatCost(tokenCount: TokenCount): string {
-  return tokenCount.known ? `$${tokenCount.value.toFixed(4)}` : "—";
+function formatAiCredits(tokenCount: TokenCount): string {
+  return tokenCount.known
+    ? tokenCount.value.toFixed(6).replace(/\.?0+$/, "")
+    : "—";
 }
 
 interface TurnsTableProps {
@@ -31,7 +33,7 @@ export function TurnsTable({ turns, selectedTurnIndex, onSelectTurn }: TurnsTabl
           <th>Vision</th>
           <th>Reasoning</th>
           <th>Output</th>
-          <th>Cost</th>
+          <th>AI Credits</th>
           <th>Model</th>
         </tr>
       </thead>
@@ -63,7 +65,7 @@ export function TurnsTable({ turns, selectedTurnIndex, onSelectTurn }: TurnsTabl
             <td>{formatTokenCount(turn.usage.vision)}</td>
             <td>{formatTokenCount(turn.usage.reasoning)}</td>
             <td>{formatTokenCount(turn.usage.output)}</td>
-            <td>{formatCost(turn.usage.costUsd)}</td>
+            <td>{formatAiCredits(turn.usage.costAiCredits)}</td>
             <td className="text-muted truncate" style={{ fontSize: 12, maxWidth: 110 }}>
               {turn.usage.model}
             </td>

@@ -14,7 +14,7 @@ export function makeTurn(overrides: Partial<Turn> = {}): Turn {
       vision: { known: true, value: 0 },
       reasoning: { known: true, value: 10 },
       output: { known: true, value: 20 },
-      costUsd: { known: true, value: 0.01 },
+      costAiCredits: { known: true, value: 0.01 },
       model: "example-model",
     },
     explanation: "explanation text",

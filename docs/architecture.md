@@ -135,7 +135,7 @@ SQLite, `main.jsonl`, or scenario fixtures.
 |---|---|
 | `components/AppHeader` | Brand mark/wordmark, the Learn/Analyze mode `SegmentedControl`, and the Config button (or a static "Config ✓" tag when there are no warnings) |
 | `components/SessionList` | Left panel: searchable, scrollable list of `Session` cards (Learn scenarios or Analyze sessions, per mode) with a category/relative-time kicker and turn count |
-| `components/TurnsTable` | Center panel: one row per turn — Turn, Trigger, Uncached in, Cache read, Cache write, Tool, Vision, Reasoning, Output, Cost, Model |
+| `components/TurnsTable` | Center panel: one row per turn — Turn, Trigger, Uncached in, Cache read, Cache write, Tool, Vision, Reasoning, Output, AI Credits, Model |
 | `components/ExplanationPanel` | Right panel: plain-language explanation for the selected turn, plus (Analyze mode only) a "Tool calls this turn" block listing that turn's tool calls and touched files |
 | `components/TimelineScrubber` | Bottom slider driving the shared "selected turn" state |
 | `components/SystemPromptBreakdown` | Analyze-mode-only: token contribution per system-prompt component, rendered as a proportional bar-meter |
@@ -171,7 +171,7 @@ interface TurnUsage {
   vision: TokenCount;
   reasoning: TokenCount;
   output: TokenCount;
-  costUsd: TokenCount;
+  costAiCredits: TokenCount;
   model: string;
 }
 
@@ -384,17 +384,20 @@ this slice:
   `generic`, `tool_call`, `llm_request`, and `agent_response` spans. Only
   `llm_request` carries usage numbers, in `attrs`: `model`, `inputTokens`
   (the request's total input, cached + uncached), `outputTokens`,
-  `cachedTokens` (the subset of `inputTokens` served from cache), plus
-  non-usage fields (`ttft`, `copilotUsageNanoAiu`, `debugName`,
+  `cachedTokens` (the subset of `inputTokens` served from cache), and
+  `copilotUsageNanoAiu` (request cost in nano-AIU), plus non-usage fields
+  (`ttft`, `debugName`,
   `requestOptions`, `requestShape`, `systemPromptFile`, `toolsFile`, and the
   full prompt/message content in `userRequest`/`inputMessages`, which the
   adapter never reads). There is **no separate cache-write figure, and no
   tool/vision/reasoning token breakdown** in this event shape — those
   `TurnUsage` fields stay `{ known: false }` for every turn, not just when
-  extraction fails. `copilotUsageNanoAiu` is a per-request internal usage
-  unit with no documented USD conversion, so `costUsd` also stays
-  `{ known: false }` — showing a number here would be constraint 6
-  fabrication, not a real dollar figure.
+  extraction fails. `copilotUsageNanoAiu` converts directly to AI Credits:
+  $1\ \text{AI Credit}=10^9\ \text{nano-AIU}$. The extractor normalizes each
+  request with that conversion and `extractTurnUsages` sums every request in
+  the turn into `costAiCredits`. If any request lacks a numeric value, the
+  whole turn's credit cost stays `{ known: false }` rather than understating
+  a partial total.
 - **The join key is positional, not `turnId`.** `main.jsonl`'s own
   `turnId` (on `turn_start`/`turn_end`) is an internal per-agent-iteration
   counter that **resets to 0 at every `user_message`**, not a running
@@ -914,5 +917,6 @@ open questions:
   `tabIndex="0"` with an Enter/Space `onKeyDown` mirroring their `onClick`.
 - Dark theme → stayed out of scope, per the v2 handoff's explicit call.
 - App icon/favicon → stayed out of scope, deferred to Phase 9.
-- Cost formatting precision → standardized on 4 decimals (`$0.0310`),
-  matching the shipped code.
+- AI Credit formatting precision → up to 6 decimals with trailing zeros
+  removed (`2.79598`), matching the nano-AIU source precision without a
+  misleading currency symbol.

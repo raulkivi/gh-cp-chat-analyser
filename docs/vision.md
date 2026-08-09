@@ -42,7 +42,7 @@ mechanics.
 
 - **Turns table (left panel)**: one row per turn, in chronological order,
   matching the tables in the reference document (cache write/read, uncached
-  input, tool, vision, reasoning, output tokens, and cost per turn).
+  input, tool, vision, reasoning, output tokens, and AI Credits per turn).
 - **Explanation panel (right panel)**: for the turn currently selected,
   explains in plain language what happened and why — e.g. "this turn switched
   models, so the prior 4,100-token cache became worthless and was resent as
@@ -80,7 +80,7 @@ flowchart TB
     subgraph Main["Three-column body (shared layout)"]
         direction LR
         List["Session list<br/>(searchable scenario/session cards)"]
-        Center["Turns table<br/>(one row per turn:<br/>trigger, uncached, cache read/write,<br/>tool, vision, reasoning, output, cost, model)<br/>+ timeline scrubber"]
+        Center["Turns table<br/>(one row per turn:<br/>trigger, uncached, cache read/write,<br/>tool, vision, reasoning, output, AI Credits, model)<br/>+ timeline scrubber"]
         Right["Tabbed right panel<br/>(Explanation / System prompt / Tools —<br/>Learn mode: Explanation only)"]
         List --- Center --- Right
     end
@@ -114,7 +114,7 @@ be obtainable by parsing `main.jsonl` directly — the same ground truth the
 cloud indexer uses — without ever syncing anything off the machine. Analyze
 mode should treat local SQLite as the primary index for turn/session
 structure and enrich each turn by joining in the matching `main.jsonl` spans
-for token/cost detail. If a session's `attrs` don't carry usage data (older
+for token/AI Credit detail. If a session's `attrs` don't carry usage data (older
 log format, incomplete session, or detailed logging wasn't enabled when the
 session ran — see below), fall back to the behavioral proxies already
 available in SQLite (turn counts, duration, repeated file reads, checkpoint

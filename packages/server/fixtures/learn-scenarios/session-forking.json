@@ -20,7 +20,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 150 },
         "output": { "known": true, "value": 150 },
-        "costUsd": { "known": true, "value": 0.0289 },
+        "costAiCredits": { "known": true, "value": 0.0289 },
         "model": "example-model"
       },
       "explanation": "Normal first turn — writes the static prefix plus this turn's own content. This is the start of the shared trunk both branches will inherit."
@@ -40,7 +40,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 120 },
         "output": { "known": true, "value": 180 },
-        "costUsd": { "known": true, "value": 0.0115 },
+        "costAiCredits": { "known": true, "value": 0.0115 },
         "model": "example-model"
       },
       "explanation": "Normal turn, still on the shared trunk; reads/extends the cache built by turn 1."
@@ -58,10 +58,10 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 140 },
         "output": { "known": true, "value": 160 },
-        "costUsd": { "known": true, "value": 0.0109 },
+        "costAiCredits": { "known": true, "value": 0.0109 },
         "model": "example-model"
       },
-      "explanation": "Fork point: forking doesn't invalidate anything — it just starts a second, independent continuation from this exact prefix (cache size 4,620). Unlike a model/tool switch, both branches will get to read this trunk as a warm cache hit; unlike /rewind, nothing here is ever discarded, and the original path can keep going too. Trunk cost so far: $0.0513, paid once.",
+      "explanation": "Fork point: forking doesn't invalidate anything — it just starts a second, independent continuation from this exact prefix (cache size 4,620). Unlike a model/tool switch, both branches will get to read this trunk as a warm cache hit; unlike /rewind, nothing here is ever discarded, and the original path can keep going too. Trunk cost so far: 0.0513 AI Credits, paid once.",
       "triggeredEvent": "fork"
     },
     {
@@ -79,10 +79,10 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 160 },
         "output": { "known": true, "value": 190 },
-        "costUsd": { "known": true, "value": 0.0171 },
+        "costAiCredits": { "known": true, "value": 0.0171 },
         "model": "example-model"
       },
-      "explanation": "Branch A, turn 4: reads the same 4,620-token trunk as a cache hit (cheap reuse, not a resend at full price), then diverges with its own new content. A parallel Branch B (in-memory LRU strategy) reads that identical trunk independently and diverges on its own — neither branch's post-fork writes are visible to the other. Running both branches this way costs the trunk once ($0.0513) plus each branch's own cost, versus starting two sessions from scratch, which would rebuild the trunk twice."
+      "explanation": "Branch A, turn 4: reads the same 4,620-token trunk as a cache hit (cheap reuse, not a resend at full price), then diverges with its own new content. A parallel Branch B (in-memory LRU strategy) reads that identical trunk independently and diverges on its own — neither branch's post-fork writes are visible to the other. Running both branches this way costs the trunk once (0.0513 AI Credits) plus each branch's own cost, versus starting two sessions from scratch, which would rebuild the trunk twice."
     },
     {
       "index": 5,
@@ -97,10 +97,10 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 90 },
         "output": { "known": true, "value": 120 },
-        "costUsd": { "known": true, "value": 0.0082 },
+        "costAiCredits": { "known": true, "value": 0.0082 },
         "model": "example-model"
       },
-      "explanation": "Normal follow-up turn in Branch A, building on Branch A's own post-fork cache. Branch A's total on top of the trunk: $0.0253 (session total $0.0513 + $0.0253 = $0.0766). The parallel Branch B (in-memory LRU) would total $0.0776 on the same shared trunk — exploring both this way costs about $0.1029 combined, roughly $0.0513 less than rebuilding the trunk twice from separate sessions."
+      "explanation": "Normal follow-up turn in Branch A, building on Branch A's own post-fork cache. Branch A's total on top of the trunk: 0.0253 AI Credits (session total 0.0513 + 0.0253 = 0.0766 AI Credits). The parallel Branch B (in-memory LRU) would total 0.0776 AI Credits on the same shared trunk — exploring both this way costs about 0.1029 AI Credits combined, roughly 0.0513 AI Credits less than rebuilding the trunk twice from separate sessions."
     }
   ]
 }

@@ -88,7 +88,7 @@ export function App() {
   const listLoaded = mode === "learn" ? scenariosLoaded : sessionsLoaded;
   const showEmptyState = listLoaded && listForMode.length === 0;
   const allCostsKnown =
-    session !== null && session.turns.length > 0 && session.turns.every((turn) => turn.usage.costUsd.known);
+    session !== null && session.turns.length > 0 && session.turns.every((turn) => turn.usage.costAiCredits.known);
   // toolInventory only comes from a parsed main.jsonl; a turn's toolCalls
   // come independently from SQLite session_files, so either source having
   // data means tool-call detail is available for the selected turn.

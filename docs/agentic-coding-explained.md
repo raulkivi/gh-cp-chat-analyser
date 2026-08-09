@@ -470,31 +470,31 @@ item (OpenAI-style automatic caching) varies — either way, the read-vs-write
 
 The same numbers, with rows as turns and columns as token types, plus a per-turn
 total and the session's running (cumulative) total for each type. To turn token
-counts into dollars, this example assumes illustrative per-1K-token rates:
-cache write \$0.00625, cache read \$0.0005, uncached input/tool/vision \$0.005,
-reasoning/output \$0.015 (real rates depend on the model and provider).
+counts into AI Credits, this example assumes illustrative per-1K-token rates:
+cache write 0.00625 AI Credits, cache read 0.0005 AI Credits, uncached input/tool/vision 0.005 AI Credits,
+reasoning/output 0.015 AI Credits (real rates depend on the model and provider).
 
 | Turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content | 4500 | 0 | 950 | 0 | 0 | 300 | 250 | **6000** | **$0.0411** |
-| 2 | Screenshot of a bug; spawns subagent, gets back a compact summary | 1480 | 4500 | 300 | 100 | 700 | 200 | 180 | **7460** | **$0.0227** |
-| 3 | Implements the fix using the subagent's summary | 1080 | 5980 | 150 | 400 | 0 | 250 | 280 | **8140** | **$0.0204** |
-| 4 | Runs the test suite; verbose terminal output | 2350 | 7060 | 100 | 1800 | 0 | 150 | 300 | **11760** | **$0.0345** |
-| 5 | A test fails; re-runs tests and greps logs to debug | 1210 | 9410 | 130 | 600 | 0 | 220 | 260 | **11830** | **$0.0231** |
-| 6 | User confirms the tests now pass, no new tool calls | 250 | 10620 | 80 | 0 | 0 | 50 | 120 | **11120** | **$0.0098** |
-| 7 | Commits the changes (`git status`/`git diff`/`git commit`) | 1370 | 10870 | 90 | 900 | 0 | 180 | 200 | **13610** | **$0.0246** |
-| 8 | Final "thanks" message, no new tool calls | 180 | 12240 | 60 | 0 | 0 | 30 | 90 | **12600** | **$0.0093** |
+| 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content | 4500 | 0 | 950 | 0 | 0 | 300 | 250 | **6000** | **0.0411 AI Credits** |
+| 2 | Screenshot of a bug; spawns subagent, gets back a compact summary | 1480 | 4500 | 300 | 100 | 700 | 200 | 180 | **7460** | **0.0227 AI Credits** |
+| 3 | Implements the fix using the subagent's summary | 1080 | 5980 | 150 | 400 | 0 | 250 | 280 | **8140** | **0.0204 AI Credits** |
+| 4 | Runs the test suite; verbose terminal output | 2350 | 7060 | 100 | 1800 | 0 | 150 | 300 | **11760** | **0.0345 AI Credits** |
+| 5 | A test fails; re-runs tests and greps logs to debug | 1210 | 9410 | 130 | 600 | 0 | 220 | 260 | **11830** | **0.0231 AI Credits** |
+| 6 | User confirms the tests now pass, no new tool calls | 250 | 10620 | 80 | 0 | 0 | 50 | 120 | **11120** | **0.0098 AI Credits** |
+| 7 | Commits the changes (`git status`/`git diff`/`git commit`) | 1370 | 10870 | 90 | 900 | 0 | 180 | 200 | **13610** | **0.0246 AI Credits** |
+| 8 | Final "thanks" message, no new tool calls | 180 | 12240 | 60 | 0 | 0 | 30 | 90 | **12600** | **0.0093 AI Credits** |
 
 | Cumulative through turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Session total** | **Running session cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content | 4500 | 0 | 950 | 0 | 0 | 300 | 250 | **6000** | **$0.0411** |
-| 2 | Screenshot of a bug; spawns subagent, gets back a compact summary | 5980 | 4500 | 1250 | 100 | 700 | 500 | 430 | **13460** | **$0.0638** |
-| 3 | Implements the fix using the subagent's summary | 7060 | 10480 | 1400 | 500 | 700 | 750 | 710 | **21600** | **$0.0843** |
-| 4 | Runs the test suite; verbose terminal output | 9410 | 17540 | 1500 | 2300 | 700 | 900 | 1010 | **33360** | **$0.1187** |
-| 5 | A test fails; re-runs tests and greps logs to debug | 10620 | 26950 | 1630 | 2900 | 700 | 1120 | 1270 | **45190** | **$0.1419** |
-| 6 | User confirms the tests now pass, no new tool calls | 10870 | 37570 | 1710 | 2900 | 700 | 1170 | 1390 | **56310** | **$0.1517** |
-| 7 | Commits the changes (`git status`/`git diff`/`git commit`) | 12240 | 48440 | 1800 | 3800 | 700 | 1350 | 1590 | **69920** | **$0.1763** |
-| 8 | Final "thanks" message, no new tool calls | 12420 | 60680 | 1860 | 3800 | 700 | 1380 | 1680 | **82520** | **$0.1857** |
+| 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content | 4500 | 0 | 950 | 0 | 0 | 300 | 250 | **6000** | **0.0411 AI Credits** |
+| 2 | Screenshot of a bug; spawns subagent, gets back a compact summary | 5980 | 4500 | 1250 | 100 | 700 | 500 | 430 | **13460** | **0.0638 AI Credits** |
+| 3 | Implements the fix using the subagent's summary | 7060 | 10480 | 1400 | 500 | 700 | 750 | 710 | **21600** | **0.0843 AI Credits** |
+| 4 | Runs the test suite; verbose terminal output | 9410 | 17540 | 1500 | 2300 | 700 | 900 | 1010 | **33360** | **0.1187 AI Credits** |
+| 5 | A test fails; re-runs tests and greps logs to debug | 10620 | 26950 | 1630 | 2900 | 700 | 1120 | 1270 | **45190** | **0.1419 AI Credits** |
+| 6 | User confirms the tests now pass, no new tool calls | 10870 | 37570 | 1710 | 2900 | 700 | 1170 | 1390 | **56310** | **0.1517 AI Credits** |
+| 7 | Commits the changes (`git status`/`git diff`/`git commit`) | 12240 | 48440 | 1800 | 3800 | 700 | 1350 | 1590 | **69920** | **0.1763 AI Credits** |
+| 8 | Final "thanks" message, no new tool calls | 12420 | 60680 | 1860 | 3800 | 700 | 1380 | 1680 | **82520** | **0.1857 AI Credits** |
 
 Note that **cumulative cache write** (12420) is exactly the final **cache size**
 from the first table — every token ever written, still available for reuse. The
@@ -513,18 +513,18 @@ above.
 
 | Subagent turn | What it does | Cache write (new) | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Searches the codebase (`grep_search`/`semantic_search`) for the bug's root cause | 1200 | 0 | 1200 | 250 | 600 | 180 | 120 | **2350** | **$0.0163** |
-| 2 | Reads the matched files in full | 300 | 1200 | 1500 | 100 | 900 | 150 | 90 | **2740** | **$0.0111** |
-| 3 | Synthesizes the compact summary returned to the parent | 150 | 1500 | 1650 | 50 | 0 | 100 | 200 | **2000** | **$0.0064** |
-| **Subagent session total** | | **1650** | **2700** | — | **400** | **1500** | **430** | **410** | **7090** | **$0.0338** |
+| 1 | Searches the codebase (`grep_search`/`semantic_search`) for the bug's root cause | 1200 | 0 | 1200 | 250 | 600 | 180 | 120 | **2350** | **0.0163 AI Credits** |
+| 2 | Reads the matched files in full | 300 | 1200 | 1500 | 100 | 900 | 150 | 90 | **2740** | **0.0111 AI Credits** |
+| 3 | Synthesizes the compact summary returned to the parent | 150 | 1500 | 1650 | 50 | 0 | 100 | 200 | **2000** | **0.0064 AI Credits** |
+| **Subagent session total** | | **1650** | **2700** | — | **400** | **1500** | **430** | **410** | **7090** | **0.0338 AI Credits** |
 
-This subagent cost (**$0.0338**) is real and billed — isolation doesn't make the
+This subagent cost (**0.0338 AI Credits**) is real and billed — isolation doesn't make the
 exploration free. What it *does* avoid is dumping all 7090 of those tokens into
 the **parent's** permanent cache. If that exploration had happened inline in
 parent turn 2 instead, the parent's cache size would have jumped by ~7090 tokens
 right there, and turns 3-6 would each re-read that extra history — roughly
-4 × 7090 ≈ 28,400 extra cache-read tokens (~\$0.0142) plus a bigger one-time write
-(~\$0.0443) — for a total of about \$0.0585, *more* than the \$0.0338 the isolated
+4 × 7090 ≈ 28,400 extra cache-read tokens (~0.0142 AI Credits) plus a bigger one-time write
+(~0.0443 AI Credits) — for a total of about 0.0585 AI Credits, *more* than the 0.0338 AI Credits the isolated
 subagent actually cost. Isolating exploratory work in a subagent keeps both the
 parent's context window and its long-run cache-driven cost smaller.
 
@@ -631,11 +631,11 @@ What this does to tokens/cache/cost:
 
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **$0.0289** |
-| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **$0.0115** |
-| 3 | **Context compaction**: reads all prior history (4100) one last time, replaces it with a ~500-token summary as the new cache prefix | 1350 | 4100 | **1350** | 150 | 0 | 300 | 400 | **6300** | **$0.0217** |
-| 4 | Normal turn; now builds on the much smaller post-compaction cache | 300 | 1350 | 1650 | 80 | 0 | 100 | 120 | **1950** | **$0.0063** |
-| 5 | Normal turn; cache stays small relative to what it would have been | 210 | 1650 | 1860 | 60 | 0 | 60 | 90 | **2070** | **$0.0047** |
+| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
+| 3 | **Context compaction**: reads all prior history (4100) one last time, replaces it with a ~500-token summary as the new cache prefix | 1350 | 4100 | **1350** | 150 | 0 | 300 | 400 | **6300** | **0.0217 AI Credits** |
+| 4 | Normal turn; now builds on the much smaller post-compaction cache | 300 | 1350 | 1650 | 80 | 0 | 100 | 120 | **1950** | **0.0063 AI Credits** |
+| 5 | Normal turn; cache stays small relative to what it would have been | 210 | 1650 | 1860 | 60 | 0 | 60 | 90 | **2070** | **0.0047 AI Credits** |
 
 The key number is **cache size after turn 3**: it *drops* from 4100 to 1350 even
 though the conversation keeps growing — instead of turn 4 reading 4100+ tokens
@@ -669,18 +669,18 @@ What this does to tokens/cache/cost:
   new model, growing the same way as in Section 9 — just starting from zero.
 
 This example switches from a cheaper Model A (turns 1-2) to a pricier Model B
-(turns 3-5, illustrative rates: cache write \$0.01, cache read \$0.001, uncached
-input \$0.01, reasoning/output \$0.03 per 1K tokens):
+(turns 3-5, illustrative rates: cache write 0.01 AI Credits, cache read 0.001 AI Credits, uncached
+input 0.01 AI Credits, reasoning/output 0.03 AI Credits per 1K tokens):
 
 | Turn | Model | What happens | Cache write | Cache read | Cache size after | Uncached input | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | A | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 150 | 150 | **4300** | **$0.0289** |
-| 2 | A | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 120 | 180 | **4600** | **$0.0110** |
-| 3 | **B** | **Model switch**: A's 4100-token cache is worthless to B; the whole history + new message (4300) is resent as uncached input, and B writes its *own* first cache entry | 4850 | 0 | 4850 | 4300 | 250 | 300 | **9700** | **$0.1080** |
-| 4 | B | Normal turn under B; reads/extends B's new cache | 470 | 4850 | 5320 | 120 | 150 | 200 | **5790** | **$0.0213** |
-| 5 | B | Normal turn under B | 310 | 5320 | 5630 | 80 | 90 | 140 | **5940** | **$0.0161** |
+| 1 | A | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 150 | 150 | **4300** | **0.0289 AI Credits** |
+| 2 | A | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 120 | 180 | **4600** | **0.0110 AI Credits** |
+| 3 | **B** | **Model switch**: A's 4100-token cache is worthless to B; the whole history + new message (4300) is resent as uncached input, and B writes its *own* first cache entry | 4850 | 0 | 4850 | 4300 | 250 | 300 | **9700** | **0.1080 AI Credits** |
+| 4 | B | Normal turn under B; reads/extends B's new cache | 470 | 4850 | 5320 | 120 | 150 | 200 | **5790** | **0.0213 AI Credits** |
+| 5 | B | Normal turn under B | 310 | 5320 | 5630 | 80 | 90 | 140 | **5940** | **0.0161 AI Credits** |
 
-Turn 3's cost (**$0.1080**) dwarfs every other turn — nearly 10x turn 2 — purely
+Turn 3's cost (**0.1080 AI Credits**) dwarfs every other turn — nearly 10x turn 2 — purely
 because of the switch: a full cache miss forcing 4300 uncached tokens through,
 *and* those tokens (plus every token after) now billed at Model B's higher rates.
 Turns 4-5 behave like a normal, healthy cache-building session again, just under
@@ -711,18 +711,18 @@ What this does to tokens/cache/cost:
   toolset, the same way a fresh session would.
 
 This example changes the enabled MCP tools starting at turn 3 (same model/rates
-throughout as Section 9's Model A: cache write \$0.00625, cache read \$0.0005,
-uncached input/tool \$0.005, reasoning/output \$0.015 per 1K tokens):
+throughout as Section 9's Model A: cache write 0.00625 AI Credits, cache read 0.0005 AI Credits,
+uncached input/tool 0.005 AI Credits, reasoning/output 0.015 AI Credits per 1K tokens):
 
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Normal turn; writes static prefix (incl. old toolset) + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **$0.0289** |
-| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **$0.0115** |
-| 3 | **MCP toolset changes**: new tool schemas alter the early prefix; the prior 4100-token cache no longer matches and must be resent uncached; a new cache is written under the new toolset | 4770 | 0 | 4770 | 4350 | 0 | 200 | 220 | **9540** | **$0.0579** |
-| 4 | Normal turn; uses one of the newly enabled tools | 800 | 4770 | 5570 | 110 | 400 | 130 | 160 | **6370** | **$0.0143** |
-| 5 | Normal turn; cache continues building under the new toolset | 240 | 5570 | 5810 | 70 | 0 | 70 | 100 | **6050** | **$0.0072** |
+| 1 | Normal turn; writes static prefix (incl. old toolset) + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
+| 3 | **MCP toolset changes**: new tool schemas alter the early prefix; the prior 4100-token cache no longer matches and must be resent uncached; a new cache is written under the new toolset | 4770 | 0 | 4770 | 4350 | 0 | 200 | 220 | **9540** | **0.0579 AI Credits** |
+| 4 | Normal turn; uses one of the newly enabled tools | 800 | 4770 | 5570 | 110 | 400 | 130 | 160 | **6370** | **0.0143 AI Credits** |
+| 5 | Normal turn; cache continues building under the new toolset | 240 | 5570 | 5810 | 70 | 0 | 70 | 100 | **6050** | **0.0072 AI Credits** |
 
-Turn 3's cost (**$0.0579**) is about 5x a normal turn — a real spike, but far
+Turn 3's cost (**0.0579 AI Credits**) is about 5x a normal turn — a real spike, but far
 smaller than the ~10x spike from a model switch (Section 11), because the model
 and its rates didn't change, only the cache. This is the general pattern:
 **model switches invalidate the cache *and* change the price per token**, while
@@ -798,16 +798,16 @@ Why use it:
 
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **$0.0289** |
-| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **$0.0115** |
-| 3 | **`/clear`**: conversation history (the 1100 tokens turns 1-2 added) is dropped; only the still-valid static prefix (3000) is read; a new unrelated task starts | 600 | 3000 | 3600 | 300 | 0 | 130 | 170 | **4200** | **$0.0113** |
-| 4 | Normal turn on the new task; cache builds up again from the post-`/clear` baseline | 320 | 3600 | 3920 | 120 | 0 | 90 | 110 | **4240** | **$0.0074** |
-| 5 | Normal turn; still far smaller than the old conversation would have grown to | 220 | 3920 | 4140 | 70 | 0 | 60 | 90 | **4360** | **$0.0059** |
+| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
+| 3 | **`/clear`**: conversation history (the 1100 tokens turns 1-2 added) is dropped; only the still-valid static prefix (3000) is read; a new unrelated task starts | 600 | 3000 | 3600 | 300 | 0 | 130 | 170 | **4200** | **0.0113 AI Credits** |
+| 4 | Normal turn on the new task; cache builds up again from the post-`/clear` baseline | 320 | 3600 | 3920 | 120 | 0 | 90 | 110 | **4240** | **0.0074 AI Credits** |
+| 5 | Normal turn; still far smaller than the old conversation would have grown to | 220 | 3920 | 4140 | 70 | 0 | 60 | 90 | **4360** | **0.0059 AI Credits** |
 
 The tell is **turn 3's cache read (3000)**: instead of reading the full 4100-token
 history a normal turn would have inherited (or a spike from a forced resend, as
 in Sections 11-12), it drops straight back to just the static prefix. And unlike
-a compaction or a model/tool switch, turn 3's cost (**$0.0113**) isn't a spike at
+a compaction or a model/tool switch, turn 3's cost (**0.0113 AI Credits**) isn't a spike at
 all — it's roughly in line with a normal turn, because nothing had to be
 summarized or resent; the old turns were simply never sent again.
 
@@ -840,13 +840,13 @@ What this does to tokens/cache/cost:
 
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **$0.0289** |
-| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **$0.0115** |
-| 3 | **Wrong path**: model edits the wrong files based on a misunderstanding (will be rewound away) | 1830 | 4100 | 5930 | 250 | 1200 | 200 | 180 | **7760** | **$0.0264** |
-| 4 | **`/rewind`** back to end of turn 2 with a corrected instruction; turn 3's 1830 tokens are discarded and never read again | 820 | 4100 | 4920 | 220 | 300 | 140 | 160 | **5740** | **$0.0143** |
-| 5 | Normal turn continuing on the corrected branch | 260 | 4920 | 5180 | 90 | 0 | 70 | 100 | **5440** | **$0.0071** |
+| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
+| 3 | **Wrong path**: model edits the wrong files based on a misunderstanding (will be rewound away) | 1830 | 4100 | 5930 | 250 | 1200 | 200 | 180 | **7760** | **0.0264 AI Credits** |
+| 4 | **`/rewind`** back to end of turn 2 with a corrected instruction; turn 3's 1830 tokens are discarded and never read again | 820 | 4100 | 4920 | 220 | 300 | 140 | 160 | **5740** | **0.0143 AI Credits** |
+| 5 | Normal turn continuing on the corrected branch | 260 | 4920 | 5180 | 90 | 0 | 70 | 100 | **5440** | **0.0071 AI Credits** |
 
-Turn 3 (**$0.0264**) is money already spent and gone — `/rewind` can't undo that
+Turn 3 (**0.0264 AI Credits**) is money already spent and gone — `/rewind` can't undo that
 charge. What it *does* do shows up in **turn 4's cache read (4100)**: it resumes
 from turn 2's cache size, not turn 3's larger 5930, so the mistaken turn never
 bloats any future turn's context or cost. Compare that to *not* rewinding and
@@ -905,31 +905,31 @@ flowchart TD
 
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **$0.0289** |
-| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **$0.0115** |
-| 3 | Decides to compare two caching strategies; **forks here** | 520 | 4100 | 4620 | 220 | 0 | 140 | 160 | **5140** | **$0.0109** |
+| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
+| 3 | Decides to compare two caching strategies; **forks here** | 520 | 4100 | 4620 | 220 | 0 | 140 | 160 | **5140** | **0.0109 AI Credits** |
 
-Trunk cost so far: **$0.0513** (paid once).
+Trunk cost so far: **0.0513 AI Credits** (paid once).
 
 **Post-fork branches** (each turn 4 reads the *same* trunk cache — 4620 — independently):
 
 | Branch / Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| A · 4 | Implements a Redis-based caching strategy | 1000 | 4620 | 5620 | 150 | 500 | 160 | 190 | **6620** | **$0.0171** |
-| A · 5 | Normal follow-up turn in branch A | 290 | 5620 | 5910 | 80 | 0 | 90 | 120 | **6200** | **$0.0082** |
-| B · 4 | Implements an in-memory LRU caching strategy | 1170 | 4620 | 5790 | 140 | 700 | 150 | 180 | **6960** | **$0.0188** |
-| B · 5 | Normal follow-up turn in branch B | 250 | 5790 | 6040 | 70 | 0 | 80 | 100 | **6290** | **$0.0075** |
+| A · 4 | Implements a Redis-based caching strategy | 1000 | 4620 | 5620 | 150 | 500 | 160 | 190 | **6620** | **0.0171 AI Credits** |
+| A · 5 | Normal follow-up turn in branch A | 290 | 5620 | 5910 | 80 | 0 | 90 | 120 | **6200** | **0.0082 AI Credits** |
+| B · 4 | Implements an in-memory LRU caching strategy | 1170 | 4620 | 5790 | 140 | 700 | 150 | 180 | **6960** | **0.0188 AI Credits** |
+| B · 5 | Normal follow-up turn in branch B | 250 | 5790 | 6040 | 70 | 0 | 80 | 100 | **6290** | **0.0075 AI Credits** |
 
-Branch A total: **$0.0253** on top of the trunk (session A total: $0.0513 + $0.0253
-= **$0.0766**). Branch B total: **$0.0263** on top of the same trunk (session B
-total: $0.0513 + $0.0263 = **$0.0776**). Exploring *both* strategies this way
-costs **$0.0513 + $0.0253 + $0.0263 = $0.1029** in total — the trunk is paid for
+Branch A total: **0.0253 AI Credits** on top of the trunk (session A total: 0.0513 AI Credits + 0.0253 AI Credits
+= **0.0766 AI Credits**). Branch B total: **0.0263 AI Credits** on top of the same trunk (session B
+total: 0.0513 AI Credits + 0.0263 AI Credits = **0.0776 AI Credits**). Exploring *both* strategies this way
+costs **0.0513 AI Credits + 0.0253 AI Credits + 0.0263 AI Credits = 0.1029 AI Credits** in total — the trunk is paid for
 **once**, then reused as a cache hit by both branches.
 
 Compare that to running two entirely separate sessions from scratch instead of
-forking: each would have to rebuild the same trunk independently (2 × $0.0513 =
-$0.1026) on top of its own branch cost ($0.0253 + $0.0263), for a total of
-**$0.1542** — about **$0.0513 more**, exactly one extra copy of the trunk. That
+forking: each would have to rebuild the same trunk independently (2 × 0.0513 AI Credits =
+0.1026 AI Credits) on top of its own branch cost (0.0253 AI Credits + 0.0263 AI Credits), for a total of
+**0.1542 AI Credits** — about **0.0513 AI Credits more**, exactly one extra copy of the trunk. That
 gap *is* the saving forking provides: shared setup gets paid for once and reused,
 not re-purchased per branch.
 
@@ -976,25 +976,25 @@ danger zone across every provider Copilot uses.
 > Extracted as a standalone doc: [scenarios/09-cache-ttl-smoke-break.md](scenarios/09-cache-ttl-smoke-break.md).
 
 The example below extends Section 9's style to 10 turns, using the same
-illustrative rates (cache write \$0.00625, cache read \$0.0005, uncached
-input/tool \$0.005, reasoning/output \$0.015 per 1K tokens). Turns 1-7 happen
+illustrative rates (cache write 0.00625 AI Credits, cache read 0.0005 AI Credits, uncached
+input/tool 0.005 AI Credits, reasoning/output 0.015 AI Credits per 1K tokens). Turns 1-7 happen
 back-to-back and build a healthy, growing cache. Then the user steps away for
 a **5+ minute smoke break** before turn 8 — long enough to exceed every
 provider's default TTL from Section 17.1.
 
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Normal turn; writes static prefix + own content | 3000 | 0 | 3000 | 400 | 0 | 0 | 200 | **3600** | **$0.0238** |
-| 2 | Normal turn; reads/extends the cache | 500 | 3000 | 3500 | 150 | 0 | 0 | 150 | **3800** | **$0.0076** |
-| 3 | Explores code with a couple of tool calls | 450 | 3500 | 3950 | 140 | 300 | 0 | 180 | **4570** | **$0.0095** |
-| 4 | Applies an edit, runs a quick check | 600 | 3950 | 4550 | 130 | 500 | 0 | 200 | **5380** | **$0.0119** |
-| 5 | Normal follow-up turn | 400 | 4550 | 4950 | 120 | 0 | 0 | 160 | **5230** | **$0.0078** |
-| 6 | Normal follow-up turn | 380 | 4950 | 5330 | 110 | 0 | 0 | 150 | **5590** | **$0.0077** |
-| 7 | Normal follow-up turn — cache is healthy (5750 tokens) | 420 | 5330 | 5750 | 130 | 0 | 0 | 170 | **6050** | **$0.0085** |
+| 1 | Normal turn; writes static prefix + own content | 3000 | 0 | 3000 | 400 | 0 | 0 | 200 | **3600** | **0.0238 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 500 | 3000 | 3500 | 150 | 0 | 0 | 150 | **3800** | **0.0076 AI Credits** |
+| 3 | Explores code with a couple of tool calls | 450 | 3500 | 3950 | 140 | 300 | 0 | 180 | **4570** | **0.0095 AI Credits** |
+| 4 | Applies an edit, runs a quick check | 600 | 3950 | 4550 | 130 | 500 | 0 | 200 | **5380** | **0.0119 AI Credits** |
+| 5 | Normal follow-up turn | 400 | 4550 | 4950 | 120 | 0 | 0 | 160 | **5230** | **0.0078 AI Credits** |
+| 6 | Normal follow-up turn | 380 | 4950 | 5330 | 110 | 0 | 0 | 150 | **5590** | **0.0077 AI Credits** |
+| 7 | Normal follow-up turn — cache is healthy (5750 tokens) | 420 | 5330 | 5750 | 130 | 0 | 0 | 170 | **6050** | **0.0085 AI Credits** |
 | *(user steps away — smoke break, >5 minutes idle)* | | | | | | | | | | |
-| 8 | **Cache miss**: every provider's TTL has lapsed; the full 5750-token history + new message must be resent as plain uncached input, and a brand-new cache entry is written from scratch | 6200 | 0 | 6200 | 5900 | 0 | 220 | 200 | **12520** | **$0.0746** |
-| 9 | Normal turn; new cache rebuilds from the post-break baseline | 430 | 6200 | 6630 | 120 | 0 | 0 | 150 | **6900** | **$0.0086** |
-| 10 | Normal turn | 300 | 6630 | 6930 | 90 | 0 | 0 | 120 | **7140** | **$0.0074** |
+| 8 | **Cache miss**: every provider's TTL has lapsed; the full 5750-token history + new message must be resent as plain uncached input, and a brand-new cache entry is written from scratch | 6200 | 0 | 6200 | 5900 | 0 | 220 | 200 | **12520** | **0.0746 AI Credits** |
+| 9 | Normal turn; new cache rebuilds from the post-break baseline | 430 | 6200 | 6630 | 120 | 0 | 0 | 150 | **6900** | **0.0086 AI Credits** |
+| 10 | Normal turn | 300 | 6630 | 6930 | 90 | 0 | 0 | 120 | **7140** | **0.0074 AI Credits** |
 
 ```mermaid
 sequenceDiagram
@@ -1012,11 +1012,11 @@ sequenceDiagram
 
 What the break actually costs: had the cache stayed warm, turn 8 would have
 looked like turn 7 — roughly 430 write / 5750 read / 130 uncached / 170
-output, about **$0.0088**. Instead it costs **$0.0746**, about **8.5x** more —
-roughly **$0.066** in extra, avoidable spend for that one turn, purely because
+output, about **0.0088 AI Credits**. Instead it costs **0.0746 AI Credits**, about **8.5x** more —
+roughly **0.066 AI Credits** in extra, avoidable spend for that one turn, purely because
 the pause outlasted the TTL. Turns 9-10 recover completely normal cache-growth
 behavior once the new cache has been (re-)written; the session total across
-all 10 turns is about **$0.167**.
+all 10 turns is about **0.167 AI Credits**.
 
 Critically, **nothing about your conversation is lost** — this is not a
 `/clear` (Section 14) or a `/rewind` (Section 15). The full message history is
@@ -1613,7 +1613,7 @@ sessions (use 18.1/18.2 for that).
 | Question | Use |
 |---|---|
 | "What did I work on today/this week?" (standup) | Local or cloud session store (18.1/18.2) — `sessions`/`turns`/`session_refs` |
-| "How many tokens/dollars did this session cost, broken down by cache write/read/model?" | Cloud store only (18.2) — `events` where `type = 'assistant.usage'` |
+| "How many tokens/AI Credits did this session cost, broken down by cache write/read/model?" | Cloud store only (18.2) — `events` where `type = 'assistant.usage'` |
 | "Is compaction happening, and late or early?" | Either store — `checkpoints` rows and their `checkpoint_number`/`created_at` vs. turn count |
 | "Which files/tools get re-read the most?" (proxy for cache bloat, Section 17.5) | Either store — `session_files`, or `tool_requests` on cloud for exact arguments |
 | "Something looks wrong with this one session right now" | Live Output channel at `Trace` level (18.4), or that session's raw `main.jsonl` (18.3) |

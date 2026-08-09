@@ -119,7 +119,7 @@ function buildUnavailableUsage(fallbackTokenCount: TokenCount): TurnUsage {
     vision: fallbackTokenCount,
     reasoning: fallbackTokenCount,
     output: fallbackTokenCount,
-    costUsd: fallbackTokenCount,
+    costAiCredits: fallbackTokenCount,
     model: UNKNOWN_MODEL,
   };
 }

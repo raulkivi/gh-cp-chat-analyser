@@ -1,4 +1,4 @@
-import type { TurnUsage } from "@gh-cp-chat-analyser/domain";
+import type { TokenCount, TurnUsage } from "@gh-cp-chat-analyser/domain";
 import { unavailableTokenCount as unavailable } from "@gh-cp-chat-analyser/domain";
 import type { JsonlEnvelope } from "./main-jsonl-reader.js";
 import {
@@ -12,10 +12,20 @@ export const USAGE_CATEGORY_NOT_EXPOSED_REASON =
   "GitHub Copilot Chat's local debug log (main.jsonl) does not expose this token " +
   "category for llm_request spans — only uncached input, cache-read, and output " +
   "tokens are recorded per request.";
-export const COST_NOT_AVAILABLE_REASON =
-  "Cost in USD is not available: GitHub Copilot Chat's local debug log only " +
-  "records an internal usage unit (copilotUsageNanoAiu) per request, not a " +
-  "documented USD conversion.";
+export const AI_CREDITS_NOT_AVAILABLE_REASON =
+  "AI Credits are unavailable because at least one llm_request span does not " +
+  "record a numeric copilotUsageNanoAiu value.";
+
+function aggregateAiCredits(requests: LlmRequestUsage[]): TokenCount {
+  let total = 0;
+  for (const request of requests) {
+    if (request.aiCredits === null) {
+      return unavailable(AI_CREDITS_NOT_AVAILABLE_REASON);
+    }
+    total += request.aiCredits;
+  }
+  return { known: true, value: total };
+}
 
 // The last request's model may be "unknown" (older/unrecognized attrs
 // shape) even when an earlier request in the same turn carried a real
@@ -86,7 +96,7 @@ export function extractTurnUsages(
       vision: unavailable(USAGE_CATEGORY_NOT_EXPOSED_REASON),
       reasoning: unavailable(USAGE_CATEGORY_NOT_EXPOSED_REASON),
       output: { known: true, value: output },
-      costUsd: unavailable(COST_NOT_AVAILABLE_REASON),
+      costAiCredits: aggregateAiCredits(requests),
       model,
     };
   });

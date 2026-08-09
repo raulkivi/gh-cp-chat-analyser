@@ -48,30 +48,30 @@ flowchart TD
 
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **$0.0289** |
-| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **$0.0115** |
-| 3 | Decides to compare two caching strategies; **forks here** | 520 | 4100 | 4620 | 220 | 0 | 140 | 160 | **5140** | **$0.0109** |
+| 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
+| 3 | Decides to compare two caching strategies; **forks here** | 520 | 4100 | 4620 | 220 | 0 | 140 | 160 | **5140** | **0.0109 AI Credits** |
 
-Trunk cost so far: **$0.0513** (paid once).
+Trunk cost so far: **0.0513 AI Credits** (paid once).
 
 **Post-fork branches** (each turn 4 reads the *same* trunk cache — 4620 — independently):
 
 | Branch / Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| A · 4 | Implements a Redis-based caching strategy | 1000 | 4620 | 5620 | 150 | 500 | 160 | 190 | **6620** | **$0.0171** |
-| A · 5 | Normal follow-up turn in branch A | 290 | 5620 | 5910 | 80 | 0 | 90 | 120 | **6200** | **$0.0082** |
-| B · 4 | Implements an in-memory LRU caching strategy | 1170 | 4620 | 5790 | 140 | 700 | 150 | 180 | **6960** | **$0.0188** |
-| B · 5 | Normal follow-up turn in branch B | 250 | 5790 | 6040 | 70 | 0 | 80 | 100 | **6290** | **$0.0075** |
+| A · 4 | Implements a Redis-based caching strategy | 1000 | 4620 | 5620 | 150 | 500 | 160 | 190 | **6620** | **0.0171 AI Credits** |
+| A · 5 | Normal follow-up turn in branch A | 290 | 5620 | 5910 | 80 | 0 | 90 | 120 | **6200** | **0.0082 AI Credits** |
+| B · 4 | Implements an in-memory LRU caching strategy | 1170 | 4620 | 5790 | 140 | 700 | 150 | 180 | **6960** | **0.0188 AI Credits** |
+| B · 5 | Normal follow-up turn in branch B | 250 | 5790 | 6040 | 70 | 0 | 80 | 100 | **6290** | **0.0075 AI Credits** |
 
-Branch A total: **$0.0253** on top of the trunk (session A total: $0.0513 + $0.0253
-= **$0.0766**). Branch B total: **$0.0263** on top of the same trunk (session B
-total: $0.0513 + $0.0263 = **$0.0776**). Exploring *both* strategies this way
-costs **$0.0513 + $0.0253 + $0.0263 = $0.1029** in total — the trunk is paid for
+Branch A total: **0.0253 AI Credits** on top of the trunk (session A total: 0.0513 AI Credits + 0.0253 AI Credits
+= **0.0766 AI Credits**). Branch B total: **0.0263 AI Credits** on top of the same trunk (session B
+total: 0.0513 AI Credits + 0.0263 AI Credits = **0.0776 AI Credits**). Exploring *both* strategies this way
+costs **0.0513 AI Credits + 0.0253 AI Credits + 0.0263 AI Credits = 0.1029 AI Credits** in total — the trunk is paid for
 **once**, then reused as a cache hit by both branches.
 
 Compare that to running two entirely separate sessions from scratch instead of
-forking: each would have to rebuild the same trunk independently (2 × $0.0513 =
-$0.1026) on top of its own branch cost ($0.0253 + $0.0263), for a total of
-**$0.1542** — about **$0.0513 more**, exactly one extra copy of the trunk. That
+forking: each would have to rebuild the same trunk independently (2 × 0.0513 AI Credits =
+0.1026 AI Credits) on top of its own branch cost (0.0253 AI Credits + 0.0263 AI Credits), for a total of
+**0.1542 AI Credits** — about **0.0513 AI Credits more**, exactly one extra copy of the trunk. That
 gap *is* the saving forking provides: shared setup gets paid for once and reused,
 not re-purchased per branch.

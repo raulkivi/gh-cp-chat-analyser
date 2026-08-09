@@ -175,7 +175,7 @@ describe("buildSession", () => {
       "vision",
       "reasoning",
       "output",
-      "costUsd",
+      "costAiCredits",
     ] as const) {
       expect(firstTurn.usage[field]).toEqual({
         known: false,
@@ -362,7 +362,7 @@ describe("buildSession", () => {
     vision: { known: false, reason: "not exposed" },
     reasoning: { known: false, reason: "not exposed" },
     output: { known: true, value: 1146 },
-    costUsd: { known: false, reason: "not available" },
+    costAiCredits: { known: false, reason: "not available" },
     model: "claude-sonnet-5",
   };
 

@@ -18,7 +18,7 @@ describe("TurnsTable", () => {
       "Vision",
       "Reasoning",
       "Output",
-      "Cost",
+      "AI Credits",
       "Model",
     ]);
   });
@@ -82,6 +82,22 @@ describe("TurnsTable", () => {
     render(<TurnsTable turns={turns} selectedTurnIndex={0} onSelectTurn={() => {}} />);
 
     expect(screen.getByText("claude-sonnet-5")).toBeInTheDocument();
+  });
+
+  it("renders AI Credits without a dollar sign", () => {
+    const turns = [
+      makeTurn({
+        usage: {
+          ...makeTurn().usage,
+          costAiCredits: { known: true, value: 2.79598 },
+        },
+      }),
+    ];
+
+    render(<TurnsTable turns={turns} selectedTurnIndex={0} onSelectTurn={() => {}} />);
+
+    expect(screen.getByText("2.79598")).toBeInTheDocument();
+    expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
   });
 
   it("calls onSelectTurn with the clicked row's array index", () => {

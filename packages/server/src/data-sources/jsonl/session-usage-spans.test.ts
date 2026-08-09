@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { readMainJsonlEnvelopes } from "./main-jsonl-reader.js";
 import type { JsonlEnvelope } from "./main-jsonl-reader.js";
 import {
-  COST_NOT_AVAILABLE_REASON,
+  AI_CREDITS_NOT_AVAILABLE_REASON,
   extractTurnUsages,
   groupEnvelopesByUserMessage,
   USAGE_CATEGORY_NOT_EXPOSED_REASON,
@@ -52,7 +52,7 @@ describe("extractTurnUsages", () => {
       vision: { known: false, reason: USAGE_CATEGORY_NOT_EXPOSED_REASON },
       reasoning: { known: false, reason: USAGE_CATEGORY_NOT_EXPOSED_REASON },
       output: { known: true, value: 1146 },
-      costUsd: { known: false, reason: COST_NOT_AVAILABLE_REASON },
+      costAiCredits: { known: true, value: 7.33953 },
       model: "claude-sonnet-5",
     });
     expect(turn1).toEqual({
@@ -63,7 +63,7 @@ describe("extractTurnUsages", () => {
       vision: { known: false, reason: USAGE_CATEGORY_NOT_EXPOSED_REASON },
       reasoning: { known: false, reason: USAGE_CATEGORY_NOT_EXPOSED_REASON },
       output: { known: true, value: 440 },
-      costUsd: { known: false, reason: COST_NOT_AVAILABLE_REASON },
+      costAiCredits: { known: true, value: 2.30782 },
       model: "claude-sonnet-5",
     });
   });
@@ -133,5 +133,9 @@ describe("extractTurnUsages", () => {
     const [turn0] = extractTurnUsages(envelopes);
 
     expect(turn0?.model).toBe("unknown");
+    expect(turn0?.costAiCredits).toEqual({
+      known: false,
+      reason: AI_CREDITS_NOT_AVAILABLE_REASON,
+    });
   });
 });

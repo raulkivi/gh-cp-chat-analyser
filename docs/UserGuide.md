@@ -45,16 +45,16 @@ doesn't depend on anything on your machine.
 ### Picking a scenario and reading the turns table
 
 Click a card in the left column to load it. Each row in the turns table is
-one turn, with the token/cost breakdown for that turn:
+one turn, with the token/AI Credit breakdown for that turn:
 
-![A loaded scenario: turns table with per-turn token/cost columns, cost sparkline, and the explanation panel](images/guide-trigger-tag.png)
+![A loaded scenario: turns table with per-turn token and AI Credit columns, AI Credits sparkline, and the explanation panel](images/guide-trigger-tag.png)
 
 The columns are **Turn, Trigger, Uncached in, Cache read, Cache write,
-Tool, Vision, Reasoning, Output, Cost, Model**. An em dash (**—**) in any
+Tool, Vision, Reasoning, Output, AI Credits, Model**. An em dash (**—**) in any
 numeric cell means that figure is genuinely unknown for that turn — the
 app never shows a fabricated `0` in its place. The small line chart next
-to the session title (when visible) is a cost-per-turn sparkline; it only
-appears when every turn in the session has a known cost.
+to the session title (when visible) is an AI-Credits-per-turn sparkline; it
+only appears when every turn in the session has a known credit cost.
 
 The **Trigger** column flags turns where something out of the ordinary
 happened mid-session — a `compaction` event (shown above), a `tool

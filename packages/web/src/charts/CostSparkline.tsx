@@ -12,14 +12,14 @@ interface CostSparklineProps {
 
 export function CostSparkline({ turns }: CostSparklineProps) {
   const knownPoints = turns.flatMap((turn, index) =>
-    turn.usage.costUsd.known ? [{ index, cost: turn.usage.costUsd.value }] : [],
+    turn.usage.costAiCredits.known ? [{ index, cost: turn.usage.costAiCredits.value }] : [],
   );
 
   if (knownPoints.length < 2) {
     return (
-      <svg role="img" aria-label="Cost sparkline: not enough data" width={WIDTH} height={HEIGHT}>
+      <svg role="img" aria-label="AI Credits sparkline: not enough data" width={WIDTH} height={HEIGHT}>
         <text data-testid="cost-sparkline-empty" x={PADDING} y={HEIGHT / 2}>
-          not enough cost data
+          not enough credit data
         </text>
       </svg>
     );
@@ -35,7 +35,7 @@ export function CostSparkline({ turns }: CostSparklineProps) {
     .y((point) => yScale(point.cost))(knownPoints);
 
   return (
-    <svg role="img" aria-label="Cost sparkline" width={WIDTH} height={HEIGHT}>
+    <svg role="img" aria-label="AI Credits sparkline" width={WIDTH} height={HEIGHT}>
       <path data-testid="cost-sparkline-path" d={path ?? ""} fill="none" stroke="#4a7" strokeWidth={1.5} />
     </svg>
   );

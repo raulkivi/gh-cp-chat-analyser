@@ -16,11 +16,12 @@ describe("extractLlmRequestUsage", () => {
 
     const usage = extractLlmRequestUsage(envelope);
 
-    // real captured attrs: inputTokens 34599, cachedTokens 29329, outputTokens 892
+    // real captured attrs include copilotUsageNanoAiu 2795980000
     expect(usage).toEqual({
       uncachedInput: 5270,
       cacheRead: 29329,
       output: 892,
+      aiCredits: 2.79598,
       model: "claude-sonnet-5",
     });
   });
@@ -40,6 +41,7 @@ describe("extractLlmRequestUsage", () => {
       uncachedInput: 33044,
       cacheRead: 0,
       output: 183,
+      aiCredits: null,
       model: "claude-sonnet-5",
     });
   });

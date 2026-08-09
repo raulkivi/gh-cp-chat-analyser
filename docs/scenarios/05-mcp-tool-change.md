@@ -22,18 +22,18 @@ What this does to tokens/cache/cost:
 
 This example changes the enabled MCP tools starting at turn 3 (same model/rates
 throughout as [Scenario 1](01-cache-basics-8-turn-session.md)'s Model A: cache
-write \$0.00625, cache read \$0.0005, uncached input/tool \$0.005,
-reasoning/output \$0.015 per 1K tokens):
+write 0.00625 AI Credits, cache read 0.0005 AI Credits, uncached input/tool 0.005 AI Credits,
+reasoning/output 0.015 AI Credits per 1K tokens):
 
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Normal turn; writes static prefix (incl. old toolset) + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **$0.0289** |
-| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **$0.0115** |
-| 3 | **MCP toolset changes**: new tool schemas alter the early prefix; the prior 4100-token cache no longer matches and must be resent uncached; a new cache is written under the new toolset | 4770 | 0 | 4770 | 4350 | 0 | 200 | 220 | **9540** | **$0.0579** |
-| 4 | Normal turn; uses one of the newly enabled tools | 800 | 4770 | 5570 | 110 | 400 | 130 | 160 | **6370** | **$0.0143** |
-| 5 | Normal turn; cache continues building under the new toolset | 240 | 5570 | 5810 | 70 | 0 | 70 | 100 | **6050** | **$0.0072** |
+| 1 | Normal turn; writes static prefix (incl. old toolset) + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
+| 3 | **MCP toolset changes**: new tool schemas alter the early prefix; the prior 4100-token cache no longer matches and must be resent uncached; a new cache is written under the new toolset | 4770 | 0 | 4770 | 4350 | 0 | 200 | 220 | **9540** | **0.0579 AI Credits** |
+| 4 | Normal turn; uses one of the newly enabled tools | 800 | 4770 | 5570 | 110 | 400 | 130 | 160 | **6370** | **0.0143 AI Credits** |
+| 5 | Normal turn; cache continues building under the new toolset | 240 | 5570 | 5810 | 70 | 0 | 70 | 100 | **6050** | **0.0072 AI Credits** |
 
-Turn 3's cost (**$0.0579**) is about 5x a normal turn — a real spike, but far
+Turn 3's cost (**0.0579 AI Credits**) is about 5x a normal turn — a real spike, but far
 smaller than the ~10x spike from a model switch ([Scenario 4](04-model-switch.md)),
 because the model and its rates didn't change, only the cache. This is the general
 pattern: **model switches invalidate the cache *and* change the price per token**,

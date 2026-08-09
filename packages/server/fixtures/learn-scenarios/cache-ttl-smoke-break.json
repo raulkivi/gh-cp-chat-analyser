@@ -20,7 +20,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 0 },
         "output": { "known": true, "value": 200 },
-        "costUsd": { "known": true, "value": 0.0238 },
+        "costAiCredits": { "known": true, "value": 0.0238 },
         "model": "example-model"
       },
       "explanation": "Normal first turn — writes the static prefix plus this turn's own content."
@@ -38,7 +38,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 0 },
         "output": { "known": true, "value": 150 },
-        "costUsd": { "known": true, "value": 0.0076 },
+        "costAiCredits": { "known": true, "value": 0.0076 },
         "model": "example-model"
       },
       "explanation": "Normal turn; reads/extends the cache from turn 1."
@@ -59,7 +59,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 0 },
         "output": { "known": true, "value": 180 },
-        "costUsd": { "known": true, "value": 0.0095 },
+        "costAiCredits": { "known": true, "value": 0.0095 },
         "model": "example-model"
       },
       "explanation": "Explores the code with a couple of tool calls; cache continues building normally."
@@ -80,7 +80,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 0 },
         "output": { "known": true, "value": 200 },
-        "costUsd": { "known": true, "value": 0.0119 },
+        "costAiCredits": { "known": true, "value": 0.0119 },
         "model": "example-model"
       },
       "explanation": "Applies an edit and runs a quick check — a normal, healthy cache-building turn."
@@ -98,7 +98,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 0 },
         "output": { "known": true, "value": 160 },
-        "costUsd": { "known": true, "value": 0.0078 },
+        "costAiCredits": { "known": true, "value": 0.0078 },
         "model": "example-model"
       },
       "explanation": "Normal follow-up turn."
@@ -116,7 +116,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 0 },
         "output": { "known": true, "value": 150 },
-        "costUsd": { "known": true, "value": 0.0077 },
+        "costAiCredits": { "known": true, "value": 0.0077 },
         "model": "example-model"
       },
       "explanation": "Normal follow-up turn."
@@ -134,7 +134,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 0 },
         "output": { "known": true, "value": 170 },
-        "costUsd": { "known": true, "value": 0.0085 },
+        "costAiCredits": { "known": true, "value": 0.0085 },
         "model": "example-model"
       },
       "explanation": "Normal follow-up turn — cache is healthy (5,750 tokens after this write). The user then steps away for a 5+ minute smoke break before the next turn, long enough to exceed every provider's default TTL (Anthropic: 5 minutes; OpenAI: roughly 5-10 minutes in-memory)."
@@ -152,10 +152,10 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 220 },
         "output": { "known": true, "value": 200 },
-        "costUsd": { "known": true, "value": 0.0746 },
+        "costAiCredits": { "known": true, "value": 0.0746 },
         "model": "example-model"
       },
-      "explanation": "Cache miss: every provider's TTL has lapsed while the user was away, so the provider evicted the cache entry for this prefix. The full 5,750-token history plus the new message must be resent as plain uncached input (5,900 tokens), and a brand-new cache entry is written from scratch — about 8.5x the cost a normal turn here would have had (roughly $0.0088 if the cache had stayed warm). Nothing about the conversation itself is lost — this is not a /clear or a /rewind; the full message history is still sent and visible to the model. Only the cache for reusing it cheaply had expired, so this one turn pays full price to 'rehydrate' it.",
+      "explanation": "Cache miss: every provider's TTL has lapsed while the user was away, so the provider evicted the cache entry for this prefix. The full 5,750-token history plus the new message must be resent as plain uncached input (5,900 tokens), and a brand-new cache entry is written from scratch — about 8.5x the cost a normal turn here would have had (roughly 0.0088 AI Credits if the cache had stayed warm). Nothing about the conversation itself is lost — this is not a /clear or a /rewind; the full message history is still sent and visible to the model. Only the cache for reusing it cheaply had expired, so this one turn pays full price to 'rehydrate' it.",
       "triggeredEvent": "cache-expiry"
     },
     {
@@ -171,7 +171,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 0 },
         "output": { "known": true, "value": 150 },
-        "costUsd": { "known": true, "value": 0.0086 },
+        "costAiCredits": { "known": true, "value": 0.0086 },
         "model": "example-model"
       },
       "explanation": "Normal turn; the new cache written by turn 8 rebuilds from the post-break baseline, back to normal cache-hit pricing."
@@ -189,10 +189,10 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 0 },
         "output": { "known": true, "value": 120 },
-        "costUsd": { "known": true, "value": 0.0074 },
+        "costAiCredits": { "known": true, "value": 0.0074 },
         "model": "example-model"
       },
-      "explanation": "Normal turn — fully recovered cache-growth behavior. Session total across all 10 turns is about $0.167; roughly $0.066 of that is extra, avoidable spend from turn 8's cache miss alone, purely because the smoke break outlasted the TTL."
+      "explanation": "Normal turn — fully recovered cache-growth behavior. Session total across all 10 turns is about 0.167 AI Credits; roughly 0.066 AI Credits of that is extra, avoidable spend from turn 8's cache miss alone, purely because the smoke break outlasted the TTL."
     }
   ]
 }

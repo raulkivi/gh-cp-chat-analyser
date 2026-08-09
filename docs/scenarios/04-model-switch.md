@@ -22,18 +22,18 @@ What this does to tokens/cache/cost:
   — just starting from zero.
 
 This example switches from a cheaper Model A (turns 1-2) to a pricier Model B
-(turns 3-5, illustrative rates: cache write \$0.01, cache read \$0.001, uncached
-input \$0.01, reasoning/output \$0.03 per 1K tokens):
+(turns 3-5, illustrative rates: cache write 0.01 AI Credits, cache read 0.001 AI Credits, uncached
+input 0.01 AI Credits, reasoning/output 0.03 AI Credits per 1K tokens):
 
 | Turn | Model | What happens | Cache write | Cache read | Cache size after | Uncached input | Reasoning | Output text | **Turn total** | **Turn cost** |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | A | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 150 | 150 | **4300** | **$0.0289** |
-| 2 | A | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 120 | 180 | **4600** | **$0.0110** |
-| 3 | **B** | **Model switch**: A's 4100-token cache is worthless to B; the whole history + new message (4300) is resent as uncached input, and B writes its *own* first cache entry | 4850 | 0 | 4850 | 4300 | 250 | 300 | **9700** | **$0.1080** |
-| 4 | B | Normal turn under B; reads/extends B's new cache | 470 | 4850 | 5320 | 120 | 150 | 200 | **5790** | **$0.0213** |
-| 5 | B | Normal turn under B | 310 | 5320 | 5630 | 80 | 90 | 140 | **5940** | **$0.0161** |
+| 1 | A | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 150 | 150 | **4300** | **0.0289 AI Credits** |
+| 2 | A | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 120 | 180 | **4600** | **0.0110 AI Credits** |
+| 3 | **B** | **Model switch**: A's 4100-token cache is worthless to B; the whole history + new message (4300) is resent as uncached input, and B writes its *own* first cache entry | 4850 | 0 | 4850 | 4300 | 250 | 300 | **9700** | **0.1080 AI Credits** |
+| 4 | B | Normal turn under B; reads/extends B's new cache | 470 | 4850 | 5320 | 120 | 150 | 200 | **5790** | **0.0213 AI Credits** |
+| 5 | B | Normal turn under B | 310 | 5320 | 5630 | 80 | 90 | 140 | **5940** | **0.0161 AI Credits** |
 
-Turn 3's cost (**$0.1080**) dwarfs every other turn — nearly 10x turn 2 — purely
+Turn 3's cost (**0.1080 AI Credits**) dwarfs every other turn — nearly 10x turn 2 — purely
 because of the switch: a full cache miss forcing 4300 uncached tokens through,
 *and* those tokens (plus every token after) now billed at Model B's higher rates.
 Turns 4-5 behave like a normal, healthy cache-building session again, just under

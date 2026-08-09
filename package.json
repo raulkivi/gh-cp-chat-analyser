@@ -1,7 +1,7 @@
 {
   "name": "gh-cp-chat-analyser",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "GitHub Copilot Chat Session Analyser — monorepo root",
   "license": "MIT",
   "type": "module",

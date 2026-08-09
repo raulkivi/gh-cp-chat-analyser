@@ -21,9 +21,6 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
   model, data flow, API design, tech stack, and project structure.
 - [Implementation plan](docs/implementation-plan.md) — phase-by-phase build
   plan with exit criteria and dependencies.
-- [Phase 8.5 agent-traces implementation plan](docs/phase-8-5-agent-traces-implementation.md) —
-  critical review and build-ready design for the optional agent-traces.db
-  cache-write/reasoning enrichment.
 - [Phase 9 log-providers implementation plan](docs/phase-9-log-providers-implementation.md) —
   critical review and build-ready design for extensible log providers and
   mitmproxy ingestion.

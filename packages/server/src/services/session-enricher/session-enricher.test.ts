@@ -13,6 +13,7 @@ import type {
 import {
   buildSession,
   buildSessionSummary,
+  computeSessionCost,
   LOGGING_NEVER_ENABLED_REASON,
   PARSE_FAILURES_REASON,
   TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON,
@@ -80,6 +81,58 @@ describe("buildSessionSummary", () => {
     expect(
       buildSessionSummary({ ...sessionRow, created_at: null }).startedAt,
     ).toBeUndefined();
+  });
+
+  it("defaults costAiCredits to unavailable when not passed", () => {
+    expect(buildSessionSummary(sessionRow).costAiCredits).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
+  });
+
+  it("uses the passed-in costAiCredits when provided", () => {
+    expect(
+      buildSessionSummary(sessionRow, { known: true, value: 4.2 }).costAiCredits,
+    ).toEqual({ known: true, value: 4.2 });
+  });
+});
+
+describe("computeSessionCost", () => {
+  const known = (value: number): TurnUsage =>
+    ({ costAiCredits: { known: true, value } }) as TurnUsage;
+  const unknown = (): TurnUsage =>
+    ({ costAiCredits: { known: false, reason: "no data" } }) as TurnUsage;
+
+  it("returns unavailable when main.jsonl is missing", () => {
+    expect(computeSessionCost("missing", [])).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
+  });
+
+  it("returns unavailable when events are present but no turn usages were extracted", () => {
+    expect(computeSessionCost("events-present", [])).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
+  });
+
+  it("sums known costAiCredits across every turn", () => {
+    expect(computeSessionCost("events-present", [known(1.5), known(2.25)])).toEqual({
+      known: true,
+      value: 3.75,
+    });
+  });
+
+  it("is unavailable if any turn's cost, or a null turn, is unknown", () => {
+    expect(computeSessionCost("events-present", [known(1), null])).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
+    expect(computeSessionCost("events-present", [known(1), unknown()])).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
   });
 });
 
@@ -412,6 +465,36 @@ describe("buildSession", () => {
       reason: USAGE_UNAVAILABLE_REASON,
     });
     expect(session.usageDataAvailable).toBe(true);
+  });
+
+  it("sums costAiCredits across every turn into Session.costAiCredits when all turns have a known cost", () => {
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "events-present",
+      turnUsages: [
+        { ...knownUsage, costAiCredits: { known: true, value: 1.5 } },
+        { ...knownUsage, costAiCredits: { known: true, value: 2.25 } },
+      ],
+    });
+
+    expect(session.costAiCredits).toEqual({ known: true, value: 3.75 });
+  });
+
+  it("leaves Session.costAiCredits unavailable when any turn's cost is unknown", () => {
+    const session = buildSession({
+      sessionRow,
+      turnRows,
+      fileRows,
+      mainJsonlAvailability: "events-present",
+      turnUsages: [knownUsage],
+    });
+
+    expect(session.costAiCredits).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
   });
 
   it("derives Session.model from the last turn with known usage", () => {

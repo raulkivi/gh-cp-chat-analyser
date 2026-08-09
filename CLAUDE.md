@@ -37,8 +37,10 @@ content here.
   check reads `settings.json` and exposes `GET /api/config/status`),
   `packages/web` (Vite + React, styled with the "Industry" design system
   ported from `Design/` into `theme.css` — header with mode switch, a
-  searchable session list, an 11-column turns table, a tabbed
-  Explanation/System-prompt/Tools right column, a dismissible structured
+  searchable session list showing each session's total AI Credits, a
+  12-column turns table (incl. a running cumulative AI Credits total per
+  row; AI Credits figures are rounded to 2 decimal places throughout), a
+  tabbed Explanation/System-prompt/Tools right column, a dismissible structured
   config-warning banner (required vs. optional severity styled distinctly),
   zero-data empty states — built on shared `components/ui/*` primitives;
   `charts/AiCreditsSparkline` is the sole remaining D3 chart, in the center

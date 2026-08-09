@@ -33,11 +33,13 @@ import {
   getTurnRows,
   listSessionRows,
   openReadOnlyDb,
+  type SessionRow,
 } from "./data-sources/sqlite/session-store.js";
 import { resolveVscodeSettingsPath } from "./data-sources/vscode-settings/vscode-settings-path.js";
 import {
   buildSession,
   buildSessionSummary,
+  computeSessionCost,
 } from "./services/session-enricher/session-enricher.js";
 import { buildAnalyzeModeExtras } from "./services/session-enricher/analyze-mode-extras.js";
 import { checkConfig } from "./services/config-check/config-check.js";
@@ -100,7 +102,30 @@ export function createApp(options: CreateAppOptions = {}): Express {
     res.json(scenario);
   });
 
-  app.get("/api/sessions", (_req, res) => {
+  // costAiCredits per session requires reading each session's main.jsonl (the
+  // only source of AI Credits numbers) — an accurate list is worth an extra
+  // file read per session for a local tool with a bounded session count.
+  // A single session's read failing (corrupt/missing file) degrades that
+  // session's cost to unavailable rather than failing the whole list.
+  async function summarizeSessionWithCost(row: SessionRow): Promise<Session> {
+    try {
+      const mainJsonlPath = resolveMainJsonlPath(resolvedDebugLogsDirPaths, row.id);
+      let mainJsonlAvailability: MainJsonlAvailability = "missing";
+      let turnUsages: (TurnUsage | null)[] = [];
+      if (mainJsonlPath) {
+        const { envelopes, rawLineCount } = await readMainJsonlFile(mainJsonlPath);
+        mainJsonlAvailability = classifyEnvelopesAvailability(envelopes, rawLineCount);
+        if (mainJsonlAvailability === "events-present") {
+          turnUsages = extractTurnUsages(envelopes);
+        }
+      }
+      return buildSessionSummary(row, computeSessionCost(mainJsonlAvailability, turnUsages));
+    } catch {
+      return buildSessionSummary(row);
+    }
+  }
+
+  app.get("/api/sessions", async (_req, res) => {
     const db = openSessionStoreDb();
     if (!db) {
       res.json([]);
@@ -108,7 +133,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
     }
 
     try {
-      const summaries: Session[] = listSessionRows(db).map(buildSessionSummary);
+      const rows = listSessionRows(db);
+      const summaries = await Promise.all(rows.map(summarizeSessionWithCost));
       res.json(summaries);
     } finally {
       db.close();

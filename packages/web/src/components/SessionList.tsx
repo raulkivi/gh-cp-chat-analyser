@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Session } from "@gh-cp-chat-analyser/domain";
 import type { Mode } from "../state/session-store.js";
+import { formatAiCredits } from "../lib/format-ai-credits.js";
 import { formatRelativeTime } from "../lib/format-relative-time.js";
 import { onKeyActivate } from "../lib/on-key-activate.js";
 import { Blueprint } from "./ui/Blueprint.js";
@@ -69,6 +70,9 @@ export function SessionList({ mode, sessions, selectedSessionId, onSelect }: Ses
               </div>
               <div className="card-meta" style={{ marginTop: 6 }}>
                 {session.turnCount} {session.turnCount === 1 ? "turn" : "turns"}
+                {session.costAiCredits.known && (
+                  <> · {formatAiCredits(session.costAiCredits)} AI Credits</>
+                )}
               </div>
             </div>
           </Blueprint>

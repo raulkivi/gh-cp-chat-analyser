@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { systemPromptComponentSchema } from "./system-prompt-component.js";
+import { tokenCountSchema } from "./token-count.js";
 import { toolInventoryEntrySchema } from "./tool-inventory-entry.js";
 import { turnSchema } from "./turn.js";
 
@@ -10,6 +11,7 @@ export const sessionSchema = z.object({
   model: z.string(),
   turns: z.array(turnSchema),
   turnCount: z.number(),
+  costAiCredits: tokenCountSchema,
   systemPrompt: z.array(systemPromptComponentSchema).optional(), // Analyze mode only
   toolInventory: z.array(toolInventoryEntrySchema).optional(), // Analyze mode only
   usageDataAvailable: z.boolean(),

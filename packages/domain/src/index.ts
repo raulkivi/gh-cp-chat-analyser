@@ -1,6 +1,7 @@
 export {
   tokenCountSchema,
   unavailableTokenCount,
+  sumTokenCounts,
   type TokenCount,
 } from "./token-count.js";
 export { turnUsageSchema, type TurnUsage } from "./turn-usage.js";

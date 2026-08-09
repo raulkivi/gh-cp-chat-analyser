@@ -19,6 +19,7 @@ describe("TurnsTable", () => {
       "Reasoning",
       "Output",
       "AI Credits",
+      "Cumulative",
       "Model",
     ]);
   });
@@ -90,7 +91,7 @@ describe("TurnsTable", () => {
     expect(screen.getByText("claude-sonnet-5")).toBeInTheDocument();
   });
 
-  it("renders AI Credits without a dollar sign", () => {
+  it("renders AI Credits without a dollar sign, rounded to 2 decimal places", () => {
     const turns = [
       makeTurn({
         usage: {
@@ -102,8 +103,61 @@ describe("TurnsTable", () => {
 
     render(<TurnsTable turns={turns} selectedTurnIndex={0} onSelectTurn={() => {}} />);
 
-    expect(screen.getByText("2.79598")).toBeInTheDocument();
+    // Single turn, so AI Credits and Cumulative both show "2.80".
+    expect(screen.getAllByText("2.80")).toHaveLength(2);
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
+  });
+
+  it("renders a running cumulative AI Credits total per row", () => {
+    const turns = [
+      makeTurn({
+        index: 0,
+        usage: { ...makeTurn().usage, costAiCredits: { known: true, value: 1.5 } },
+      }),
+      makeTurn({
+        index: 1,
+        usage: { ...makeTurn().usage, costAiCredits: { known: true, value: 2.25 } },
+      }),
+    ];
+
+    render(<TurnsTable turns={turns} selectedTurnIndex={0} onSelectTurn={() => {}} />);
+
+    const rows = screen.getAllByRole("row");
+    // Cumulative is the last cell before Model.
+    const cumulativeCellOf = (row: HTMLElement) => {
+      const cells = row.querySelectorAll("td");
+      return cells[cells.length - 2].textContent;
+    };
+    expect(cumulativeCellOf(rows[1])).toBe("1.50");
+    expect(cumulativeCellOf(rows[2])).toBe("3.75");
+  });
+
+  it("shows an em dash for cumulative AI Credits on and after a row whose own cost is unknown", () => {
+    const turns = [
+      makeTurn({
+        index: 0,
+        usage: { ...makeTurn().usage, costAiCredits: { known: true, value: 1.5 } },
+      }),
+      makeTurn({
+        index: 1,
+        usage: { ...makeTurn().usage, costAiCredits: { known: false, reason: "no data" } },
+      }),
+      makeTurn({
+        index: 2,
+        usage: { ...makeTurn().usage, costAiCredits: { known: true, value: 2.25 } },
+      }),
+    ];
+
+    render(<TurnsTable turns={turns} selectedTurnIndex={0} onSelectTurn={() => {}} />);
+
+    const rows = screen.getAllByRole("row");
+    const cumulativeCellOf = (row: HTMLElement) => {
+      const cells = row.querySelectorAll("td");
+      return cells[cells.length - 2].textContent;
+    };
+    expect(cumulativeCellOf(rows[1])).toBe("1.50");
+    expect(cumulativeCellOf(rows[2])).toBe("—");
+    expect(cumulativeCellOf(rows[3])).toBe("—");
   });
 
   it("calls onSelectTurn with the clicked row's array index", () => {

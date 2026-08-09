@@ -15,6 +15,7 @@ const scenario = {
     makeTurn({ index: 2, explanation: "second turn explanation" }),
   ],
   turnCount: 2,
+  costAiCredits: { known: false as const, reason: "not extracted" },
 };
 
 const sessionSummary = {
@@ -25,6 +26,7 @@ const sessionSummary = {
   usageDataAvailable: false,
   turns: [],
   turnCount: 0,
+  costAiCredits: { known: false as const, reason: "not extracted" },
 };
 
 const fullSession = {
@@ -65,6 +67,7 @@ const sessionSummaryNoInventory = {
   usageDataAvailable: false,
   turns: [],
   turnCount: 1,
+  costAiCredits: { known: false as const, reason: "not extracted" },
 };
 
 const fullSessionNoInventory = {
@@ -94,6 +97,7 @@ const sessionSummaryError = {
   usageDataAvailable: false,
   turns: [],
   turnCount: 0,
+  costAiCredits: { known: false as const, reason: "not extracted" },
 };
 
 const cleanConfigStatus = {

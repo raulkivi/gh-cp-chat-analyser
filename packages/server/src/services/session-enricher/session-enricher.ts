@@ -5,7 +5,7 @@ import type {
   Turn,
   TurnUsage,
 } from "@gh-cp-chat-analyser/domain";
-import { unavailableTokenCount } from "@gh-cp-chat-analyser/domain";
+import { sumTokenCounts, unavailableTokenCount } from "@gh-cp-chat-analyser/domain";
 import type {
   SessionFileRow,
   SessionRow,
@@ -43,6 +43,26 @@ function reasonForAvailability(availability: MainJsonlAvailability): string {
     return PARSE_FAILURES_REASON;
   }
   return USAGE_UNAVAILABLE_REASON;
+}
+
+// A session's total AI Credits, all-or-nothing across its turns (constraint
+// 6: no silently-partial total). Used by the list endpoint, which only has
+// turnUsages (extracted straight from main.jsonl) and no SQLite turnRows to
+// build real Turn objects from — buildSession below aggregates from the
+// built turns instead, since that's the authoritative per-turn source once
+// they exist.
+export function computeSessionCost(
+  mainJsonlAvailability: MainJsonlAvailability,
+  turnUsages: (TurnUsage | null)[],
+): TokenCount {
+  const fallback = unavailableTokenCount(reasonForAvailability(mainJsonlAvailability));
+  if (mainJsonlAvailability !== "events-present" || turnUsages.length === 0) {
+    return fallback;
+  }
+  return sumTokenCounts(
+    turnUsages.map((usage) => usage?.costAiCredits ?? fallback),
+    USAGE_UNAVAILABLE_REASON,
+  );
 }
 
 function deriveTitle(row: SessionRow): string {
@@ -164,7 +184,10 @@ function buildTurn(
   };
 }
 
-export function buildSessionSummary(row: SessionRow): Session {
+export function buildSessionSummary(
+  row: SessionRow,
+  costAiCredits: TokenCount = unavailableTokenCount(USAGE_UNAVAILABLE_REASON),
+): Session {
   return {
     id: row.id,
     mode: "analyze",
@@ -172,6 +195,7 @@ export function buildSessionSummary(row: SessionRow): Session {
     model: UNKNOWN_MODEL,
     turns: [],
     turnCount: row.turn_count,
+    costAiCredits,
     usageDataAvailable: false,
     ...(row.created_at ? { startedAt: row.created_at } : {}),
   };
@@ -207,8 +231,22 @@ export function buildSession(enrichment: AnalyzeEnrichment): Session {
 
   const fileRowsByTurn = groupFileRowsByTurn(fileRows);
 
+  const turns = turnRows.map((turnRow) =>
+    buildTurn(
+      turnRow,
+      fileRowsByTurn,
+      turnUsages[turnRow.turn_index],
+      fallbackTokenCount,
+      invokedToolNamesByTurn[turnRow.turn_index] ?? [],
+    ),
+  );
+  const costAiCredits = sumTokenCounts(
+    turns.map((turn) => turn.usage.costAiCredits),
+    USAGE_UNAVAILABLE_REASON,
+  );
+
   return {
-    ...buildSessionSummary(sessionRow),
+    ...buildSessionSummary(sessionRow, costAiCredits),
     model:
       knownUsages.length > 0
         ? knownUsages[knownUsages.length - 1].model
@@ -217,14 +255,6 @@ export function buildSession(enrichment: AnalyzeEnrichment): Session {
     systemPrompt,
     toolInventory,
     turnCount: turnRows.length,
-    turns: turnRows.map((turnRow) =>
-      buildTurn(
-        turnRow,
-        fileRowsByTurn,
-        turnUsages[turnRow.turn_index],
-        fallbackTokenCount,
-        invokedToolNamesByTurn[turnRow.turn_index] ?? [],
-      ),
-    ),
+    turns,
   };
 }

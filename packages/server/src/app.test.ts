@@ -223,6 +223,45 @@ describe("GET /api/sessions", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual([]);
   });
+
+  it("populates costAiCredits per session by reading its main.jsonl", async () => {
+    const debugLogsDirPath = path.join(dir, "debug-logs");
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    const lines = [
+      { v: 1, ts: 1, dur: 0, sid: "session-1", type: "user_message", name: "user_message", spanId: "u0", status: "ok", attrs: { content: "hi" } },
+      {
+        v: 1, ts: 2, dur: 5, sid: "session-1", type: "llm_request", name: "llm_request", spanId: "b", status: "ok",
+        attrs: { model: "claude-sonnet-5", inputTokens: 1000, outputTokens: 50, cachedTokens: 200, copilotUsageNanoAiu: 2_790_000_000 },
+      },
+    ];
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
+    );
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions");
+
+    const [session] = response.body;
+    expect(() => sessionSchema.parse(session)).not.toThrow();
+    expect(session.costAiCredits).toEqual({ known: true, value: 2.79 });
+  });
+
+  it("leaves costAiCredits unavailable when main.jsonl is missing for a session", async () => {
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [path.join(dir, "debug-logs")],
+    });
+
+    const response = await request(app).get("/api/sessions");
+
+    const [session] = response.body;
+    expect(session.costAiCredits).toEqual({
+      known: false,
+      reason: USAGE_UNAVAILABLE_REASON,
+    });
+  });
 });
 
 describe("GET /api/sessions/:id", () => {

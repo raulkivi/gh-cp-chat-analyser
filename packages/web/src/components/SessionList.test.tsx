@@ -11,6 +11,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     model: "gpt-4o",
     turns: [{ index: 0 } as Session["turns"][number], { index: 1 } as Session["turns"][number]],
     turnCount: 2,
+    costAiCredits: { known: false, reason: "not extracted" },
     usageDataAvailable: false,
     ...overrides,
   };
@@ -41,6 +42,25 @@ describe("SessionList", () => {
     render(<SessionList mode="analyze" sessions={sessions} selectedSessionId={null} onSelect={vi.fn()} />);
 
     expect(screen.getByText("7 turns")).toBeInTheDocument();
+  });
+
+  it("renders a session's AI Credits total, rounded to 2 decimal places, when known", () => {
+    const sessions = [
+      makeSession({ id: "s1", title: "First", costAiCredits: { known: true, value: 12.3456 } }),
+    ];
+    render(<SessionList mode="analyze" sessions={sessions} selectedSessionId={null} onSelect={vi.fn()} />);
+
+    expect(screen.getByText("2 turns · 12.35 AI Credits")).toBeInTheDocument();
+  });
+
+  it("omits AI Credits from the card meta line when the session's cost is unknown", () => {
+    const sessions = [
+      makeSession({ id: "s1", title: "First", costAiCredits: { known: false, reason: "not extracted" } }),
+    ];
+    render(<SessionList mode="analyze" sessions={sessions} selectedSessionId={null} onSelect={vi.fn()} />);
+
+    expect(screen.getByText("2 turns")).toBeInTheDocument();
+    expect(screen.queryByText(/AI Credits/)).not.toBeInTheDocument();
   });
 
   it("renders the Learn kicker with category when present, falling back to bare 'Learn'", () => {

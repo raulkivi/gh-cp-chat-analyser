@@ -324,6 +324,42 @@ vendor omits them; it must never estimate or infer billing figures. Unknown
 vendors and malformed exchanges remain visible as unavailable data without
 preventing other sessions from loading.
 
+```mermaid
+flowchart LR
+  subgraph Sources["Local log sources"]
+    VscodeLogs["VS Code SQLite + main.jsonl"]
+    MitmCapture["mitmproxy capture"]
+  end
+
+  subgraph Providers["Log-provider boundary"]
+    VscodeProvider["VS Code provider"]
+    MitmProvider["mitmproxy provider"]
+    DecoderRegistry{"Vendor decoder registry"}
+    AnthropicDecoder["Anthropic decoder"]
+    OpenAiDecoder["OpenAI decoder"]
+    Unknown["Unknown vendor: unavailable"]
+  end
+
+  subgraph Consumers["Provider-neutral consumers"]
+    Records["Normalized session records"]
+    Enricher["session-enricher"]
+    Api["Stable session API"]
+    Ui["Shared Analyze UI"]
+  end
+
+  VscodeLogs --> VscodeProvider --> Records
+  MitmCapture --> MitmProvider --> DecoderRegistry
+  DecoderRegistry --> AnthropicDecoder --> Records
+  DecoderRegistry --> OpenAiDecoder --> Records
+  DecoderRegistry --> Unknown --> Records
+  Records --> Enricher --> Api --> Ui
+```
+
+The provider boundary is the architectural seam: source-specific file access
+and vendor protocol decoding end at normalized session records. The enricher,
+API, and UI consume only those records, so adding a provider or decoder does
+not require API or UI changes.
+
 #### 6.2.2 VS Code provider flow
 
 ```mermaid

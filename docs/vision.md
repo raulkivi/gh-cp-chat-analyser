@@ -17,8 +17,9 @@ behavior, and token/AI Credits accounting — so users can:
 
 - **Learn** the underlying concepts (sessions, turns, caching, token types)
   through guided, interactive scenarios.
-- **Analyze** their own real Copilot Chat session logs to see exactly where
-  tokens and AI Credits went, turn by turn.
+- **Analyze** their own real coding-agent logs, including VS Code Copilot Chat
+  sessions and mitmproxy captures of LLM-provider traffic, to see exactly
+  where tokens and AI Credits went, turn by turn.
 
 The end goal is to help developers use agentic coding tools more effectively
 and reduce the cost of AI-assisted development.
@@ -55,8 +56,10 @@ mechanics.
 ### 3.2 Analyze mode (real sessions)
 
 The same left/right/scrubber layout, but backed by a real session instead of
-a scripted scenario — load an actual GitHub Copilot Chat session and see the
-same breakdown for what actually happened.
+a scripted scenario — select an available log provider, load one of its
+sessions, and see the same breakdown for what actually happened. The Analyze
+header lists available providers and lets the user set the active one; the
+session list, endpoints, and rendering stay provider-neutral.
 
 In addition to the shared layout, Analyze mode adds:
 
@@ -94,10 +97,10 @@ Visual treatment (the "Industry" design system — hairline-bordered
 
 ## 4. Data sources for Analyze mode
 
-**Decision**: the app only reads data already stored on the local machine —
-the local SQLite session store and the raw per-session debug-log text files.
-It never depends on the cloud-synced store, so it works fully offline and
-requires no `chat.sessionSync.enabled` opt-in.
+**Decision**: the app only reads data already stored on the local machine.
+Its initial providers are the VS Code local SQLite/debug-log pair and local
+mitmproxy captures. It never depends on the cloud-synced store, so it works
+fully offline and requires no `chat.sessionSync.enabled` opt-in.
 
 Per [agentic-coding-explained.md §18](agentic-coding-explained.md#18-where-to-find-the-logs-data-sources-for-token-cache-and-ai-credits-analysis),
 the two in-scope sources are:
@@ -106,6 +109,16 @@ the two in-scope sources are:
 |---|---|---|
 | Local SQLite session store | Turns, files touched, checkpoints (compaction events), session metadata; fast, structured, easy to query | No per-request token counts |
 | Raw per-session debug logs (`main.jsonl` text files under `workspaceStorage/.../debug-logs/<session-id>/`) | Ground-truth append-only event stream the SQLite store is derived from — request/response spans carry the actual token-usage `attrs` that the local SQLite indexer doesn't persist | Verbose; undocumented `attrs` shape per event `type`, so parsing needs to be defensive/version-tolerant |
+| Local mitmproxy capture | Request/response exchanges between VS Code and LLM providers, including token/usage fields exposed by the provider | Capture format and payload shape vary by provider SDK; separate vendor decoders are required for Anthropic, OpenAI, and later vendors |
+
+Each source is a log provider that converts its records into the same
+normalized session/turn model before the API returns them. A provider's
+capture discovery, parsing, and vendor decoder details are isolated behind
+that boundary: adding a provider or decoder must not require a source-specific
+API endpoint or UI panel. mitmproxy uses a decoder registry because Anthropic
+and OpenAI SDK traffic have distinct wire formats. The UI receives a generic
+list of available providers and can set the active provider; it continues to
+render the selected provider's sessions through the shared Analyze layout.
 
 Since §18.3 notes the SQLite store and the cloud store are *both* built from
 `main.jsonl`, real per-turn token/cache numbers (Section 6 of the reference
@@ -160,7 +173,8 @@ showing the behavioral-proxy fallback silently.
 - Not scoped to editing or replaying sessions (no `/rewind`-style mutation of
   real logs) — it's a read-only viewer/analyzer.
 - No dependency on the cloud-synced (DuckDB) store — the app only reads local
-  SQLite and local `main.jsonl` debug-log text files, by design.
+  sources through configured log providers (initially VS Code SQLite/
+  `main.jsonl` and mitmproxy captures), by design.
 - Not a hosted/multi-user product for now — scoped to a single developer's
   own machine and own local logs.
 

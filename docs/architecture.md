@@ -63,6 +63,12 @@ before deviating from this document:
     they verify, never retrofitted after the fact (§11.4). Every module
     boundary in §4/§10 is drawn along SOLID lines, not by convenience
     (§11.5).
+12. **Analyze ingestion is provider-extensible.** VS Code local logs and
+  mitmproxy captures are both supported log providers. A provider converts
+  its source into the normalized domain model through a provider-local
+  decoder pipeline; adding one must not change the session API contract or
+  frontend components. mitmproxy decoders are vendor-specific (at least
+  Anthropic and OpenAI) because their SDK wire formats differ.
 
 ## 3. High-level system overview
 
@@ -117,8 +123,12 @@ outbound network calls.
 |---|---|
 | `data-sources/sqlite` | Read-only queries against the local Copilot Chat session store (`sessions`, `turns`, `checkpoints`, `session_files`, `session_refs`) per vision §4/18.1 |
 | `data-sources/jsonl` | Streams a session's `main.jsonl`, extracts request/response spans, and pulls out token/cache usage from each event's `attrs` — defensively, per §7 below |
+| `data-sources/log-providers` | Owns the `LogProvider` registry, exposes provider descriptors, persists the active provider in app-owned local settings, and presents one provider-neutral session-reading interface to the API/services layer |
+| `data-sources/log-providers/vscode` | Adapts the existing SQLite and `main.jsonl` readers into the `LogProvider` interface; VS Code-specific paths, settings, and event extraction stay here |
+| `data-sources/log-providers/mitmproxy` | Reads local mitmproxy capture files and dispatches each intercepted LLM request/response to the vendor decoder that recognizes its SDK/protocol shape |
+| `data-sources/log-providers/mitmproxy/decoders` | Independent vendor decoders (initially Anthropic and OpenAI) that convert a matched exchange into provider-neutral intermediate records; an unrecognized exchange is reported as unavailable, never guessed |
 | `data-sources/learn-scenarios` | Loads bundled scenario fixtures (seeded from [agentic-coding-explained.md](agentic-coding-explained.md)) that already conform to the domain model, so Learn mode needs no parsing/enrichment step |
-| `services/session-enricher` | Joins SQLite turns with matching `main.jsonl` spans (by session id + turn index), producing one enriched `Turn` per row; marks `usage` fields explicitly `unavailable` when `attrs` don't carry them |
+| `services/session-enricher` | Converts a selected provider's normalized structural/usage records into `Session`/`Turn` values; it does not know whether they originated in VS Code, mitmproxy, Anthropic, or OpenAI |
 | `platform/vscode-paths` | Resolves the active VS Code variant's user-data directory across OSes (Linux/macOS/Windows, Stable/Insiders) so `sqlite`, `jsonl`, and `vscode-settings` all locate the right files without duplicating detection logic |
 | `data-sources/vscode-settings` | Reads and merges the user (and workspace, if present) `settings.json` (JSONC) to read the prerequisite Copilot Chat debug-logging settings |
 | `services/config-check` | Runs at server startup and on demand (§6.3): checks `agentDebugLog.fileLogging.enabled` and `maxRetainedSessionLogs` against constraints 8/10, producing actionable `ConfigWarning`s |
@@ -133,7 +143,7 @@ SQLite, `main.jsonl`, or scenario fixtures.
 
 | Module | Responsibility |
 |---|---|
-| `components/AppHeader` | Brand mark/wordmark, the Learn/Analyze mode `SegmentedControl`, and the Config button (or a static "Config ✓" tag when there are no warnings) |
+| `components/AppHeader` | Brand mark/wordmark, the Learn/Analyze mode `SegmentedControl`, a provider `Select` in Analyze mode, and the Config button (or a static "Config ✓" tag when there are no warnings) |
 | `components/SessionList` | Left panel: searchable, scrollable list of `Session` cards (Learn scenarios or Analyze sessions, per mode) with a category/relative-time kicker and turn count |
 | `components/TurnsTable` | Center panel: one row per turn — Turn, Trigger, Uncached in, Cache read, Cache write, Tool, Vision, Reasoning, Output, AI Credits, Model |
 | `components/ExplanationPanel` | Right panel: plain-language explanation for the selected turn, plus (Analyze mode only) a "Tool calls this turn" block listing that turn's tool calls and touched files |
@@ -142,8 +152,8 @@ SQLite, `main.jsonl`, or scenario fixtures.
 | `components/ToolInventoryPanel` | Analyze-mode-only: tools loaded vs. tools actually invoked |
 | `components/ConfigWarningBanner` | Dismissible banner shown when `GET /api/config/status` reports unmet prerequisites; renders the exact setting name, current vs. recommended value, and step-by-step fix instructions (§6.3) |
 | `components/ui/*` | Shared design-system primitives (`Blueprint`, `Tag`, `SegmentedControl`) used across the components above, per the "Industry" design tokens in `theme.css` |
-| `state/session-store` | Holds the currently loaded `Session`, the selected turn index, the Learn/Analyze `mode`, and the right-column `rightTab` (Analyze mode only); the rest of the UI is a pure function of this state |
-| `api-client` | Fetches from the local server's REST API; the only module that knows an HTTP boundary exists |
+| `state/session-store` | Holds the currently loaded `Session`, selected turn index, Learn/Analyze `mode`, selected Analyze log-provider id, and right-column `rightTab` (Analyze mode only); the rest of the UI is a pure function of this state |
+| `api-client` | Fetches provider descriptors, selects the active provider, and fetches sessions through the stable REST API; it is the only frontend module that knows an HTTP boundary exists |
 | `charts/*` | D3-based AI Credits sparkline rendered in the center column's header row |
 
 ### 4.3 Shared domain/schema package
@@ -207,6 +217,7 @@ interface ToolInventoryEntry { // Analyze mode only
 interface Session {
   id: string;
   mode: "learn" | "analyze";
+  providerId?: string; // Analyze mode only; supplied by the selected log provider
   title: string;
   model: string;
   turns: Turn[];
@@ -217,6 +228,29 @@ interface Session {
   startedAt?: string; // Analyze mode only — ISO date, sourced from sessions.created_at
 }
 ```
+
+Log-provider selection is a separate app-level contract, not a provider-
+specific API or UI branch:
+
+```ts
+interface LogProviderDescriptor {
+  id: string; // stable machine-readable id, e.g. "vscode" or "mitmproxy"
+  label: string;
+  available: boolean; // provider can currently read its configured local source
+  unavailableReason?: string;
+}
+
+interface LogProviderStatus {
+  providers: LogProviderDescriptor[];
+  activeProviderId: string;
+}
+```
+
+The API and UI use these generic shapes only. Provider configuration,
+capture-file discovery, and vendor protocol details do not escape the
+provider implementation. Changing the active provider clears the selected
+Analyze session and reloads the same `GET /api/sessions` resource; Learn mode
+is unaffected.
 
 Note this is the same reasoning as the "AI Credits split" in vision §6 — each
 `TokenCount` slot maps 1:1 onto a term in that section's AI Credits formula.
@@ -269,6 +303,28 @@ enrichment/parsing step is needed — they exist purely to seed realistic
 `Turn`/`TurnUsage`/`explanation` data for teaching, per vision §3.1.
 
 ### 6.2 Analyze mode
+
+#### 6.2.1 Provider-neutral ingestion
+
+`LogProvider` is the boundary between source-specific parsing and the rest of
+Analyze mode. It lists session summaries and reads one session as normalized
+structural records plus usage/tool/prompt artifacts. The API and
+`session-enricher` depend only on that contract. Provider registration is
+explicit at server composition time; a provider is not dynamically loaded
+from arbitrary local code.
+
+The VS Code provider adapts the existing SQLite and `main.jsonl` path. The
+mitmproxy provider reads only a user-configured local capture path and uses a
+second registry of `MitmExchangeDecoder`s. Each decoder declares whether it
+recognizes an intercepted exchange and, when it does, converts that
+vendor-SDK request/response pair into provider-neutral records. Initial
+decoders cover Anthropic and OpenAI SDK traffic. A decoder must preserve
+observed token/caching fields when present and mark fields unavailable when a
+vendor omits them; it must never estimate or infer billing figures. Unknown
+vendors and malformed exchanges remain visible as unavailable data without
+preventing other sessions from loading.
+
+#### 6.2.2 VS Code provider flow
 
 ```mermaid
 sequenceDiagram
@@ -657,8 +713,10 @@ read-only viewer).
 |---|---|
 | `GET /api/learn/scenarios` | `Session[]` summaries (mode=`learn`) |
 | `GET /api/learn/scenarios/:id` | Full `Session` for one scenario |
-| `GET /api/sessions` | `Session[]` summaries from the local store, filtered to `agent_name = 'GitHub Copilot Chat'` (vision §18.2 scoping rule) |
-| `GET /api/sessions/:id` | Full enriched `Session` (mode=`analyze`), including `usageDataAvailable` |
+| `GET /api/log-providers` | `LogProviderStatus`: available provider descriptors plus the active provider id |
+| `PUT /api/log-providers/active` | Selects an available provider by generic provider id; returns the updated `LogProviderStatus` |
+| `GET /api/sessions` | `Session[]` summaries from the active log provider; the endpoint and response shape do not vary by provider |
+| `GET /api/sessions/:id` | Full enriched `Session` from the active provider (mode=`analyze`), including `usageDataAvailable` |
 | `GET /api/sessions/:id/turns/:turnIndex` | Single `Turn` with full tool-call/file detail (used for on-demand deep dives, avoiding sending every turn's full detail up front) |
 | `GET /api/config/status` | `ConfigStatus` — current prerequisite-setting check results and any `warnings[]` (§6.3) |
 
@@ -694,6 +752,10 @@ gh-cp-chat-analyser/
     server/
       src/
         data-sources/
+          log-providers/
+            vscode/
+            mitmproxy/
+              decoders/
           sqlite/
           jsonl/
           learn-scenarios/
@@ -782,6 +844,10 @@ refactored — red-green-refactor, not tests bolted on afterward.
 - `services/config-check`: write the test for each `ConfigWarning` case
   (logging disabled, retention too low, settings not found) before
   implementing the check that produces it.
+- Log providers: write contract tests that run the same list/read assertions
+  against VS Code and mitmproxy fixtures before wiring either provider into
+  the registry. Write each vendor decoder's failing captured-exchange test
+  before implementing it, including unknown-vendor and missing-usage cases.
 
 ### 11.5 Code quality: SOLID
 
@@ -794,13 +860,14 @@ module should be justified against these before being added:
   Each `services/*` module owns exactly one piece of business logic
   (enrichment, config checking). Each frontend `components/*` renders
   exactly one panel.
-- **Open/Closed** — the `jsonl` extractor registry (§7) is extended by
-  adding a new per-event-type extractor, never by modifying the adapter's
-  streaming/dispatch logic; new provider/version formats are additive.
-- **Liskov Substitution** — any `data-sources/*` adapter can be replaced by
-  an alternative implementation (e.g. a future cloud-store adapter) without
-  changing `services/session-enricher` or the `api` layer, as long as it
-  returns the `domain`-shaped data its callers expect.
+- **Open/Closed** — the provider registry (§6.2.1), mitmproxy decoder
+  registry, and `jsonl` extractor registry (§7) are extended by adding a
+  provider or decoder/extractor, never by changing API/UI control flow;
+  new source, vendor, and version formats are additive.
+- **Liskov Substitution** — any `LogProvider` can replace another without
+  changing `services/session-enricher`, the API layer, or frontend
+  components, as long as it returns the provider-neutral records its callers
+  expect.
 - **Interface Segregation** — the frontend depends only on `api-client`'s
   narrow fetch surface, not on server internals; each panel component
   receives only the slice of `Session`/`Turn` it needs, not the full object
@@ -919,7 +986,7 @@ open questions:
 - Keyboard accessibility → in scope: session cards and table rows are
   `tabIndex="0"` with an Enter/Space `onKeyDown` mirroring their `onClick`.
 - Dark theme → stayed out of scope, per the v2 handoff's explicit call.
-- App icon/favicon → stayed out of scope, deferred to Phase 9.
+- App icon/favicon → stayed out of scope, deferred to Phase 10.
 - AI Credit formatting precision → up to 6 decimals with trailing zeros
   removed (`2.79598`), matching the nano-AIU source precision without a
   misleading currency symbol.

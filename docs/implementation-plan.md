@@ -574,7 +574,47 @@ non-trivial usage numbers, trigger em dashes, and the Tools tab's
 loaded/invoked tags), and the mode-switch empty-selection state all render
 correctly.
 
-## Phase 9 — VS Code extension packaging (future, out of MVP scope)
+## Phase 9 — Extensible log providers and mitmproxy ingestion
+
+**Goal**: make Analyze mode source-extensible without changing its session
+endpoints or shared UI, then add mitmproxy as the first non-VS-Code provider.
+
+- Define and test the provider-neutral `LogProvider` contract in the domain/
+  server boundary: list session summaries and read one normalized session's
+  structural, usage, tool, and prompt records. Adapt the existing VS Code
+  SQLite/`main.jsonl` path to this contract before adding a second provider.
+- Implement a server-owned provider registry with stable descriptors
+  (`id`, label, availability, unavailable reason), a persisted active-provider
+  setting, `GET /api/log-providers`, and `PUT /api/log-providers/active`.
+  `GET /api/sessions` and its detail endpoints retain their existing paths and
+  domain response shapes, reading from the active provider.
+- Implement `data-sources/log-providers/mitmproxy` for a documented local
+  capture-file format. It reads only the configured local capture path and
+  feeds exchanges through a `MitmExchangeDecoder` registry.
+- Implement separate Anthropic and OpenAI decoders. Each recognizes only its
+  own protocol shape and converts observed request/response usage into the
+  common records; missing, malformed, or unknown-vendor data remains
+  explicitly unavailable, never estimated.
+- Frontend: fetch generic provider descriptors, render an Analyze-mode
+  provider select control, set the active provider through the generic API,
+  clear the selected Analyze session, and reload the existing session list.
+  No session-list, table, panel, or chart component may branch on provider id.
+- TDD order: first write shared provider contract tests and a failing
+  active-provider API test. Then write a failing captured-exchange test for
+  each Anthropic/OpenAI decoder before its implementation, plus unknown vendor
+  and missing-usage fixtures. Finally write the provider-select interaction
+  test before wiring the control.
+
+**Exit criterion**: the user can list and select VS Code or mitmproxy in the
+Analyze UI. Both providers load sessions through the unchanged `/api/sessions`
+contract and shared UI. Anthropic and OpenAI fixture captures normalize to the
+same domain schema, and adding a test-only third provider proves no API or
+frontend component changes are required.
+
+**Dependencies**: Phase 8 (the Analyze header/state exists) and Phases 3-6
+(the VS Code reading/enrichment path exists to adapt).
+
+## Phase 10 — VS Code extension packaging (future, out of MVP scope)
 
 Not part of the initial build (vision §5 "future path"); tracked here only
 so the seam stays intentional:
@@ -601,7 +641,8 @@ flowchart LR
     P4 --> P7
     P6 --> P8["Phase 8<br/>Design system polish"]
     P7 --> P8
-    P6 --> P9["Phase 9<br/>VS Code extension (future)"]
-    P5 --> P9
-    P8 --> P9
+    P8 --> P9["Phase 9<br/>Log providers + mitmproxy"]
+    P6 --> P9
+    P9 --> P10["Phase 10<br/>VS Code extension (future)"]
+    P5 --> P10
 ```

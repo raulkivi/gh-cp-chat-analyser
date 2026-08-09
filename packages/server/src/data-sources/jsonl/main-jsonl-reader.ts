@@ -17,8 +17,9 @@ export interface JsonlEnvelope {
 }
 
 // Every `attrs` key any extractor in this codebase reads (llm-request-
-// extractor.ts's inputTokens/outputTokens/cachedTokens/copilotUsageNanoAiu/model, app.ts's
-// systemPromptFile/toolsFile, system-prompt-breakdown.ts's details).
+// extractor.ts's inputTokens/outputTokens/cachedTokens/copilotUsageNanoAiu/model/
+// responseId, app.ts's systemPromptFile/toolsFile, system-prompt-breakdown.ts's
+// details).
 // `attrs` is otherwise an undocumented, per-provider payload that can carry
 // arbitrarily large content (raw prompt/tool-call data) nothing here reads
 // — a 2026-08-08 code/security review's high finding. Dropping
@@ -30,6 +31,7 @@ const KNOWN_ATTRS_KEYS = [
   "cachedTokens",
   "copilotUsageNanoAiu",
   "model",
+  "responseId",
   "systemPromptFile",
   "toolsFile",
   "details",

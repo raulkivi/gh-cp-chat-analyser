@@ -574,6 +574,54 @@ non-trivial usage numbers, trigger em dashes, and the Tools tab's
 loaded/invoked tags), and the mode-switch empty-selection state all render
 correctly.
 
+## Phase 8.5 — Agent-traces cache-write/reasoning enrichment
+
+**Goal**: populate `TurnUsage.cacheWrite`/`.reasoning` — always `{known:
+false}` from `main.jsonl` alone (Phase 4/6) — from a second, optional local
+source, `agent-traces.db`, when the user has it enabled. Purely additive to
+the existing direct-wired Analyze mode pipeline (`app.ts` →
+`data-sources/sqlite` + `data-sources/jsonl` + `session-enricher`) — not
+part of Phase 9's `LogProvider` abstraction, which this phase doesn't
+depend on and isn't depended on by.
+
+- Add `responseId` to `main-jsonl-reader.ts`'s `KNOWN_ATTRS_KEYS` allow-list
+  and `llm-request-extractor.ts`'s `LlmRequestUsage` — the join key into
+  `agent-traces.db`, previously stripped before any extractor saw it.
+- New `data-sources/agent-traces/`: path resolution (sharing
+  `data-sources/sqlite/copilot-chat-global-storage-path.ts` with
+  `session-store-path.ts`) and a read-only `node:sqlite` reader joining
+  `agent-traces.db`'s `spans`/`span_attributes` tables by
+  `gen_ai.response.id`, returning cache-write/reasoning per `responseId`.
+  Missing/locked/corrupt db degrades to an empty result, never a throw —
+  this source is explicitly optional.
+- `session-usage-spans.ts`: `collectResponseIds` (for `app.ts` to look up
+  before grouping into turns) and `extractTurnUsages`'s new, defaulted
+  `agentTraceUsageByResponseId` param — sums both fields across a turn's
+  requests, all-or-nothing (mirroring `costAiCredits`'s aggregation), with
+  a new actionable `AGENT_TRACES_UNAVAILABLE_REASON` distinct from
+  `tool`/`vision`'s permanent-gap reason.
+- New optional-severity `ConfigWarning` (`code: "agent-traces-unavailable"`)
+  surfaced via the existing `GET /api/config/status` check, gated on the VS
+  Code setting `github.copilot.chat.otel.dbSpanExporter.enabled`. Adds
+  `severity: "required" | "optional"` to `ConfigWarning` (non-defaulted);
+  `ConfigWarningBanner.tsx` renders optional warnings in a visually muted
+  tone (reusing the existing `--color-accent-2-*` tokens) distinct from
+  required ones.
+- TDD order: `responseId` allow-list/extractor fix first (everything else
+  silently no-ops without it) → path resolution → reader → enrichment
+  wiring in `session-usage-spans.ts` → `app.ts` integration → settings
+  field → config-check warning/severity → banner styling → documentation.
+
+**Exit criterion**: with `otel.dbSpanExporter.enabled` on and a real
+session recorded, `GET /api/sessions/:id` returns real
+`{known:true,value}` `cacheWrite`/`reasoning` figures for that session's
+turns, matching `agent-traces.db` directly; with it off (the default),
+existing behavior is unchanged except for a more actionable `reason`
+string, and `GET /api/config/status` surfaces the new optional warning.
+
+**Dependencies**: Phase 6 (`session-usage-spans.ts`/`session-enricher.ts`
+exist to extend). No dependency on, or from, Phase 9.
+
 ## Phase 9 — Extensible log providers and mitmproxy ingestion
 
 **Goal**: make Analyze mode source-extensible without changing its session
@@ -641,6 +689,7 @@ flowchart LR
     P4 --> P7
     P6 --> P8["Phase 8<br/>Design system polish"]
     P7 --> P8
+    P6 --> P85["Phase 8.5<br/>Agent-traces enrichment"]
     P8 --> P9["Phase 9<br/>Log providers + mitmproxy"]
     P6 --> P9
     P9 --> P10["Phase 10<br/>VS Code extension (future)"]

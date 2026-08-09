@@ -110,6 +110,12 @@ function buildToolCalls(
   return [...fileBasedCalls, ...invokedOnlyCalls];
 }
 
+// Total fallback for a turn with zero extracted llm_request spans — with no
+// requests there's nothing to join against agent-traces.db either, so every
+// field (including cacheWrite/reasoning, Phase 8.5) staying unavailable here
+// is still correct; this is "no usage data of any kind for this turn," not
+// specifically "cache-write/reasoning unavailable" (see session-usage-spans.ts
+// for that more specific case).
 function buildUnavailableUsage(fallbackTokenCount: TokenCount): TurnUsage {
   return {
     uncachedInput: fallbackTokenCount,

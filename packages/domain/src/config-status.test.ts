@@ -23,6 +23,7 @@ describe("configStatusSchema", () => {
       warnings: [
         {
           code: "settings-not-found",
+          severity: "required",
           settingId: "github.copilot.chat.agentDebugLog.fileLogging.enabled",
           currentValue: null,
           recommendedValue: true,

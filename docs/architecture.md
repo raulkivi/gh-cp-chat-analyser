@@ -17,8 +17,9 @@ These constraints shape every decision below and should be checked against
 before deviating from this document:
 
 1. **Local-only, offline-first.** No dependency on the cloud-synced (DuckDB)
-   store or any network service. Only the local SQLite session store and
-   local `main.jsonl` debug-log files are read (vision §4, §6).
+   store or any network service. Only local sources reachable through a
+   configured log provider — the SQLite session store, local `main.jsonl`
+   debug-log files, and local mitmproxy captures — are read (vision §4, §6).
 2. **A local server is required.** The browser cannot read arbitrary local
    files (SQLite DB, `.jsonl` logs) directly, so a small local process must
    read them and serve normalized data to the UI (vision §5).
@@ -82,34 +83,44 @@ flowchart TB
     subgraph Local["Local machine — single Node.js process"]
         API["Local HTTP server<br/>(REST API)"]
         Domain["Domain/normalization layer<br/>(Session, Turn, TurnUsage, ...)"]
-        SQLiteAdapter["SQLite adapter<br/>(read-only)"]
-        JsonlAdapter["main.jsonl adapter<br/>(streaming, defensive parser)"]
+        Registry{"Log-provider registry<br/>(active provider selection)"}
+        VscodeProvider["VS Code provider<br/>(SQLite + main.jsonl adapter)"]
+        MitmProvider["mitmproxy provider<br/>+ vendor decoder registry"]
         ScenarioAdapter["Learn scenario adapter<br/>(bundled fixtures)"]
         SettingsAdapter["VS Code settings adapter<br/>(reads settings.json)"]
         ConfigCheck["Config-check service<br/>(runs at startup + on demand)"]
+        AppSettings["App-owned settings adapter<br/>(active provider, read/write)"]
     end
 
     subgraph Disk["Local filesystem"]
         DB[("Local Copilot Chat<br/>SQLite session store")]
         Logs[("debug-logs/&lt;session-id&gt;/<br/>main.jsonl")]
+        Capture[("mitmproxy capture<br/>(user-configured path)")]
         Fixtures[("Bundled Learn-mode<br/>scenario files")]
         Settings[("VS Code user<br/>settings.json")]
+        AppConfig[("App-owned local settings file")]
     end
 
     UI <-->|"JSON over HTTP<br/>(localhost only)"| API
     API --> Domain
-    Domain --> SQLiteAdapter --> DB
-    Domain --> JsonlAdapter --> Logs
+    API --> Registry
+    Registry --> VscodeProvider --> DB
+    VscodeProvider --> Logs
+    Registry --> MitmProvider --> Capture
     Domain --> ScenarioAdapter --> Fixtures
+    Registry --> AppSettings --> AppConfig
     API --> ConfigCheck --> SettingsAdapter --> Settings
     ConfigCheck -.->|warnings| Banner
+    VscodeProvider --> Domain
+    MitmProvider --> Domain
 ```
 
-The browser never talks to SQLite or the filesystem directly — every read
-goes through the local server's API, which normalizes both Learn-mode
-scenarios and Analyze-mode real sessions into the **same domain shape**
-(§5) before returning them. This is what lets the frontend stay ignorant of
-where data came from, satisfying constraint 3.
+The browser never talks to SQLite, mitmproxy captures, or the filesystem
+directly — every read goes through the local server's API, which normalizes
+Learn-mode scenarios and Analyze-mode sessions from whichever log provider is
+active into the **same domain shape** (§5) before returning them. This is
+what lets the frontend stay ignorant of where data came from, satisfying
+constraint 3. See §6.2.1 for the provider boundary in detail.
 
 ## 4. Component breakdown
 
@@ -476,15 +487,21 @@ this slice:
   `generic`, `tool_call`, `llm_request`, and `agent_response` spans. Only
   `llm_request` carries usage numbers, in `attrs`: `model`, `inputTokens`
   (the request's total input, cached + uncached), `outputTokens`,
-  `cachedTokens` (the subset of `inputTokens` served from cache), and
+  `cachedTokens` (the subset of `inputTokens` served from cache),
+  `responseId` (Phase 8.5's join key into the optional `agent-traces.db`
+  enrichment below — otherwise unused by this adapter), and
   `copilotUsageNanoAiu` (request usage in nano-AIU), plus non-usage fields
   (`ttft`, `debugName`,
   `requestOptions`, `requestShape`, `systemPromptFile`, `toolsFile`, and the
   full prompt/message content in `userRequest`/`inputMessages`, which the
   adapter never reads). There is **no separate cache-write figure, and no
   tool/vision/reasoning token breakdown** in this event shape — those
-  `TurnUsage` fields stay `{ known: false }` for every turn, not just when
-  extraction fails. `copilotUsageNanoAiu` converts directly to AI Credits:
+  `TurnUsage` fields stay `{ known: false }` for every turn sourced from
+  `main.jsonl` alone, not just when extraction fails. Phase 8.5 added a
+  second, optional local source, `agent-traces.db`, that can populate
+  `cacheWrite`/`reasoning` when available (see the Phase 8.5 implementation
+  note below) — `tool`/`vision` remain unavailable from any known local
+  source. `copilotUsageNanoAiu` converts directly to AI Credits:
   $1\ \text{AI Credit}=10^9\ \text{nano-AIU}$. The extractor normalizes each
   request with that conversion and `extractTurnUsages` sums every request in
   the turn into `costAiCredits`. If any request lacks a numeric value, the
@@ -595,7 +612,10 @@ confirm:
 - `tool_call` events' `attrs` carry only `args`/`result` (both redacted in
   fixtures) — no token count, confirming `ToolCallRecord.tokenCount` must
   stay unavailable regardless of extraction success, the same permanent-gap
-  pattern as Phase 4's `cacheWrite`/`tool`/`vision`/`reasoning`.
+  pattern as `TurnUsage.tool`/`vision` (Phase 4). `cacheWrite`/`reasoning`
+  were also a permanent gap from `main.jsonl` alone as of this phase, but
+  Phase 8.5 later added a second, optional local source that can populate
+  them — see that phase's implementation note below.
   `data-sources/jsonl/tool-inventory.ts`'s `extractInvokedToolNamesByTurn`
   reuses `groupEnvelopesByUserMessage`'s positional join to attribute each
   `tool_call` to a SQLite turn index; `buildToolInventory` unions that
@@ -625,6 +645,100 @@ confirm:
   `system_prompt_0.json`/`tools_0.json` pair (145 real tool definitions) and
   real `tool_call` events round-trip correctly through
   `GET /api/sessions/:id`.
+
+**Implementation note (Phase 8.5, complete).** A source-level investigation
+of the Copilot Chat extension itself
+([docs/copilot-chat-source-investigation.md](copilot-chat-source-investigation.md))
+found and empirically confirmed a second, optional local file, `agent-traces.db`
+— a SQLite OTel span store the extension can write, gated behind VS Code
+setting `github.copilot.chat.otel.dbSpanExporter.enabled` (default off,
+same non-retroactive caveat as `agentDebugLog.fileLogging.enabled`). Unlike
+`main.jsonl`, its spans carry real cache-write (`gen_ai.usage.cache_creation.input_tokens`,
+in a generic `span_attributes` key/value table) and reasoning-token
+(`reasoning_tokens`, a denormalized column) values — confirmed non-zero and
+internally coherent against a real capture on the development machine.
+
+- `data-sources/agent-traces/agent-traces-reader.ts` reads it read-only via
+  `node:sqlite` (same pattern as `data-sources/sqlite/session-store.ts`),
+  joining `main.jsonl`'s `llm_request.attrs.responseId` (added to
+  `main-jsonl-reader.ts`'s `KNOWN_ATTRS_KEYS` allow-list this phase — it was
+  previously stripped, silently, before any extractor could see it) against
+  the span's `gen_ai.response.id` attribute — confirmed to hold the exact
+  same value. `data-sources/agent-traces/agent-traces-db-path.ts` resolves
+  the file's path via the same `globalStorage/github.copilot-chat/`
+  directory construction `session-store-path.ts` already used, now shared
+  through `data-sources/sqlite/copilot-chat-global-storage-path.ts`.
+- This data source is explicitly optional and best-effort: a missing,
+  locked, or corrupt `agent-traces.db` degrades to an empty result (never
+  fabricated, never throws), and a `responseId` with no matching span
+  degrades that turn's `cacheWrite`/`reasoning` to
+  `{ known: false, reason: AGENT_TRACES_UNAVAILABLE_REASON }` — a distinct,
+  actionable reason from `tool`/`vision`'s `USAGE_CATEGORY_NOT_EXPOSED_REASON`,
+  since this gap (unlike that one) has something the user can do about it.
+  `session-usage-spans.ts`'s `extractTurnUsages` sums both fields across
+  every `llm_request` in a turn, all-or-nothing per turn — the same shape
+  already used for `costAiCredits`.
+- A new, optional-severity `ConfigWarning` (`config-warning.ts`'s `code:
+  "agent-traces-unavailable"`) surfaces the setting via the existing
+  `GET /api/config/status` check, gated the same way as the other three
+  (`config-check.ts`). `severity: "required" | "optional"` was added to
+  `ConfigWarning` (non-defaulted — every existing warning had to declare it
+  explicitly) so the frontend (`ConfigWarningBanner.tsx`) can render this
+  one with a visually muted tone (reusing the existing `--color-accent-2-*`
+  token pair, not a new one) rather than the same urgency as a warning that
+  blocks all usage data.
+
+#### 6.2.3 mitmproxy provider flow
+
+```mermaid
+sequenceDiagram
+    participant UI as Frontend
+    participant API as Local server API
+    participant Mitm as mitmproxy adapter
+    participant Reg as MitmExchangeDecoder registry
+    participant Anth as Anthropic decoder
+    participant OAI as OpenAI decoder
+    participant Enr as session-enricher
+    participant Cap as Local capture file (HAR)
+
+    UI->>API: GET /api/sessions (active provider = mitmproxy)
+    API->>Mitm: listSessions()
+    Mitm->>Cap: read configured capture path
+    Cap-->>Mitm: HAR entries
+    Mitm->>Mitm: redact credential headers; group entries into sessions
+    Mitm-->>API: session summaries
+    API-->>UI: session list
+
+    UI->>API: GET /api/sessions/:id
+    API->>Mitm: readSession(id)
+    loop each HAR entry in session
+        Mitm->>Reg: recognizes(exchange)?
+        alt Anthropic shape
+            Reg->>Anth: decode(exchange)
+            Anth-->>Reg: normalized record (SSE reassembled)
+        else OpenAI shape
+            Reg->>OAI: decode(exchange)
+            OAI-->>Reg: normalized record (SSE reassembled)
+        else no decoder recognizes it
+            Reg-->>Mitm: unavailable ("unrecognized vendor")
+        end
+    end
+    Mitm-->>API: normalized records (usage known/unavailable per exchange)
+    API->>Enr: enrich(normalized records, id)
+    Enr-->>API: Turn[] with usage marked known/unavailable
+    API-->>UI: Session (mode = "analyze", providerId = "mitmproxy")
+```
+
+Credential headers (`authorization`, `x-api-key`, `api-key`,
+`proxy-authorization`, `cookie`) are stripped at the `Mitm` boundary before
+any record reaches a decoder, the enricher, or the API — never stored,
+decoded, or forwarded to the frontend, per §11.2. A decoder that recognizes
+an exchange but finds no usage field on it (e.g. a streamed OpenAI response
+without `stream_options.include_usage`) marks that exchange's usage
+`unavailable` with a specific reason, exactly like the jsonl path (§7) — it
+never estimates. An exchange no registered decoder recognizes is surfaced the
+same way, tagged with an "unrecognized vendor" reason, and does not prevent
+the rest of the session from loading.
 
 ### 6.3 Startup configuration check
 
@@ -843,6 +957,18 @@ gh-cp-chat-analyser/
 - No secrets are logged; any credentials that happen to appear in captured
   terminal-output tool results are treated as opaque strings, never parsed or
   echoed into error messages.
+- The mitmproxy provider strips known credential-bearing headers
+  (`authorization`, `x-api-key`, `api-key`, `proxy-authorization`, `cookie`)
+  from every captured exchange before it reaches a decoder, the enricher, or
+  the API response — these never reach the frontend (§6.2.3).
+- The mitmproxy capture path is user-configured, so it is resolved to an
+  absolute path and validated the same way `sessionId` is (allow-list/no
+  traversal); a path that doesn't resolve to a readable file marks that
+  provider `unavailable` with a reason, never a server crash.
+- The app's own settings (currently only the active log-provider id) are the
+  one thing this app ever writes to local disk — stored in an app-owned
+  config directory, never inside VS Code's `settings.json`, session store, or
+  a captured-log directory.
 - Only the latest stable, non-vulnerable version of each dependency may be
   added or upgraded to (see §11.6); a dependency with a known unpatched
   vulnerability is not introduced regardless of how minor its role is.
@@ -994,6 +1120,15 @@ Carried over from vision §7 plus new ones raised while designing this layer:
   [agentic-coding-explained.md](agentic-coding-explained.md) as it evolves —
   the vision doc doesn't mandate automated drift-checking, but a periodic
   manual review is worth deciding on explicitly.
+- Whether one mitmproxy capture file should always equal one session (the
+  Phase 9 MVP choice — see
+  [phase-9-log-providers-implementation.md](phase-9-log-providers-implementation.md))
+  or whether entries should later be grouped into sessions by an idle-gap
+  heuristic when a user keeps one long-running capture across multiple
+  coding-agent runs.
+- Whether the app-owned settings file should ever hold more than the active
+  provider id (e.g. per-provider capture paths) once a provider needs
+  user-supplied configuration beyond a single path.
 
 **Raised by the Phase 8 design handoff, resolved in the v2 handoff
 (`Design/GitHub chat analyser design 2.zip`) and implemented as designed**

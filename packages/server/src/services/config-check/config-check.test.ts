@@ -36,6 +36,7 @@ describe("checkConfig", () => {
       JSON.stringify({
         "github.copilot.chat.agentDebugLog.fileLogging.enabled": false,
         "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+        "github.copilot.chat.otel.dbSpanExporter.enabled": true,
       }),
     );
 
@@ -56,6 +57,7 @@ describe("checkConfig", () => {
       settingsPath,
       JSON.stringify({
         "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+        "github.copilot.chat.otel.dbSpanExporter.enabled": true,
       }),
     );
 
@@ -78,6 +80,7 @@ describe("checkConfig", () => {
       JSON.stringify({
         "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
         "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 100,
+        "github.copilot.chat.otel.dbSpanExporter.enabled": true,
       }),
     );
 
@@ -88,12 +91,13 @@ describe("checkConfig", () => {
     ]);
   });
 
-  it("has no warnings when logging is enabled and retention is at least 200", () => {
+  it("has no warnings when logging is enabled, retention is at least 200, and agent-traces is enabled", () => {
     writeFileSync(
       settingsPath,
       JSON.stringify({
         "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
         "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+        "github.copilot.chat.otel.dbSpanExporter.enabled": true,
       }),
     );
 
@@ -108,5 +112,44 @@ describe("checkConfig", () => {
     const status = checkConfig({ settingsPath: null, now: NOW });
 
     expect(status.checkedAt).toBe("2026-08-08T00:00:00.000Z");
+  });
+
+  it("every warning declares an explicit severity, valid against the domain schema", () => {
+    const status = checkConfig({ settingsPath: null, now: NOW });
+
+    expect(() => configStatusSchema.parse(status)).not.toThrow();
+    for (const warning of status.warnings) {
+      expect(["required", "optional"]).toContain(warning.severity);
+    }
+  });
+
+  it("warns agent-traces-unavailable (optional severity) when the otel setting is off", () => {
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+        "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+      }),
+    );
+
+    const status = checkConfig({ settingsPath, now: NOW });
+
+    expect(status.warnings).toEqual([
+      expect.objectContaining({
+        code: "agent-traces-unavailable",
+        severity: "optional",
+        settingId: "github.copilot.chat.otel.dbSpanExporter.enabled",
+        currentValue: false,
+        recommendedValue: true,
+      }),
+    ]);
+  });
+
+  it("does not double-warn agent-traces-unavailable when settings.json itself couldn't be found", () => {
+    const status = checkConfig({ settingsPath: null, now: NOW });
+
+    expect(status.warnings).toEqual([
+      expect.objectContaining({ code: "settings-not-found" }),
+    ]);
   });
 });

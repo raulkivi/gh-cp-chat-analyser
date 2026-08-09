@@ -3,7 +3,8 @@
 A local app that visualizes coding-agent sessions — turns, tool calls, cache
 behavior, and token/AI Credits accounting — to help you learn how agentic
 coding tools spend tokens and AI Credits, and to analyze your own real
-Copilot Chat sessions.
+coding-agent logs, from VS Code Copilot Chat sessions or local mitmproxy
+captures of LLM-provider traffic.
 
 ![App landing page, showing the Learn mode scenario list](docs/images/landing-page.png)
 
@@ -20,11 +21,23 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
   model, data flow, API design, tech stack, and project structure.
 - [Implementation plan](docs/implementation-plan.md) — phase-by-phase build
   plan with exit criteria and dependencies.
+- [Phase 8.5 agent-traces implementation plan](docs/phase-8-5-agent-traces-implementation.md) —
+  critical review and build-ready design for the optional agent-traces.db
+  cache-write/reasoning enrichment.
+- [Phase 9 log-providers implementation plan](docs/phase-9-log-providers-implementation.md) —
+  critical review and build-ready design for extensible log providers and
+  mitmproxy ingestion.
 - [Agentic coding explained](docs/agentic-coding-explained.md) — reference
   document on sessions, turns, tool calls, prompt caching, and token
   accounting; the source material Learn mode's scenarios are seeded from.
 - [Code review remediation plan](docs/code-review-remediation-plan.md) —
   phased plan to address the findings from the issue #5 code review.
+- [Copilot Chat source investigation](docs/copilot-chat-source-investigation.md) —
+  findings from inspecting the Copilot Chat extension's own source for
+  richer cache/token-usage log data than `main.jsonl` carries.
+- [Log provider alternatives](docs/log-provider-alternatives.md) — ranked,
+  actionable recommendations for Phase 9+ `LogProvider` work that follow
+  from the source investigation above.
 
 ## Setup
 
@@ -59,11 +72,10 @@ npm run build        # type-checks/builds every workspace
 
 ## Enabling GitHub Copilot Chat debug logging
 
-Analyze mode's real per-turn token/cache numbers (cache write/read,
-uncached input, tool, vision, reasoning, output, and AI Credits) come from
-Copilot Chat's own debug log (`main.jsonl`). By default VS Code only
-writes a minimal log with no usage data, so this setting has to be turned
-on explicitly:
+Analyze mode's real per-turn token/cache numbers (uncached input, cache
+read, output, and AI Credits) come from Copilot Chat's own debug log
+(`main.jsonl`). By default VS Code only writes a minimal log with no usage
+data, so this setting has to be turned on explicitly:
 
 1. Open your VS Code user `settings.json` (Command Palette → **Preferences:
    Open User Settings (JSON)**), normally at
@@ -87,18 +99,45 @@ warning banner explains exactly what to fix and where (see
 `GET /api/config/status`). Sessions recorded before enabling it still show
 up in Analyze mode, just without per-token figures.
 
+## Enabling richer cache-write/reasoning numbers (optional)
+
+Two more per-turn figures — cache-write and reasoning tokens — aren't
+exposed by `main.jsonl` at all, no matter how the setting above is
+configured. They come from a second, separate optional local source,
+`agent-traces.db`, that Copilot Chat can also write. This is purely
+additive: the app works fully without it, just showing those two figures
+as unavailable.
+
+1. Open your VS Code user `settings.json` (same file as above).
+2. Add:
+   ```json
+   "github.copilot.chat.otel.dbSpanExporter.enabled": true
+   ```
+3. Reload the VS Code window (Command Palette → **Developer: Reload
+   Window**) for the setting to take effect.
+
+Same non-retroactive caveat as above — only future sessions started after
+the reload will have cache-write/reasoning data. The app checks this
+setting too on startup (`GET /api/config/status`), surfaced as a
+lower-priority, dismissible suggestion rather than a required warning,
+since Analyze mode's other numbers work fine without it.
+
 ## Using the app
 
 The app has two modes that share the same layout — a turns table, an
 explanation/detail panel, and a timeline scrubber to step through a
 session turn by turn:
 
-- **Learn mode** — pick one of the 9 bundled scenarios (cache basics, a
+- **Learn mode** — pick one of the 18 bundled scenarios (cache basics, a
   subagent's own session, context compaction, a model switch mid-session,
   an MCP tool change mid-session, `/clear`, `/rewind`, session forking,
-  cache TTL expiry) to see a guided, turn-by-turn walkthrough of how
-  caching and token accounting work, with a plain-language explanation for
-  each turn.
+  cache TTL expiry, an instructions-file edit, a silent `.instructions.md`
+  pull-in, inline vs. subagent-isolated exploration, a 1-hour cache
+  breakpoint, cascading model-switch-then-TTL-lapse triggers, an image
+  attachment invalidating the cache, toggling extended thinking, nested
+  forking, and a subagent on a cheaper model) to see a guided, turn-by-turn
+  walkthrough of how caching and token accounting work, with a
+  plain-language explanation for each turn.
 
   ![Learn mode with a scenario selected: turns table, AI Credits sparkline, timeline scrubber, and the explanation panel](docs/images/learn-scenario.png)
 

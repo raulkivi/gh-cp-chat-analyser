@@ -109,6 +109,13 @@ Sessions recorded *before* you enable logging still show up in Analyze
 mode — they just show em dashes for the numeric columns, the same as any
 other genuinely-unknown value.
 
+Cache-write and reasoning tokens need a *separate*, optional setting on
+top of the one above — see the README's
+["Enabling richer cache-write/reasoning numbers"](../README.md#enabling-richer-cache-writereasoning-numbers-optional)
+section for the steps. Skipping it doesn't limit anything else — every
+other Analyze mode figure works the same either way — it just leaves
+those two columns showing em dashes.
+
 ### The turns table in Analyze mode
 
 Real sessions render with the identical 11-column table Learn mode

@@ -12,6 +12,45 @@ import {
   TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON,
   USAGE_UNAVAILABLE_REASON,
 } from "./services/session-enricher/session-enricher.js";
+import { AGENT_TRACES_UNAVAILABLE_REASON } from "./data-sources/jsonl/session-usage-spans.js";
+
+const AGENT_TRACES_DB_SCHEMA = `
+  CREATE TABLE spans (
+    span_id TEXT PRIMARY KEY, trace_id TEXT NOT NULL, parent_span_id TEXT,
+    name TEXT NOT NULL, start_time_ms INTEGER NOT NULL, end_time_ms INTEGER NOT NULL,
+    status_code INTEGER NOT NULL DEFAULT 0, status_message TEXT,
+    operation_name TEXT, provider_name TEXT, agent_name TEXT, conversation_id TEXT,
+    request_model TEXT, response_model TEXT,
+    input_tokens INTEGER, output_tokens INTEGER, cached_tokens INTEGER, reasoning_tokens INTEGER,
+    tool_name TEXT, tool_call_id TEXT, tool_type TEXT,
+    chat_session_id TEXT, turn_index INTEGER, ttft_ms REAL
+  );
+  CREATE TABLE span_attributes (
+    span_id TEXT NOT NULL REFERENCES spans(span_id) ON DELETE CASCADE,
+    key TEXT NOT NULL, value TEXT, PRIMARY KEY (span_id, key)
+  );
+`;
+
+function seedAgentTracesDb(
+  dbPath: string,
+  rows: Array<{ spanId: string; responseId: string; cacheWrite: number; reasoning: number }>,
+): void {
+  const db = new DatabaseSync(dbPath);
+  db.exec(AGENT_TRACES_DB_SCHEMA);
+  for (const row of rows) {
+    db.prepare(
+      `INSERT INTO spans (span_id, trace_id, name, start_time_ms, end_time_ms, operation_name, reasoning_tokens)
+       VALUES (?, ?, 'chat', 0, 1, 'chat', ?)`,
+    ).run(row.spanId, `trace-${row.spanId}`, row.reasoning);
+    db.prepare(
+      `INSERT INTO span_attributes (span_id, key, value) VALUES (?, 'gen_ai.response.id', ?)`,
+    ).run(row.spanId, row.responseId);
+    db.prepare(
+      `INSERT INTO span_attributes (span_id, key, value) VALUES (?, 'gen_ai.usage.cache_creation.input_tokens', ?)`,
+    ).run(row.spanId, String(row.cacheWrite));
+  }
+  db.close();
+}
 
 const SESSION_STORE_SCHEMA = `
   CREATE TABLE sessions (
@@ -375,6 +414,75 @@ describe("GET /api/sessions/:id", () => {
     expect(response.body.model).toBe("claude-sonnet-5");
   });
 
+  it("leaves cacheWrite/reasoning unavailable (actionable reason) when agent-traces.db isn't configured", async () => {
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    const lines = [
+      { v: 1, ts: 1, dur: 0, sid: "session-1", type: "user_message", name: "user_message", spanId: "u0", status: "ok", attrs: { content: "hi" } },
+      {
+        v: 1, ts: 2, dur: 5, sid: "session-1", type: "llm_request", name: "llm_request", spanId: "b", status: "ok",
+        attrs: { model: "claude-sonnet-5", inputTokens: 1000, outputTokens: 50, cachedTokens: 200, responseId: "resp-a" },
+      },
+    ];
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
+    );
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+      agentTracesDbPath: null,
+    });
+
+    const response = await request(app).get("/api/sessions/session-1");
+
+    expect(response.body.turns[0].usage.cacheWrite).toEqual({
+      known: false,
+      reason: AGENT_TRACES_UNAVAILABLE_REASON,
+    });
+    expect(response.body.turns[0].usage.reasoning).toEqual({
+      known: false,
+      reason: AGENT_TRACES_UNAVAILABLE_REASON,
+    });
+  });
+
+  it("populates cacheWrite/reasoning, summed across a turn's requests, from agent-traces.db when available", async () => {
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    const lines = [
+      { v: 1, ts: 1, dur: 0, sid: "session-1", type: "user_message", name: "user_message", spanId: "u0", status: "ok", attrs: { content: "hi" } },
+      {
+        v: 1, ts: 2, dur: 5, sid: "session-1", type: "llm_request", name: "llm_request", spanId: "b", status: "ok",
+        attrs: { model: "claude-sonnet-5", inputTokens: 1000, outputTokens: 50, cachedTokens: 200, responseId: "resp-a" },
+      },
+      {
+        v: 1, ts: 3, dur: 5, sid: "session-1", type: "llm_request", name: "llm_request", spanId: "c", status: "ok",
+        attrs: { model: "claude-sonnet-5", inputTokens: 500, outputTokens: 20, cachedTokens: 100, responseId: "resp-b" },
+      },
+    ];
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
+    );
+    const agentTracesDbPath = path.join(dir, "agent-traces.db");
+    seedAgentTracesDb(agentTracesDbPath, [
+      { spanId: "span-a", responseId: "resp-a", cacheWrite: 16860, reasoning: 119 },
+      { spanId: "span-b", responseId: "resp-b", cacheWrite: 1618, reasoning: 0 },
+    ]);
+    const app = createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+      agentTracesDbPath,
+    });
+
+    const response = await request(app).get("/api/sessions/session-1");
+
+    expect(response.body.turns[0].usage.cacheWrite).toEqual({ known: true, value: 18478 });
+    expect(response.body.turns[0].usage.reasoning).toEqual({ known: true, value: 119 });
+    // Unrelated fields are unaffected by this enrichment.
+    expect(response.body.turns[0].usage.uncachedInput).toEqual({ known: true, value: 1200 });
+  });
+
   it("populates systemPrompt, toolInventory, and merges jsonl-only tool calls (Phase 6)", async () => {
     const sessionLogDir = path.join(debugLogsDirPath, "session-1");
     mkdirSync(sessionLogDir, { recursive: true });
@@ -553,6 +661,7 @@ describe("GET /api/config/status", () => {
       JSON.stringify({
         "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
         "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+        "github.copilot.chat.otel.dbSpanExporter.enabled": true,
       }),
     );
     const app = createApp({ vscodeSettingsPath: settingsPath });

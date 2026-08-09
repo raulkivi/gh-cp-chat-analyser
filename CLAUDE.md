@@ -25,21 +25,23 @@ content here.
   met.
 - Commit all changes to git as soon as a phase's exit criterion is met,
   before starting the next phase.
-- Repo status: Phases 0-8 complete — npm workspaces with `packages/domain`
+- Repo status: Phases 0-8.5 complete — npm workspaces with `packages/domain`
   (zod schemas + types for every architecture.md §5 shape, including
-  `Session.category`/`startedAt`), `packages/server` (Express API:
-  Learn-mode fixtures plus real Analyze-mode sessions read read-only from
-  the local VS Code SQLite store via `node:sqlite`, enriched with real
-  per-turn token/cache numbers extracted from `main.jsonl`, plus
-  Analyze-mode-only system-prompt breakdown and tool-inventory/tool-call
+  `Session.category`/`startedAt`, and `ConfigWarning.severity`), `packages/server`
+  (Express API: Learn-mode fixtures plus real Analyze-mode sessions read
+  read-only from the local VS Code SQLite store via `node:sqlite`, enriched
+  with real per-turn token/cache numbers extracted from `main.jsonl` plus
+  (Phase 8.5, optional) cache-write/reasoning tokens from `agent-traces.db`,
+  and Analyze-mode-only system-prompt breakdown and tool-inventory/tool-call
   detail extracted from `main.jsonl`'s sibling artifacts; a startup config
   check reads `settings.json` and exposes `GET /api/config/status`),
   `packages/web` (Vite + React, styled with the "Industry" design system
   ported from `Design/` into `theme.css` — header with mode switch, a
   searchable session list, an 11-column turns table, a tabbed
   Explanation/System-prompt/Tools right column, a dismissible structured
-  config-warning banner, zero-data empty states — built on shared
-  `components/ui/*` primitives; `charts/AiCreditsSparkline` is the sole
-  remaining D3 chart, in the center column's header row), Vitest wired
-  with TDD-first tests. Phase 9 (VS Code extension packaging) is
-  future/out of MVP scope — see implementation-plan.md.
+  config-warning banner (required vs. optional severity styled distinctly),
+  zero-data empty states — built on shared `components/ui/*` primitives;
+  `charts/AiCreditsSparkline` is the sole remaining D3 chart, in the center
+  column's header row), Vitest wired with TDD-first tests. Phase 9
+  (extensible log providers + mitmproxy) and Phase 10 (VS Code extension
+  packaging) are future/out of MVP scope — see implementation-plan.md.

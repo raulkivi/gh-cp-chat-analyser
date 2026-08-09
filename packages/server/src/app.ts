@@ -20,8 +20,13 @@ import {
   listWorkspaceDebugLogsDirPaths,
   resolveMainJsonlPath,
 } from "./data-sources/jsonl/session-log-path.js";
-import { extractTurnUsages } from "./data-sources/jsonl/session-usage-spans.js";
+import {
+  collectResponseIds,
+  extractTurnUsages,
+} from "./data-sources/jsonl/session-usage-spans.js";
 import { resolveSessionStoreDbPath } from "./data-sources/sqlite/session-store-path.js";
+import { resolveAgentTracesDbPath } from "./data-sources/agent-traces/agent-traces-db-path.js";
+import { loadAgentTraceUsageForResponseIds } from "./data-sources/agent-traces/agent-traces-reader.js";
 import {
   getSessionFileRows,
   getSessionRow,
@@ -47,6 +52,7 @@ export interface CreateAppOptions {
   sessionStoreDbPath?: string;
   debugLogsDirPaths?: string[];
   vscodeSettingsPath?: string | null;
+  agentTracesDbPath?: string | null;
 }
 
 export function createApp(options: CreateAppOptions = {}): Express {
@@ -59,6 +65,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
     options.vscodeSettingsPath !== undefined
       ? options.vscodeSettingsPath
       : resolveVscodeSettingsPath();
+  const resolvedAgentTracesDbPath =
+    options.agentTracesDbPath !== undefined
+      ? options.agentTracesDbPath
+      : resolveAgentTracesDbPath();
 
   function openSessionStoreDb(): DatabaseSync | null {
     if (!resolvedDbPath || !existsSync(resolvedDbPath)) {
@@ -140,7 +150,11 @@ export function createApp(options: CreateAppOptions = {}): Express {
           rawLineCount,
         );
         if (mainJsonlAvailability === "events-present") {
-          turnUsages = extractTurnUsages(envelopes);
+          const agentTraceUsageByResponseId = loadAgentTraceUsageForResponseIds(
+            resolvedAgentTracesDbPath,
+            collectResponseIds(envelopes),
+          );
+          turnUsages = extractTurnUsages(envelopes, agentTraceUsageByResponseId);
           ({ invokedToolNamesByTurn, systemPrompt, toolInventory } =
             await buildAnalyzeModeExtras(envelopes, mainJsonlPath));
         }

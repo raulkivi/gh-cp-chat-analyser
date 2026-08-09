@@ -30,3 +30,42 @@ their content here.
   schemas + types for every architecture.md §5 shape), `packages/server`
   (Express health check), `packages/web` (Vite + React), Vitest wired with
   TDD-first tests. Phase 2 (Learn mode) is next.
+
+## Architecture diagrams
+
+Use Mermaid diagrams in `docs/architecture.md` as a required aid for system
+understanding and architectural validation. Diagrams are a structural view of
+the ontology, not a replacement for precise prose: every important component
+and relationship must also have a stable name, responsibility, and constraint
+in the surrounding documentation.
+
+Keep these diagram types current whenever the affected architecture changes:
+
+- **System context diagram** — users, the application, external systems, and
+  trust or network boundaries.
+- **Container/component diagram** — packages or deployable/runtime components,
+  their responsibilities, dependencies, and data stores.
+- **Sequence diagram** — each important end-to-end workflow, including the
+  direction of calls, response data, failure paths, and asynchronous
+  boundaries.
+- **Domain model diagram** — domain entities/value objects, ownership,
+  cardinality, and key relationships represented by the shared schemas.
+- **Data-flow diagram** — source files or providers, parsing/normalization
+  stages, API boundaries, and the UI consumers of normalized data.
+
+Before completing an architecture-affecting change, validate the diagrams
+against the implementation and tests:
+
+- Every diagram node maps to a real module, package, service, actor, or
+  external dependency; remove stale or speculative nodes.
+- Every arrow is directional and labeled with its relationship or payload;
+  do not use unlabeled arrows for semantically important dependencies.
+- The diagrams agree with module boundaries, public API contracts, domain
+  schemas, and the actual runtime flow. Treat disagreement as an architecture
+  defect to resolve, not as harmless documentation drift.
+- Important constraints are visible either in the diagram or immediately
+  beside it: local-only boundaries, ownership, sync/async behavior,
+  unavailable-data behavior, security boundaries, and provider extensibility.
+- Keep diagrams focused by concern rather than creating one unreadable graph.
+  Update the corresponding explanatory text and tests when a relationship or
+  invariant changes.

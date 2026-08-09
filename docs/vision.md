@@ -103,7 +103,7 @@ mitmproxy captures. It never depends on the cloud-synced store, so it works
 fully offline and requires no `chat.sessionSync.enabled` opt-in.
 
 Per [agentic-coding-explained.md §18](agentic-coding-explained.md#18-where-to-find-the-logs-data-sources-for-token-cache-and-ai-credits-analysis),
-the two in-scope sources are:
+the in-scope sources are:
 
 | Source | Gives us | Caveat |
 |---|---|---|

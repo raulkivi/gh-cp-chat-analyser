@@ -34,6 +34,28 @@ Clicking a table row, dragging the scrubber, or pressing **Enter/Space**
 on a focused row or card all drive the same "selected turn" state, so the
 table, scrubber, and explanation panel always stay in sync.
 
+## Exporting an AI-advice bundle
+
+Every session card — Learn or Analyze — has a checkbox in its top-right
+corner. Tick one or more to select sessions for advice; a trigger bar
+appears under the list showing how many are selected:
+
+![Two sessions selected for advice, with the Export advice trigger bar underneath the session list](images/guide-advice-trigger-bar.png)
+
+Click **Export advice** to open a dialog with a ready-to-paste prompt:
+aggregated session/turn metadata — token usage, cache efficiency, tool
+usage, prompt composition, AI Credits — formatted as JSON for an LLM chat
+to give advice on your agentic-coding workflow. **Chat message text is
+never included.** Click **Preview** to see the exact bundle before
+copying it, optionally include tool-call arguments (which may contain
+text snippets) via the checkbox, then **Copy advice prompt**:
+
+![The Export advice bundle dialog with its preview open, showing the JSON metadata bundle](images/guide-advice-export-dialog.png)
+
+If a selected session hasn't been opened yet in the list, the dialog
+flags it — its turn-level detail (tokens, cache, tool usage) won't be in
+the bundle until you open it first.
+
 ## Learn mode
 
 Learn mode ships with four bundled example sessions, each illustrating one
@@ -138,9 +160,10 @@ that specific turn:
 **System prompt** — a breakdown of what made up the system prompt for
 this session (base instructions, `CLAUDE.md`/repo instructions, loaded
 skills, tool definitions, …), each as a labeled bar sized to its share of
-the total:
+the total. When the base system prompt was captured, an **Open system
+prompt inspector** button appears above the breakdown:
 
-![The System prompt tab: one bar per system-prompt component](images/guide-analyze-systemprompt.png)
+![The System prompt tab: one bar per system-prompt component, with the Open system prompt inspector button](images/guide-analyze-systemprompt.png)
 
 **Tools** — every tool that was loaded for the session, cross-referenced
 against whether it was actually invoked and how many turns used it:
@@ -150,6 +173,27 @@ against whether it was actually invoked and how many turns used it:
 If a session has no captured system-prompt or tool-inventory data (for
 example, it predates enabling debug logging), each tab shows a short
 explanation instead of an empty table.
+
+### The system prompt inspector
+
+Click **Open system prompt inspector** on the System prompt tab to
+replace the session view with a full-detail breakdown of the captured
+system prompt, in three panels:
+
+- **Structure** (left) — a nav tree of every tagged section, color-coded
+  to match its highlight in the raw text.
+- **Raw text** (center) — the full captured prompt, toggled between
+  **Pretty** (reformatted/indented) and **Raw** (exactly as captured);
+  clicking a Structure entry scrolls to and highlights that section.
+- **Component description** (right) — a plain-language explanation of
+  the selected section's purpose, tagged **Sourced** when it's backed by
+  a citation into the Copilot Chat extension's own source, or **Not
+  independently sourced** when the description is inferred from the
+  captured text alone.
+
+![The system prompt inspector: structure tree, the Preamble section selected and highlighted in the raw text, and its description](images/guide-system-prompt-inspector.png)
+
+Click **← Back to session** to return to the turns table.
 
 ### Searching sessions and empty states
 

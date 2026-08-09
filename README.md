@@ -147,6 +147,23 @@ session turn by turn:
 
   ![Analyze mode's tabbed right panel: Explanation, System prompt, and Tools](docs/images/analyze-tabs.png)
 
+  From the System prompt tab, click **Open system prompt inspector** to
+  drill into the full captured prompt: a structure tree of every section,
+  its raw text (plain or pretty-printed) with the selected section
+  highlighted, and a plain-language description of what that section is
+  for and whether it's independently sourced.
+
+  ![The System prompt inspector: structure tree, raw text with the selected section highlighted, and its description](docs/images/guide-system-prompt-inspector.png)
+
+- **AI-advice export** (Learn or Analyze) — tick the checkbox on any
+  session card to select it for advice, then use the **Export advice**
+  bar to copy a metadata-only bundle — token usage, cache efficiency,
+  tool usage, prompt composition, AI Credits, never chat message text —
+  formatted to paste into an LLM chat for advice on your agentic-coding
+  workflow.
+
+  ![The advice-export dialog with a preview of the copyable metadata bundle](docs/images/guide-advice-export-dialog.png)
+
 ## License
 
 [MIT](LICENSE)

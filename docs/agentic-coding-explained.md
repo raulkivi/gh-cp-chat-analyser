@@ -13,7 +13,7 @@ back-and-forth exchanges before handing control back to you.
 
 Understanding how that session is structured — **sessions**, **turns**, **tool
 calls**, and the **caching** that ties them together — is the key to
-understanding *why* a long-running session costs what it does. Prompt caching
+understanding *why* a long-running session spends the AI Credits it does. Prompt caching
 means the same instructions, tools, and prior conversation don't have to be
 reprocessed at full price every turn, but changes to the model, the toolset, the
 instructions, or the conversation's shape (compaction, `/clear`, `/rewind`,
@@ -22,28 +22,28 @@ some expensive.
 
 This document walks through each concept from the ground up, then works through
 a single running example (Section 9) across every subsequent section, so the
-token/cache/cost impact of each event is easy to compare side by side.
+token/cache/AI Credits impact of each event is easy to compare side by side.
 
 ## Table of contents
 
 1. [What is an agentic coding session?](#1-what-is-an-agentic-coding-session)
 2. [What is a turn?](#2-what-is-a-turn)
 3. [What is a tool call and a tool response?](#3-what-is-a-tool-call-and-a-tool-response)
-4. [Prompt / file caching and how it saves token cost](#4-prompt--file-caching-and-how-it-saves-token-cost)
+4. [Prompt / file caching and how it saves AI Credits](#4-prompt--file-caching-and-how-it-saves-ai-credits)
 5. [Request tokens, response tokens, and how they accumulate](#5-request-tokens-response-tokens-and-how-they-accumulate)
 6. [Other token types](#6-other-token-types)
-7. [How subagents work, and how they reduce cost](#7-how-subagents-work-and-how-they-reduce-cost)
+7. [How subagents work, and how they reduce AI Credits spend](#7-how-subagents-work-and-how-they-reduce-ai-credits-spend)
 8. [Full tree view: Session → Turns → Tool Calls → Content](#8-full-tree-view-session--turns--tool-calls--content)
 9. [Worked example: a multi-turn session showing every token type](#9-worked-example-a-multi-turn-session-showing-every-token-type)
-10. [How context compaction/summarization affects tokens, cache, and cost](#10-how-context-compactionsummarization-affects-tokens-cache-and-cost)
-11. [How changing the model mid-session affects tokens, cache, and cost](#11-how-changing-the-model-mid-session-affects-tokens-cache-and-cost)
-12. [How changing MCP tools mid-session affects tokens, cache, and cost](#12-how-changing-mcp-tools-mid-session-affects-tokens-cache-and-cost)
-13. [How asking for a git commit affects tokens, cache, and cost](#13-how-asking-for-a-git-commit-affects-tokens-cache-and-cost)
+10. [How context compaction/summarization affects tokens, cache, and AI Credits](#10-how-context-compactionsummarization-affects-tokens-cache-and-ai-credits)
+11. [How changing the model mid-session affects tokens, cache, and AI Credits](#11-how-changing-the-model-mid-session-affects-tokens-cache-and-ai-credits)
+12. [How changing MCP tools mid-session affects tokens, cache, and AI Credits](#12-how-changing-mcp-tools-mid-session-affects-tokens-cache-and-ai-credits)
+13. [How asking for a git commit affects tokens, cache, and AI Credits](#13-how-asking-for-a-git-commit-affects-tokens-cache-and-ai-credits)
 14. [How Claude Code's `/clear` affects tokens and cache](#14-how-claude-codes-clear-affects-tokens-and-cache)
 15. [How `/rewind` (or editing a previous turn in VS Code) affects tokens and cache](#15-how-rewind-or-editing-a-previous-turn-in-vs-code-affects-tokens-and-cache)
-16. [How session forking affects tokens, cache, and cost](#16-how-session-forking-affects-tokens-cache-and-cost)
+16. [How session forking affects tokens, cache, and AI Credits](#16-how-session-forking-affects-tokens-cache-and-ai-credits)
 17. [Cache optimal usage: TTLs, invalidation, and best practices](#17-cache-optimal-usage-ttls-invalidation-and-best-practices)
-18. [Where to find the logs: data sources for token, cache, and cost analysis](#18-where-to-find-the-logs-data-sources-for-token-cache-and-cost-analysis)
+18. [Where to find the logs: data sources for token, cache, and AI Credits analysis](#18-where-to-find-the-logs-data-sources-for-token-cache-and-ai-credits-analysis)
 19. [Summary](#summary)
 
 ---
@@ -68,8 +68,8 @@ A session contains:
   model does in response to it.
 - **Session-level state** — checkpoints/undo points, files touched, and (optionally)
   persisted session memory notes.
-- **Aggregated usage** — token counts and cost rolled up across every turn in the
-  session.
+- **Aggregated usage** — token counts and AI Credits rolled up across every turn
+  in the session.
 
 > **What's actually in "the system prompt"?** It's layered: (1) built-in agent
 > instructions (identity, tool-use protocol, formatting/safety rules) — fixed; (2)
@@ -96,8 +96,8 @@ A session contains:
 > changed. If instead it's appended later, closer to where the file is used,
 > only that turn's own new content grows and earlier cached history is
 > unaffected. Either way, this is a **silent** trigger: nothing about it looks
-> like a deliberate change (no explicit model/tool switch), so a cost spike from
-> simply opening a new kind of file can be surprising.
+> like a deliberate change (no explicit model/tool switch), so an AI Credits
+> spike from simply opening a new kind of file can be surprising.
 
 ```mermaid
 flowchart TD
@@ -106,7 +106,7 @@ flowchart TD
     S --> T1["Turn 1"]
     S --> T2["Turn 2"]
     S --> T3["Turn N ..."]
-    S --> U["Session Usage<br/>(sum of all turn tokens/cost)"]
+    S --> U["Session Usage<br/>(sum of all turn tokens/AI Credits)"]
 
     T1 --> T1u["User message"]
     T1 --> T1c["Tool calls"]
@@ -193,7 +193,7 @@ sequenceDiagram
 
 ---
 
-## 4. Prompt / file caching and how it saves token cost
+## 4. Prompt / file caching and how it saves AI Credits
 
 Most model providers support **prompt caching**: if a prefix of the input tokens sent
 to the model is identical to a prefix sent in a previous request (same system
@@ -283,9 +283,9 @@ Accumulation:
   all prior turns' messages and tool exchanges, so the *nominal* request size grows
   turn over turn — though the **billed, uncached** portion is usually just the new
   content thanks to prompt caching. Response tokens simply sum turn-by-turn since
-  each turn's output is new. A session's total cost is the sum of every turn's
-  (uncached request + cache-read request + response) tokens, priced according to the
-  model's rate for each token type.
+  each turn's output is new. A session's total AI Credits is the sum of every
+  turn's (uncached request + cache-read request + response) tokens, priced
+  according to the model's rate for each token type.
 
 ```mermaid
 flowchart TD
@@ -307,27 +307,32 @@ flowchart TD
 
 Beyond plain request/response tokens, providers commonly expose:
 
-| Token type | When it's used | Cost impact |
+| Token type | When it's used | AI Credits impact |
 |---|---|---|
 | **Cache write tokens** | First time a prefix (system prompt, instructions, early turns) is sent | Usually priced slightly *above* normal input rate, but only paid once per unique prefix |
 | **Cache read (cached input) tokens** | Any subsequent request whose prefix matches a previous cache write | Priced far *below* normal input rate (often 5–10x cheaper) — this is the main saving mechanism |
-| **Reasoning / "thinking" tokens** | Models with extended/chain-of-thought reasoning (e.g. deliberate planning before acting) | Billed as output tokens, sometimes at a distinct rate; can be a large share of response cost on hard tasks |
-| **Tool-call tokens** | Tokens spent encoding tool call arguments and tool result payloads | Counted as part of input/output tokens of the turn that produced/consumed them; large tool outputs (e.g. big file reads, verbose terminal logs) are a common source of cost spikes |
+| **Reasoning / "thinking" tokens** | Models with extended/chain-of-thought reasoning (e.g. deliberate planning before acting) | Billed as output tokens, sometimes at a distinct rate; can be a large share of a response's AI Credits on hard tasks |
+| **Tool-call tokens** | Tokens spent encoding tool call arguments and tool result payloads | Counted as part of input/output tokens of the turn that produced/consumed them; large tool outputs (e.g. big file reads, verbose terminal logs) are a common source of AI Credits spikes |
 | **Vision/image tokens** | Screenshots, pasted images, image attachments | Converted to a token count based on resolution; can be significant for image-heavy turns |
 
 The overall bill for a session is effectively:
 
 $$
-\text{Cost} = \sum_{\text{turns}} \Big( r_{\text{uncached}} \cdot p_{\text{in}} + r_{\text{cache\_write}} \cdot p_{\text{write}} + r_{\text{cache\_read}} \cdot p_{\text{read}} + r_{\text{output}} \cdot p_{\text{out}} \Big)
+\text{AI Credits} = \sum_{\text{turns}} \Big( r_{\text{uncached}} \cdot p_{\text{in}} + r_{\text{cache\_write}} \cdot p_{\text{write}} + r_{\text{cache\_read}} \cdot p_{\text{read}} + r_{\text{output}} \cdot p_{\text{out}} \Big)
 $$
 
 where $p_{\text{read}} \ll p_{\text{in}} \le p_{\text{write}} \le p_{\text{out}}$ for
 most providers — which is exactly why caching and minimizing unnecessary
-tool-output verbosity matter for cost.
+tool-output verbosity matter for AI Credits. In GitHub Copilot specifically,
+this bill is denominated in **AI Credits** (formerly "premium requests"), not
+USD — see [GitHub Copilot models and
+pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
+for the per-model multipliers that determine how many AI Credits a request
+consumes.
 
 ---
 
-## 7. How subagents work, and how they reduce cost
+## 7. How subagents work, and how they reduce AI Credits spend
 
 A **subagent** (invoked via a tool such as `runSubagent` or a dedicated
 exploration/search agent) is a *separate*, short-lived agentic loop that the main
@@ -335,7 +340,7 @@ session spins up to perform a bounded piece of work — e.g. "search the codebas
 X and summarize the relevant files" — and then reports back a single, compact
 result message.
 
-Why this saves cost:
+Why this saves AI Credits:
 
 - The subagent runs its **own isolated context window**. All the exploratory
   back-and-forth it does (searches, file reads, false starts) stays inside the
@@ -451,7 +456,7 @@ Notes on this example:
 - **Tool tokens** spike on turn 4 (verbose test-run output), again on turn 5
   (re-running tests/grepping logs while debugging), and moderately on turn 7
   (`git status`/`git diff`/`git commit` output) — this is the most common source
-  of unexpected cost.
+  of unexpected AI Credits spend.
 - **Vision tokens** only appear on turn 2, where an image was attached.
 - **Turn 7's git commit** behaves like any other tool-using turn — no special
   token type — but it does read the session's largest cache so far (10870) and
@@ -474,7 +479,7 @@ counts into AI Credits, this example assumes illustrative per-1K-token rates:
 cache write 0.00625 AI Credits, cache read 0.0005 AI Credits, uncached input/tool/vision 0.005 AI Credits,
 reasoning/output 0.015 AI Credits (real rates depend on the model and provider).
 
-| Turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content | 4500 | 0 | 950 | 0 | 0 | 300 | 250 | **6000** | **0.0411 AI Credits** |
 | 2 | Screenshot of a bug; spawns subagent, gets back a compact summary | 1480 | 4500 | 300 | 100 | 700 | 200 | 180 | **7460** | **0.0227 AI Credits** |
@@ -485,7 +490,7 @@ reasoning/output 0.015 AI Credits (real rates depend on the model and provider).
 | 7 | Commits the changes (`git status`/`git diff`/`git commit`) | 1370 | 10870 | 90 | 900 | 0 | 180 | 200 | **13610** | **0.0246 AI Credits** |
 | 8 | Final "thanks" message, no new tool calls | 180 | 12240 | 60 | 0 | 0 | 30 | 90 | **12600** | **0.0093 AI Credits** |
 
-| Cumulative through turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Session total** | **Running session cost** |
+| Cumulative through turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Session total** | **Running session AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content | 4500 | 0 | 950 | 0 | 0 | 300 | 250 | **6000** | **0.0411 AI Credits** |
 | 2 | Screenshot of a bug; spawns subagent, gets back a compact summary | 5980 | 4500 | 1250 | 100 | 700 | 500 | 430 | **13460** | **0.0638 AI Credits** |
@@ -501,7 +506,7 @@ from the first table — every token ever written, still available for reuse. Th
 much larger **cumulative cache read** (60680) is how much reuse benefit that
 cache actually delivered, since each turn re-reads the whole growing history.
 That reuse — reading far more than was ever written — is precisely what keeps the
-**running session cost** growing slower than the **session total** token count.
+**running session AI Credits** growing slower than the **session total** token count.
 
 ### The subagent's own session (separate table)
 
@@ -511,22 +516,23 @@ visible to (or paid for again by) the parent session. Only its final summary
 crosses back over, counted as the ~100 "tool" tokens in the parent's turn 2 row
 above.
 
-| Subagent turn | What it does | Cache write (new) | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Subagent turn | What it does | Cache write (new) | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Searches the codebase (`grep_search`/`semantic_search`) for the bug's root cause | 1200 | 0 | 1200 | 250 | 600 | 180 | 120 | **2350** | **0.0163 AI Credits** |
 | 2 | Reads the matched files in full | 300 | 1200 | 1500 | 100 | 900 | 150 | 90 | **2740** | **0.0111 AI Credits** |
 | 3 | Synthesizes the compact summary returned to the parent | 150 | 1500 | 1650 | 50 | 0 | 100 | 200 | **2000** | **0.0064 AI Credits** |
 | **Subagent session total** | | **1650** | **2700** | — | **400** | **1500** | **430** | **410** | **7090** | **0.0338 AI Credits** |
 
-This subagent cost (**0.0338 AI Credits**) is real and billed — isolation doesn't make the
-exploration free. What it *does* avoid is dumping all 7090 of those tokens into
-the **parent's** permanent cache. If that exploration had happened inline in
-parent turn 2 instead, the parent's cache size would have jumped by ~7090 tokens
-right there, and turns 3-6 would each re-read that extra history — roughly
-4 × 7090 ≈ 28,400 extra cache-read tokens (~0.0142 AI Credits) plus a bigger one-time write
-(~0.0443 AI Credits) — for a total of about 0.0585 AI Credits, *more* than the 0.0338 AI Credits the isolated
-subagent actually cost. Isolating exploratory work in a subagent keeps both the
-parent's context window and its long-run cache-driven cost smaller.
+This subagent's AI Credits spend (**0.0338 AI Credits**) is real and billed — isolation
+doesn't make the exploration free. What it *does* avoid is dumping all 7090 of
+those tokens into the **parent's** permanent cache. If that exploration had
+happened inline in parent turn 2 instead, the parent's cache size would have
+jumped by ~7090 tokens right there, and turns 3-6 would each re-read that extra
+history — roughly 4 × 7090 ≈ 28,400 extra cache-read tokens (~0.0142 AI Credits)
+plus a bigger one-time write (~0.0443 AI Credits) — for a total of about 0.0585
+AI Credits, *more* than the 0.0338 AI Credits the isolated subagent actually
+spent. Isolating exploratory work in a subagent keeps both the parent's context
+window and its long-run cache-driven AI Credits usage smaller.
 
 ```mermaid
 sequenceDiagram
@@ -604,7 +610,7 @@ roughly proportional to just that turn's new content — and the subagent's enti
 
 ---
 
-## 10. How context compaction/summarization affects tokens, cache, and cost
+## 10. How context compaction/summarization affects tokens, cache, and AI Credits
 
 > Extracted as a standalone doc: [scenarios/03-context-compaction.md](scenarios/03-context-compaction.md).
 
@@ -614,7 +620,7 @@ message, it asks the model to produce a condensed summary of everything so far,
 and that summary — not the original messages — becomes the new prefix for future
 turns.
 
-What this does to tokens/cache/cost:
+What this does to tokens/cache/AI Credits:
 
 - **One-time spike on the compaction turn**: producing the summary requires
   reading the *entire* prior history (still a cache hit, if it hasn't expired) and
@@ -624,12 +630,12 @@ What this does to tokens/cache/cost:
   content from the raw history it replaces — it doesn't byte-match the old cached
   prefix. So the old cache entry becomes useless; a **new, smaller cache** starts
   from the summary instead of the full raw transcript.
-- **Lower cost afterward**: because the new prefix (summary + new turns) is much
-  smaller than the raw history it replaced, every subsequent turn reads (and
-  eventually re-writes) far fewer cached tokens — cutting the steady per-turn cost
-  growth at the price of losing verbatim detail from the compacted turns.
+- **Fewer AI Credits afterward**: because the new prefix (summary + new turns) is
+  much smaller than the raw history it replaced, every subsequent turn reads (and
+  eventually re-writes) far fewer cached tokens — cutting the steady per-turn AI
+  Credits growth at the price of losing verbatim detail from the compacted turns.
 
-| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
@@ -639,14 +645,14 @@ What this does to tokens/cache/cost:
 
 The key number is **cache size after turn 3**: it *drops* from 4100 to 1350 even
 though the conversation keeps growing — instead of turn 4 reading 4100+ tokens
-(and turn 5 reading even more), it reads only 1350, then 1650. Turn 3 itself costs
-more than a normal turn (the compaction "tax"), but turns 4-5 are noticeably
+(and turn 5 reading even more), it reads only 1350, then 1650. Turn 3 itself uses
+more AI Credits than a normal turn (the compaction "tax"), but turns 4-5 are noticeably
 cheaper than if the raw history had kept growing uncompacted — that trade-off is
 the whole point of compaction.
 
 ---
 
-## 11. How changing the model mid-session affects tokens, cache, and cost
+## 11. How changing the model mid-session affects tokens, cache, and AI Credits
 
 > Extracted as a standalone doc: [scenarios/04-model-switch.md](scenarios/04-model-switch.md).
 
@@ -655,13 +661,13 @@ Switching models mid-session — e.g. from a cheaper model to a more capable one
 starting at turn 3 — means the new model has never seen any of the previous
 turns' cached prefix, no matter how well-cached it was under the old model.
 
-What this does to tokens/cache/cost:
+What this does to tokens/cache/AI Credits:
 
 - **Full cache miss on the switch turn**: the entire prior conversation must be
   resent to the new model as plain (uncached) input — none of the old model's
   cache carries over, because caches aren't shared across models.
 - **Token counts can shift**: different models use different tokenizers, so the
-  same text can cost a different number of tokens under the new model.
+  same text can require a different number of tokens under the new model.
 - **New rates apply immediately**: if the new model is pricier (or cheaper), every
   token from the switch turn onward — including cache write/read — is billed at
   the *new* model's rates, not the old one's.
@@ -672,7 +678,7 @@ This example switches from a cheaper Model A (turns 1-2) to a pricier Model B
 (turns 3-5, illustrative rates: cache write 0.01 AI Credits, cache read 0.001 AI Credits, uncached
 input 0.01 AI Credits, reasoning/output 0.03 AI Credits per 1K tokens):
 
-| Turn | Model | What happens | Cache write | Cache read | Cache size after | Uncached input | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | Model | What happens | Cache write | Cache read | Cache size after | Uncached input | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | A | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | A | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 120 | 180 | **4600** | **0.0110 AI Credits** |
@@ -680,7 +686,7 @@ input 0.01 AI Credits, reasoning/output 0.03 AI Credits per 1K tokens):
 | 4 | B | Normal turn under B; reads/extends B's new cache | 470 | 4850 | 5320 | 120 | 150 | 200 | **5790** | **0.0213 AI Credits** |
 | 5 | B | Normal turn under B | 310 | 5320 | 5630 | 80 | 90 | 140 | **5940** | **0.0161 AI Credits** |
 
-Turn 3's cost (**0.1080 AI Credits**) dwarfs every other turn — nearly 10x turn 2 — purely
+Turn 3 (**0.1080 AI Credits**) dwarfs every other turn — nearly 10x turn 2 — purely
 because of the switch: a full cache miss forcing 4300 uncached tokens through,
 *and* those tokens (plus every token after) now billed at Model B's higher rates.
 Turns 4-5 behave like a normal, healthy cache-building session again, just under
@@ -688,7 +694,7 @@ the new, pricier rates.
 
 ---
 
-## 12. How changing MCP tools mid-session affects tokens, cache, and cost
+## 12. How changing MCP tools mid-session affects tokens, cache, and AI Credits
 
 > Extracted as a standalone doc: [scenarios/05-mcp-tool-change.md](scenarios/05-mcp-tool-change.md).
 
@@ -699,14 +705,15 @@ the enabled toolset changes mid-session (a user enables/disables an MCP server,
 or a custom agent swaps its tools) starting at turn 3, that block of the prefix
 changes.
 
-What this does to tokens/cache/cost:
+What this does to tokens/cache/AI Credits:
 
 - **Partial-to-full cache invalidation**: because the tool-definitions block sits
   early in the prompt, changing it usually invalidates everything cached *after*
   it too — i.e. most or all of the prior conversation — even though the model and
   its rates stay exactly the same.
 - **No rate change**: unlike a model switch, the per-token prices don't change —
-  the extra cost comes purely from losing the cache, not from a pricier model.
+  the extra AI Credits spend comes purely from losing the cache, not from a
+  pricier model.
 - **A new cache rebuilds** from the tool-change turn forward, under the new
   toolset, the same way a fresh session would.
 
@@ -714,7 +721,7 @@ This example changes the enabled MCP tools starting at turn 3 (same model/rates
 throughout as Section 9's Model A: cache write 0.00625 AI Credits, cache read 0.0005 AI Credits,
 uncached input/tool 0.005 AI Credits, reasoning/output 0.015 AI Credits per 1K tokens):
 
-| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix (incl. old toolset) + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
@@ -722,17 +729,17 @@ uncached input/tool 0.005 AI Credits, reasoning/output 0.015 AI Credits per 1K t
 | 4 | Normal turn; uses one of the newly enabled tools | 800 | 4770 | 5570 | 110 | 400 | 130 | 160 | **6370** | **0.0143 AI Credits** |
 | 5 | Normal turn; cache continues building under the new toolset | 240 | 5570 | 5810 | 70 | 0 | 70 | 100 | **6050** | **0.0072 AI Credits** |
 
-Turn 3's cost (**0.0579 AI Credits**) is about 5x a normal turn — a real spike, but far
+Turn 3 (**0.0579 AI Credits**) is about 5x a normal turn — a real spike, but far
 smaller than the ~10x spike from a model switch (Section 11), because the model
 and its rates didn't change, only the cache. This is the general pattern:
 **model switches invalidate the cache *and* change the price per token**, while
 **tool/instruction changes invalidate the cache but keep the same price per
-token** — both cost more on the turn of the change, but a model switch usually
-hurts more.
+token** — both use more AI Credits on the turn of the change, but a model switch
+usually hurts more.
 
 ---
 
-## 13. How asking for a git commit affects tokens, cache, and cost
+## 13. How asking for a git commit affects tokens, cache, and AI Credits
 
 Asking the model to "commit these changes" (turns 7-8 in Section 9's worked
 example) doesn't introduce any new token *type* — it's an ordinary tool-using
@@ -752,7 +759,7 @@ turn, just like running tests or searching code:
 - It reads the **entire cache built up so far** (10870 tokens by turn 7 in the
   running example) — by this point in a session, the commit turn is reading the
   single largest prefix of the whole conversation, since it comes near the end.
-- The size of the diff being committed directly drives the tool-token cost: a
+- The size of the diff being committed directly drives the tool-token AI Credits: a
   small, focused change might add only a couple hundred tool tokens; a large
   multi-file diff can add thousands — the same "verbose tool output" risk called
   out in Section 6.
@@ -760,10 +767,10 @@ turn, just like running tests or searching code:
   with only a small uncached input/output tail — the same shape as any other
   low-effort trailing turn.
 
-In short: a git-commit turn is cost-wise unremarkable *except* that it tends to
-happen late in a session, so it reads (and then extends) the largest cache the
-session has accumulated — making the **cache read** column, not anything about
-git itself, the dominant cost driver for that turn.
+In short: a git-commit turn is unremarkable in AI Credits *except* that it tends
+to happen late in a session, so it reads (and then extends) the largest cache
+the session has accumulated — making the **cache read** column, not anything
+about git itself, the dominant driver of AI Credits for that turn.
 
 ---
 
@@ -796,7 +803,7 @@ Why use it:
   which is the key difference from compaction: `/clear` = full discard, no tax,
   no memory; compaction = partial discard, one-time tax, keeps the gist.
 
-| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
@@ -807,7 +814,7 @@ Why use it:
 The tell is **turn 3's cache read (3000)**: instead of reading the full 4100-token
 history a normal turn would have inherited (or a spike from a forced resend, as
 in Sections 11-12), it drops straight back to just the static prefix. And unlike
-a compaction or a model/tool switch, turn 3's cost (**0.0113 AI Credits**) isn't a spike at
+a compaction or a model/tool switch, turn 3 (**0.0113 AI Credits**) isn't a spike at
 all — it's roughly in line with a normal turn, because nothing had to be
 summarized or resent; the old turns were simply never sent again.
 
@@ -822,10 +829,11 @@ editing an earlier user message and resubmitting — roll the conversation back 
 an earlier turn and continue from there, discarding every turn after that point
 (and often reverting the file edits those turns made).
 
-What this does to tokens/cache/cost:
+What this does to tokens/cache/AI Credits:
 
-- **The discarded turns' cost is already spent** — rewinding doesn't refund the
-  tokens/money already billed for the turns being thrown away. It's a sunk cost.
+- **The discarded turns' AI Credits are already spent** — rewinding doesn't
+  refund the tokens/AI Credits already billed for the turns being thrown away.
+  They're sunk.
 - **Going forward, those discarded turns are never resent again**: the next turn
   resumes from the cache size *at the rewind point*, not from the (larger) cache
   size the abandoned branch had reached. That's the actual saving — it stops a
@@ -838,7 +846,7 @@ What this does to tokens/cache/cost:
   on — a fresh branch starts from the rewind point, but still on top of the
   still-valid earlier cache.
 
-| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
@@ -849,13 +857,13 @@ What this does to tokens/cache/cost:
 Turn 3 (**0.0264 AI Credits**) is money already spent and gone — `/rewind` can't undo that
 charge. What it *does* do shows up in **turn 4's cache read (4100)**: it resumes
 from turn 2's cache size, not turn 3's larger 5930, so the mistaken turn never
-bloats any future turn's context or cost. Compare that to *not* rewinding and
+bloats any future turn's context or AI Credits. Compare that to *not* rewinding and
 instead just sending a correction on top — the model would keep re-reading (and
 re-paying for) that wrong 1830-token detour in every subsequent turn forever.
 
 ---
 
-## 16. How session forking affects tokens, cache, and cost
+## 16. How session forking affects tokens, cache, and AI Credits
 
 > Extracted as a standalone doc: [scenarios/08-session-forking.md](scenarios/08-session-forking.md).
 
@@ -865,25 +873,27 @@ keeps existing and can keep going too**. Instead of choosing one path and
 discarding the other, forking lets both continue in parallel from a common
 checkpoint.
 
-What this does to tokens/cache/cost:
+What this does to tokens/cache/AI Credits:
 
 - **No invalidation at the fork point**: forking doesn't change any content — it
   just starts a second, independent continuation from the exact same prefix. That
   shared prefix (the "trunk") is still a valid, warm cache hit for **every**
   branch that reads it, as long as the same model/tools/instructions and the
   provider's cache TTL are still in effect.
-- **Each branch pays its own cache-read cost** to reuse the trunk — it isn't
-  free, but it's the cheap cache-read rate, not a resend at full uncached price.
+- **Each branch pays its own cache-read AI Credits** to reuse the trunk — it
+  isn't free, but it's the cheap cache-read rate, not a resend at full uncached
+  price.
 - **Branches diverge independently from the fork point on**: branch A's new
   turns build their own cache on top of the shared trunk; branch B does the same
   with its own turns. Neither branch's post-fork writes are visible to the other.
 - **Versus `/rewind`**: rewind keeps one path and permanently throws away the
-  other (its cost is sunk, and it's gone for good). Forking keeps *both* — nothing
-  is discarded, so exploring an alternative never costs you the original.
+  other (its AI Credits are sunk, and it's gone for good). Forking keeps *both* —
+  nothing is discarded, so exploring an alternative never means losing the
+  original.
 - **Versus starting a second session from scratch**: an unrelated fresh session
   would have to rebuild the same trunk from zero (paying full uncached price all
   over again). Forking reuses the trunk as a cache hit instead — this is the main
-  cost saving forking provides.
+  AI Credits saving forking provides.
 
 Why use it: to try **multiple alternative approaches from the same starting
 point** and compare them (e.g. two different implementation strategies), to
@@ -903,17 +913,17 @@ flowchart TD
 
 **Shared trunk** (both branches inherit this identically):
 
-| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
 | 3 | Decides to compare two caching strategies; **forks here** | 520 | 4100 | 4620 | 220 | 0 | 140 | 160 | **5140** | **0.0109 AI Credits** |
 
-Trunk cost so far: **0.0513 AI Credits** (paid once).
+AI Credits spent on the trunk so far: **0.0513** (paid once).
 
 **Post-fork branches** (each turn 4 reads the *same* trunk cache — 4620 — independently):
 
-| Branch / Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Branch / Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | A · 4 | Implements a Redis-based caching strategy | 1000 | 4620 | 5620 | 150 | 500 | 160 | 190 | **6620** | **0.0171 AI Credits** |
 | A · 5 | Normal follow-up turn in branch A | 290 | 5620 | 5910 | 80 | 0 | 90 | 120 | **6200** | **0.0082 AI Credits** |
@@ -923,12 +933,12 @@ Trunk cost so far: **0.0513 AI Credits** (paid once).
 Branch A total: **0.0253 AI Credits** on top of the trunk (session A total: 0.0513 AI Credits + 0.0253 AI Credits
 = **0.0766 AI Credits**). Branch B total: **0.0263 AI Credits** on top of the same trunk (session B
 total: 0.0513 AI Credits + 0.0263 AI Credits = **0.0776 AI Credits**). Exploring *both* strategies this way
-costs **0.0513 AI Credits + 0.0253 AI Credits + 0.0263 AI Credits = 0.1029 AI Credits** in total — the trunk is paid for
+requires **0.0513 AI Credits + 0.0253 AI Credits + 0.0263 AI Credits = 0.1029 AI Credits** in total — the trunk is paid for
 **once**, then reused as a cache hit by both branches.
 
 Compare that to running two entirely separate sessions from scratch instead of
 forking: each would have to rebuild the same trunk independently (2 × 0.0513 AI Credits =
-0.1026 AI Credits) on top of its own branch cost (0.0253 AI Credits + 0.0263 AI Credits), for a total of
+0.1026 AI Credits) on top of its own branch spend (0.0253 AI Credits + 0.0263 AI Credits), for a total of
 **0.1542 AI Credits** — about **0.0513 AI Credits more**, exactly one extra copy of the trunk. That
 gap *is* the saving forking provides: shared setup gets paid for once and reused,
 not re-purchased per branch.
@@ -961,7 +971,7 @@ on the model generation:
 
 | Provider (example models available in Copilot) | Default cache lifetime | Longer-TTL option | Notes |
 |---|---|---|---|
-| **Anthropic** (Claude Opus/Sonnet/Haiku families) | **5 minutes**, refreshed for free on every cache hit | 1-hour TTL available, at ~2x the normal cache-write cost | The clock starts at the **request** that reads/writes the entry, not the end of its response — a slow 4-minute response leaves only ~1 minute before the next call must land to keep the hit |
+| **Anthropic** (Claude Opus/Sonnet/Haiku families) | **5 minutes**, refreshed for free on every cache hit | 1-hour TTL available, at ~2x the normal cache-write price | The clock starts at the **request** that reads/writes the entry, not the end of its response — a slow 4-minute response leaves only ~1 minute before the next call must land to keep the hit |
 | **OpenAI** (GPT-5.x families) | Automatic, **in-memory** caching: typically evicted after **5-10 minutes of inactivity**, but can persist up to **~1 hour** off-peak (not a guarantee) | Extended/24-hour retention on some pre-GPT-5.6 model families; GPT-5.6+ uses explicit cache breakpoints with a fixed **30-minute** minimum TTL instead | Behavior isn't as tightly specified as Anthropic's — treat "5-10 minutes" as the safe assumption |
 | **Google** (Gemini 3.x Flash/Pro) | **Implicit caching**, no published fixed TTL at all | None documented | Google's own guidance is just to send similar-prefix requests "in a short amount of time" — there's no stated number to target |
 | **xAI (Grok), Moonshot AI (Kimi), Microsoft (MAI-Code)** | Not publicly documented | — | Treat as unknown/opaque; assume the same 5-10 minute ballpark unless you observe otherwise |
@@ -982,7 +992,7 @@ back-to-back and build a healthy, growing cache. Then the user steps away for
 a **5+ minute smoke break** before turn 8 — long enough to exceed every
 provider's default TTL from Section 17.1.
 
-| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content | 3000 | 0 | 3000 | 400 | 0 | 0 | 200 | **3600** | **0.0238 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 500 | 3000 | 3500 | 150 | 0 | 0 | 150 | **3800** | **0.0076 AI Credits** |
@@ -1005,14 +1015,14 @@ sequenceDiagram
     U->>S: "Looks good, continue"
     Note over U: 🚬 Smoke break — 5+ minutes idle
     Note over S: Provider-side TTL (5-10 min) lapses,<br/>cache entry for this prefix is evicted
-    Note over S: Turn 8 — cache_read=0, uncached_input=5900,<br/>cache_write=6200 (full resend + rebuild)<br/>cost ≈ 8-9x a normal turn
+    Note over S: Turn 8 — cache_read=0, uncached_input=5900,<br/>cache_write=6200 (full resend + rebuild)<br/>AI Credits ≈ 8-9x a normal turn
     U->>S: "Ok, next let's..."
     Note over S: Turn 9 — cache_read=6200, back to normal shape
 ```
 
-What the break actually costs: had the cache stayed warm, turn 8 would have
-looked like turn 7 — roughly 430 write / 5750 read / 130 uncached / 170
-output, about **0.0088 AI Credits**. Instead it costs **0.0746 AI Credits**, about **8.5x** more —
+What the break actually costs in AI Credits: had the cache stayed warm, turn 8
+would have looked like turn 7 — roughly 430 write / 5750 read / 130 uncached /
+170 output, about **0.0088 AI Credits**. Instead it uses **0.0746 AI Credits**, about **8.5x** more —
 roughly **0.066 AI Credits** in extra, avoidable spend for that one turn, purely because
 the pause outlasted the TTL. Turns 9-10 recover completely normal cache-growth
 behavior once the new cache has been (re-)written; the session total across
@@ -1056,8 +1066,8 @@ pricing.
   wrapper.
 - **Dumping large, verbose tool output into the main session** (Section 6/9) —
   doesn't invalidate the cache, but permanently bloats it, so every future
-  cache *read* (not just the one that produced it) is bigger and costs more
-  from then on.
+  cache *read* (not just the one that produced it) is bigger and uses more
+  AI Credits from then on.
 
 ### 17.4 Best practices to get the most out of the cache
 
@@ -1069,7 +1079,7 @@ pricing.
   repeatedly) — staying inside the TTL window is what makes repeated cache
   reads possible at all.
 - **Decide on instructions/tools/model up front** rather than tweaking them
-  mid-task; each change costs a one-time reset (Sections 4/11/12), so batch
+  mid-task; each change forces a one-time reset (Sections 4/11/12), so batch
   configuration changes at the *start* of a session, not scattered through it.
 - **Isolate large exploratory work in subagents** (Section 7) instead of
   letting dozens of intermediate reads/greps sit permanently in the parent
@@ -1085,7 +1095,7 @@ pricing.
   stable content behind it can never be found as a cache hit either.
 - **Avoid unnecessary verbose tool output** (Section 6) — cheap to write once,
   but every subsequent turn re-reads it from cache for the rest of the
-  session, so noisy output has a long tail of cost.
+  session, so noisy output has a long tail of AI Credits spend.
 
 ### 17.5 A file is read once, then edited across several later steps — what happens to the cache?
 
@@ -1146,7 +1156,7 @@ AI-specific concept:
   less exploratory tool-call spend per task (Section 6/7).
 
 The net effect is **fewer tool calls and less stale content piling up** over a
-long session, which lowers both token volume and cache-read cost over time.
+long session, which lowers both token volume and cache-read AI Credits over time.
 But to be precise: this is **not** about avoiding cache invalidation — as
 Section 17.5 explains, ordinary code edits never invalidate the prompt cache
 in the first place, regardless of how well- or poorly-factored the code is.
@@ -1311,7 +1321,7 @@ than a quick grep.
   context at once.
 
 Tying this back to the document's theme: undocumented DI causes exactly the
-costly exploratory tool-call spend called out in Sections 6/7/17.7 — grepping
+expensive exploratory tool-call spend called out in Sections 6/7/17.7 — grepping
 across files and assemblies to resolve one binding. A wiring-map doc turns a
 multi-tool-call search into a single, cheap read, and — per 17.4 — is exactly
 the kind of stable content worth keeping in an always-loaded `.instructions.md`
@@ -1332,15 +1342,15 @@ file for a .NET Core project using **native** `Microsoft.Extensions.DependencyIn
 (no third-party container). Two design decisions in it are deliberate, not
 cosmetic:
 
-| Decision | Cache/cost reasoning |
+| Decision | Cache/AI Credits reasoning |
 |---|---|
-| **Narrow `applyTo`** (composition-root files only, not `**/*.cs`) | Per Section 4, a path-scoped instructions file is only inserted into the prompt the first turn that touches a matching file — and that insertion can invalidate everything cached after it. Scoping tightly means most turns in a typical session never load it at all, and when it *is* loaded, it's because the task already needs it — the unavoidable one-time cost lands at a load-bearing moment instead of as a surprise deep into an unrelated session. |
-| **Rules inline, bindings in a separate `docs/di-map.md`** | The instructions file itself should change rarely (it's part of the cached prefix once loaded). The actual interface→implementation bindings change often. Inlining the whole wiring map into the instructions file would mean every registration change edits cached prefix content — the same "editing instructions invalidates everything after it" cost from Section 4. Keeping bindings in a plain file the agent reads with `read_file` instead means updates are just new tool-response content appended at the end (Section 17.5) — cheap, and it never busts the instructions file's own cache entry. |
+| **Narrow `applyTo`** (composition-root files only, not `**/*.cs`) | Per Section 4, a path-scoped instructions file is only inserted into the prompt the first turn that touches a matching file — and that insertion can invalidate everything cached after it. Scoping tightly means most turns in a typical session never load it at all, and when it *is* loaded, it's because the task already needs it — the unavoidable one-time AI Credits spend lands at a load-bearing moment instead of as a surprise deep into an unrelated session. |
+| **Rules inline, bindings in a separate `docs/di-map.md`** | The instructions file itself should change rarely (it's part of the cached prefix once loaded). The actual interface→implementation bindings change often. Inlining the whole wiring map into the instructions file would mean every registration change edits cached prefix content — the same "editing instructions invalidates everything after it" AI Credits hit from Section 4. Keeping bindings in a plain file the agent reads with `read_file` instead means updates are just new tool-response content appended at the end (Section 17.5) — cheap, and it never busts the instructions file's own cache entry. |
 
 If DI/composition-root files come up in **most** sessions in this repo rather
 than a minority, fold the same content into the always-loaded
-`copilot-instructions.md` instead — a small constant per-turn cost from turn 1
-beats repeatedly risking the mid-session insertion invalidation.
+`copilot-instructions.md` instead — a small constant per-turn AI Credits spend
+from turn 1 beats repeatedly risking the mid-session insertion invalidation.
 
 `.github/instructions/dotnet-di.instructions.md`:
 
@@ -1407,7 +1417,7 @@ freely without ever touching the instructions file's own cached content):
 
 The payoff: instead of the agent spending several tool calls grepping across
 extension-method files and `Program.cs` to answer "what does `INotifier`
-resolve to" (Section 6/17.7's exploratory-cost problem), it's one cheap
+resolve to" (Section 6/17.7's exploratory-AI-Credits problem), it's one cheap
 `read_file` on `docs/di-map.md` — and because that file is outside the
 instructions file's own content, updating it never forces a new
 cache-invalidating edit to the prefix your session already has cached.
@@ -1442,7 +1452,7 @@ something deterministic:
 1. **Instruction-level ask** (already in 17.9's rules) — tell the agent, in
    the instructions file itself, to update `docs/di-map.md` in the same
    change as any registration edit. Catches most cases for free, at zero
-   extra tooling cost.
+   extra AI Credits spend.
 2. **A CI check or git pre-commit hook** as the real backstop — a small
    script that diffs touched `*ServiceCollectionExtensions.cs`/`Program.cs`
    files for new or changed `Add*<...>` calls and fails the build if
@@ -1475,7 +1485,7 @@ something deterministic:
   time the file is subsequently read (Section 17.5).
 - Resist adding columns "just in case" — stick to the essentials (interface,
   concrete type, registered-in file, lifetime, notes). An unused column is
-  the same speculative-abstraction cost called out in 17.7, just applied to
+  the same speculative-abstraction spend called out in 17.7, just applied to
   a doc instead of code.
 
 ### 17.11 How does the harness know a file changed, and is jCodeMunch context-aware?
@@ -1522,11 +1532,11 @@ cache — the two are independent:
 
 ---
 
-## 18. Where to find the logs: data sources for token, cache, and cost analysis
+## 18. Where to find the logs: data sources for token, cache, and AI Credits analysis
 
 Everything in Sections 1-17 describes the *concepts*. This section is about
 where that data actually lives on disk (or in the cloud) so you can inspect,
-query, or build tooling around real token/cache/cost numbers instead of
+query, or build tooling around real token/cache/AI Credits numbers instead of
 estimates.
 
 ### 18.1 Local session store (SQLite) — always available, no token counts
@@ -1535,7 +1545,7 @@ VS Code indexes every Copilot Chat session into a local SQLite database when
 `github.copilot.chat.localIndex.enabled` is on. It's queryable directly (the
 **chronicle** skill/`copilot_sessionStoreSql` tool wraps this) and holds:
 
-| Table | What it has | Token/cost data? |
+| Table | What it has | Token/AI Credits data? |
 |---|---|---|
 | `sessions` | id, cwd, repository, branch, host_type, summary, agent_name, agent_description, created_at, updated_at | No |
 | `turns` | session_id, turn_index, user_message, assistant_response (truncated), timestamp | No |
@@ -1544,7 +1554,7 @@ VS Code indexes every Copilot Chat session into a local SQLite database when
 | `session_refs` | session_id, ref_type (commit/pr/issue), ref_value, turn_index, created_at | No |
 | `search_index` | FTS5 full-text index over turns/checkpoints/etc. | No |
 
-This store is useful for **behavioral** cost proxies even without real token
+This store is useful for **behavioral** AI Credits proxies even without real token
 numbers: turn counts, session duration, whether/when compaction happened
 (rows in `checkpoints`), repeated reads of the same file in `session_files`
 (Section 17.5's stale-read problem), and oversized pastes via
@@ -1569,11 +1579,11 @@ adds two tables not present locally:
 
 Querying either backend goes through the same tool; it auto-routes to
 whichever is active and the tool description tells you which SQL dialect
-(SQLite vs DuckDB) applies. **Filter every cost query to
+(SQLite vs DuckDB) applies. **Filter every AI Credits query to
 `sessions.agent_name = 'VS Code Chat'`** (cloud) or `'GitHub Copilot Chat'`
 (local) to keep the analysis scoped to interactive chat and exclude other
 surfaces (Copilot CLI, Copilot Coding Agent, subagents) that have very
-different cost profiles.
+different AI Credits profiles.
 
 ### 18.3 Raw per-session debug logs (JSONL) — the source both stores are built from
 
@@ -1605,21 +1615,21 @@ run **Developer: Set Log Level…** and raise the extension's level to `Trace`
 first for verbose request/response/tool-call logging. This surfaces the same
 kind of request lifecycle events as the debug logs (18.3) in a live,
 human-readable stream — handy for watching a single session in real time,
-but not a practical source for historical token/cost aggregation across many
-sessions (use 18.1/18.2 for that).
+but not a practical source for historical token/AI Credits aggregation across
+many sessions (use 18.1/18.2 for that).
 
 ### 18.5 Which source to use for which question
 
 | Question | Use |
 |---|---|
 | "What did I work on today/this week?" (standup) | Local or cloud session store (18.1/18.2) — `sessions`/`turns`/`session_refs` |
-| "How many tokens/AI Credits did this session cost, broken down by cache write/read/model?" | Cloud store only (18.2) — `events` where `type = 'assistant.usage'` |
+| "How many tokens/AI Credits did this session use, broken down by cache write/read/model?" | Cloud store only (18.2) — `events` where `type = 'assistant.usage'` |
 | "Is compaction happening, and late or early?" | Either store — `checkpoints` rows and their `checkpoint_number`/`created_at` vs. turn count |
 | "Which files/tools get re-read the most?" (proxy for cache bloat, Section 17.5) | Either store — `session_files`, or `tool_requests` on cloud for exact arguments |
 | "Something looks wrong with this one session right now" | Live Output channel at `Trace` level (18.4), or that session's raw `main.jsonl` (18.3) |
 | "The local index is missing/incomplete for a session" | Reindex from the raw debug logs (18.3) via `/chronicle reindex` |
 
-If cloud sync is off, real token-level cost analysis (Section 6's cache
+If cloud sync is off, real token-level AI Credits analysis (Section 6's cache
 write/read/reasoning/tool/vision breakdown) simply **isn't available** —
 every number in Sections 9-17's worked examples is illustrative precisely
 because the underlying provider usage isn't exposed anywhere locally.
@@ -1637,12 +1647,12 @@ per-turn token numbers instead of the behavioral proxies in 18.1.
 - **Request/response tokens** accumulate turn over turn; the session total is the sum across all turns, with caching keeping the *paid* growth much smaller than the *nominal* history growth.
 - **Cache write/read, reasoning, tool, and vision tokens** are additional categories that affect price beyond plain input/output.
 - **Subagents** isolate exploratory work into their own context, returning only a compact summary — keeping the parent session's history small, cache-friendly, and cheaper over time.
-- **Context compaction** trades a one-time summarization cost for a much smaller cache going forward, cutting steady per-turn growth.
-- **Switching models or MCP tools mid-session** both invalidate the cache from that point on; a model switch also changes the per-token price, which is usually the bigger cost hit of the two.
-- **A git-commit turn** is cost-wise ordinary — its size is driven by the diff/output size and by reading whatever cache the session has built up by then, not by anything unique to git.
+- **Context compaction** trades a one-time summarization AI Credits spend for a much smaller cache going forward, cutting steady per-turn growth.
+- **Switching models or MCP tools mid-session** both invalidate the cache from that point on; a model switch also changes the per-token price, which is usually the bigger AI Credits hit of the two.
+- **A git-commit turn** is unremarkable in AI Credits — its size is driven by the diff/output size and by reading whatever cache the session has built up by then, not by anything unique to git.
 - **`/clear`** drops only the conversation history, not instructions/tool definitions — those reload and often stay cache-warm — making it a free, full discard with no continuity.
-- **`/rewind`** (or editing a previous turn) can't refund the cost of the discarded turns, but it stops them from ever being re-read or rebuilt upon in future turns, resuming cheaply from the still-warm cache at the rewind point.
-- **Session forking** lets multiple branches reuse the same cached trunk instead of each rebuilding it from scratch — cheaper than separate sessions, and unlike `/rewind` it keeps every branch alive instead of discarding one.
+- **`/rewind`** (or editing a previous turn) can't refund the AI Credits spent on the discarded turns, but it stops them from ever being re-read or rebuilt upon in future turns, resuming cheaply from the still-warm cache at the rewind point.
+- **Session forking** lets multiple branches reuse the same cached trunk instead of each rebuilding it from scratch — fewer AI Credits than separate sessions, and unlike `/rewind` it keeps every branch alive instead of discarding one.
 - **Cache TTLs vary by provider** (Anthropic: 5 min default, 1-hour option; OpenAI: ~5-10 min in-memory, longer off-peak or with extended retention; Google: no published fixed TTL) — a pause of roughly 5+ minutes is a near-universal risk of a cold-cache turn, though the conversation itself is never lost, only the cheap re-read of it.
-- **Editing a file doesn't invalidate the cache** — a tool call/response is immutable history; later edits are just new messages appended at the end. The real cost of iterative file edits is stale, repeated reads piling up in the cache, not invalidation — something well-factored (e.g. SOLID) code and diff/outline-based tools both help reduce, while dedicated code-intelligence MCP servers can independently track file changes via their own hash/mtime-based cache, separate from the model's prompt cache.
+- **Editing a file doesn't invalidate the cache** — a tool call/response is immutable history; later edits are just new messages appended at the end. The real AI Credits cost of iterative file edits is stale, repeated reads piling up in the cache, not invalidation — something well-factored (e.g. SOLID) code and diff/outline-based tools both help reduce, while dedicated code-intelligence MCP servers can independently track file changes via their own hash/mtime-based cache, separate from the model's prompt cache.
 - **Where the logs actually live**: the local SQLite session store has turns/files/checkpoints but no token counts; the cloud-synced store adds an `events` table with real per-request `usage_input_tokens`/`usage_output_tokens`/`usage_model`; raw per-session `main.jsonl` debug logs on disk are the ground truth both are built from; and the VS Code Output channel gives a live, qualitative view for one session at a time.

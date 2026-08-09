@@ -63,7 +63,7 @@
         "costAiCredits": { "known": true, "value": 0.0264 },
         "model": "example-model"
       },
-      "explanation": "Wrong path: based on a misunderstanding of the stack trace, the model edits the wrong file entirely. This turn's cost (real, already billed) will shortly be rewound away."
+      "explanation": "Wrong path: based on a misunderstanding of the stack trace, the model edits the wrong file entirely. This turn's AI Credits (real, already billed) will shortly be rewound away."
     },
     {
       "index": 4,
@@ -83,7 +83,7 @@
         "costAiCredits": { "known": true, "value": 0.0143 },
         "model": "example-model"
       },
-      "explanation": "/rewind rolls back to the end of turn 2 and continues with a corrected instruction. Turn 3's 1,830 tokens are discarded and never read again — the tell is this turn's cache read (4,100), resuming from turn 2's cache size instead of turn 3's larger 5,930. Turn 3's cost is already spent and isn't refunded, but it will never bloat any future turn's context or cost again. The prefix up to the rewind point is still a warm cache hit, so resuming doesn't force a full uncached resend.",
+      "explanation": "/rewind rolls back to the end of turn 2 and continues with a corrected instruction. Turn 3's 1,830 tokens are discarded and never read again — the tell is this turn's cache read (4,100), resuming from turn 2's cache size instead of turn 3's larger 5,930. Turn 3's AI Credits are already spent and aren't refunded, but it will never bloat any future turn's context or AI Credits again. The prefix up to the rewind point is still a warm cache hit, so resuming doesn't force a full uncached resend.",
       "triggeredEvent": "rewind"
     },
     {

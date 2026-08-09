@@ -389,7 +389,7 @@ describe("buildSession", () => {
     });
 
     expect(session.turns[0].explanation).not.toBe(
-      "Token and cost usage data is not available for this turn (main.jsonl parsing is not implemented yet).",
+      "Token and AI Credits usage data is not available for this turn (main.jsonl parsing is not implemented yet).",
     );
     expect(session.turns[0].explanation).toContain("21,370");
     expect(session.turns[0].explanation).toContain("42,559");

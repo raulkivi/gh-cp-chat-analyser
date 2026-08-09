@@ -64,7 +64,7 @@
         "costAiCredits": { "known": true, "value": 0.0064 },
         "model": "example-model"
       },
-      "explanation": "Final subagent turn: synthesizes the ~100-token compact summary that crosses back over to the parent session (see the parent's own turn 2 in the Cache Basics scenario). This subagent's full 7,090-token trajectory, and its real 0.0338 AI Credits cost, stay entirely isolated — the parent never sees or pays for these three turns directly, only the small summary."
+      "explanation": "Final subagent turn: synthesizes the ~100-token compact summary that crosses back over to the parent session (see the parent's own turn 2 in the Cache Basics scenario). This subagent's full 7,090-token trajectory, and its real 0.0338 AI Credits spend, stay entirely isolated — the parent never sees or pays for these three turns directly, only the small summary."
     }
   ]
 }

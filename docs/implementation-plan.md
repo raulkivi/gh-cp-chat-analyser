@@ -161,7 +161,7 @@ value proposition of the whole app.
 
 **Exit criterion**: loading a session recorded *after* the logging setting
 was enabled shows real cache write/read/uncached/tool/vision/reasoning/
-output/cost numbers per turn; a session recorded *before* still degrades
+output/AI Credits numbers per turn; a session recorded *before* still degrades
 cleanly to the Phase 3 behavior.
 
 **Dependencies**: Phase 3. **Blocked on** having real fixture data, which
@@ -182,7 +182,7 @@ fixed a real bug: the debug-logs path was resolved as a single
 without that fix the extractor would never have found any real file. The
 `cacheWrite`/`tool`/`vision`/`reasoning` `TurnUsage` categories stay
 permanently unavailable regardless of extraction success because this event
-shape does not break them out. Cost is available as `copilotUsageNanoAiu`:
+shape does not break them out. Usage is available as `copilotUsageNanoAiu`:
 the extractor converts it to `costAiCredits` using
 $1\ \text{AI Credit}=10^9\ \text{nano-AIU}$ and sums every request in a turn.
 Missing credit data keeps that turn explicitly unavailable rather than
@@ -331,8 +331,8 @@ The review doc has been removed now that both its findings are closed.
 **Goal**: replace plain numbers/tables with the D3-based visual language
 vision §5 calls for.
 
-- `charts/*`: per-token-type bars in the turns table, a cost sparkline, a
-  cache-hit ratio indicator — reused by both Learn and Analyze modes
+- `charts/*`: per-token-type bars in the turns table, an AI Credits sparkline,
+  a cache-hit ratio indicator — reused by both Learn and Analyze modes
   (constraint 4).
 - TDD order: write a failing test asserting each chart renders the correct
   bars/values for a fixed `TurnUsage` fixture before implementing the D3
@@ -346,7 +346,7 @@ though it can be prototyped against Learn-mode data earlier if useful).
 
 **Status (2026-08-08): done.** Built TDD-first per architecture §11.4: each
 of `packages/web/src/charts/TokenTypeBars.tsx`, `CacheHitRatio.tsx`, and
-`CostSparkline.tsx` got a failing test against a fixed `TurnUsage`/`Turn[]`
+`AiCreditsSparkline.tsx` got a failing test against a fixed `TurnUsage`/`Turn[]`
 fixture before its D3-based rendering existed. `d3-scale`/`d3-shape` (the
 specific submodules actually used — linear scales and the line-path
 generator, not the full `d3` bundle) were added to `packages/web` at their
@@ -361,13 +361,14 @@ latest stable versions, `npm audit` clean. Facts/decisions from this slice:
 - `CacheHitRatio` renders `cacheRead / (cacheRead + uncachedInput)` as a
   two-segment bar with a percentage `aria-label`; unavailable when either
   input is unknown.
-- `CostSparkline` draws a `d3-shape` line path across a session's turns'
+- `AiCreditsSparkline` draws a `d3-shape` line path across a session's turns'
   known `costAiCredits` points (skipping unknown ones); falls back to a "not
-  enough credit data" message when fewer than two turns have a known cost,
-  rather than drawing a misleading single-point or zero-value line.
+  enough credit data" message when fewer than two turns have a known AI
+  Credits value, rather than drawing a misleading single-point or zero-value
+  line.
 - All three consume only `Turn`/`TurnUsage` (no mode field), and are wired
   once into the already-shared `components/TurnsTable.tsx` (`TokenTypeBars`/
-  `CacheHitRatio` per row, `CostSparkline` once above the table) — since
+  `CacheHitRatio` per row, `AiCreditsSparkline` once above the table) — since
   `TurnsTable` itself has no `session.mode` branching and is the same
   component instance `App.tsx` renders for both modes, the exit criterion
   ("no mode-specific chart code") holds by construction rather than needing
@@ -378,13 +379,13 @@ latest stable versions, `npm audit` clean. Facts/decisions from this slice:
   session can have every `TurnUsage` field unavailable at once — Phase 3/4's
   stubbed-enricher case).
 - Verified against this project's own real session history in a live
-  browser (Playwright + this machine's Chrome, `npm run dev`): the cost
+  browser (Playwright + this machine's Chrome, `npm run dev`): the AI Credits
   sparkline, per-turn usage bars, and cache-hit bars all render correctly
   from real turn data, not just fixtures.
 
 **Superseded by Phase 8 (2026-08-08):** `TokenTypeBars`/`CacheHitRatio`
 (and their tests) were deleted — the Industry design handoff's 11-column
-`TurnsTable` spec doesn't include per-row charts. `CostSparkline` is the
+`TurnsTable` spec doesn't include per-row charts. `AiCreditsSparkline` is the
 only chart that survived; it relocated out of `TurnsTable` into the center
 column's header row. See Phase 8 below.
 
@@ -425,7 +426,7 @@ here so the phase isn't blocked; each is revisitable):
   `Learn` / `Analyze` (never a fabricated date) when not.
 - **TurnsTable adopts the mock's exact 11-column spec**, which differs from
   what's currently shipped: `Turn, Trigger, Uncached in, Cache read, Cache
-  write, Tool, Vision, Reasoning, Output, Cost, Model` — adding the missing
+  write, Tool, Vision, Reasoning, Output, AI Credits, Model` — adding the missing
   **Trigger** (`Turn.triggeredEvent`, pill or em dash) and **Model**
   (`TurnUsage.model`, muted 12px) columns, and reordering the token columns
   to match.
@@ -436,7 +437,7 @@ here so the phase isn't blocked; each is revisitable):
   mean 13 columns duplicating numbers the 11 spec'd columns already show.
   Delete `charts/TokenTypeBars.tsx`/`CacheHitRatio.tsx` and their tests,
   and update Phase 7's status note above to record the supersession rather
-  than leaving it to drift. `CostSparkline` is **kept** (it shows a trend
+  than leaving it to drift. `AiCreditsSparkline` is **kept** (it shows a trend
   the plain table can't) but relocates to the center column's header row,
   next to the title/model tag/usage tag — a placement the mock doesn't
   show but doesn't conflict with either, since a session-level trend line

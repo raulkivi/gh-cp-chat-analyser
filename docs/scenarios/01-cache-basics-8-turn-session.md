@@ -44,7 +44,7 @@ Notes on this example:
 - **Tool tokens** spike on turn 4 (verbose test-run output), again on turn 5
   (re-running tests/grepping logs while debugging), and moderately on turn 7
   (`git status`/`git diff`/`git commit` output) — this is the most common source
-  of unexpected cost.
+  of unexpected AI Credits spend.
 - **Vision tokens** only appear on turn 2, where an image was attached.
 - **Turn 7's git commit** behaves like any other tool-using turn — no special
   token type — but it does read the session's largest cache so far (10870) and
@@ -66,7 +66,7 @@ counts into AI Credits, this example assumes illustrative per-1K-token rates:
 cache write 0.00625 AI Credits, cache read 0.0005 AI Credits, uncached input/tool/vision 0.005 AI Credits,
 reasoning/output 0.015 AI Credits (real rates depend on the model and provider).
 
-| Turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content | 4500 | 0 | 950 | 0 | 0 | 300 | 250 | **6000** | **0.0411 AI Credits** |
 | 2 | Screenshot of a bug; spawns subagent, gets back a compact summary | 1480 | 4500 | 300 | 100 | 700 | 200 | 180 | **7460** | **0.0227 AI Credits** |
@@ -77,7 +77,7 @@ reasoning/output 0.015 AI Credits (real rates depend on the model and provider).
 | 7 | Commits the changes (`git status`/`git diff`/`git commit`) | 1370 | 10870 | 90 | 900 | 0 | 180 | 200 | **13610** | **0.0246 AI Credits** |
 | 8 | Final "thanks" message, no new tool calls | 180 | 12240 | 60 | 0 | 0 | 30 | 90 | **12600** | **0.0093 AI Credits** |
 
-| Cumulative through turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Session total** | **Running session cost** |
+| Cumulative through turn | What it does | Cache write | Cache read | Uncached input | Tool | Vision | Reasoning | Output text | **Session total** | **Running session AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content | 4500 | 0 | 950 | 0 | 0 | 300 | 250 | **6000** | **0.0411 AI Credits** |
 | 2 | Screenshot of a bug; spawns subagent, gets back a compact summary | 5980 | 4500 | 1250 | 100 | 700 | 500 | 430 | **13460** | **0.0638 AI Credits** |
@@ -93,7 +93,7 @@ from the first table — every token ever written, still available for reuse. Th
 much larger **cumulative cache read** (60680) is how much reuse benefit that
 cache actually delivered, since each turn re-reads the whole growing history.
 That reuse — reading far more than was ever written — is precisely what keeps the
-**running session cost** growing slower than the **session total** token count.
+**running session AI Credits** growing slower than the **session total** token count.
 
 ```mermaid
 sequenceDiagram

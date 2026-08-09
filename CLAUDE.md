@@ -39,7 +39,7 @@ content here.
   searchable session list, an 11-column turns table, a tabbed
   Explanation/System-prompt/Tools right column, a dismissible structured
   config-warning banner, zero-data empty states — built on shared
-  `components/ui/*` primitives; `charts/CostSparkline` is the sole
+  `components/ui/*` primitives; `charts/AiCreditsSparkline` is the sole
   remaining D3 chart, in the center column's header row), Vitest wired
   with TDD-first tests. Phase 9 (VS Code extension packaging) is
   future/out of MVP scope — see implementation-plan.md.

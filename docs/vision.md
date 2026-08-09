@@ -13,12 +13,12 @@ to build the intuition needed to use agentic coding tools efficiently.
 ## 2. Goal
 
 Build an app that visualizes coding-agent sessions — turns, tool calls, cache
-behavior, and token/cost accounting — so users can:
+behavior, and token/AI Credits accounting — so users can:
 
 - **Learn** the underlying concepts (sessions, turns, caching, token types)
   through guided, interactive scenarios.
 - **Analyze** their own real Copilot Chat session logs to see exactly where
-  tokens and cost went, turn by turn.
+  tokens and AI Credits went, turn by turn.
 
 The end goal is to help developers use agentic coding tools more effectively
 and reduce the cost of AI-assisted development.
@@ -99,7 +99,7 @@ the local SQLite session store and the raw per-session debug-log text files.
 It never depends on the cloud-synced store, so it works fully offline and
 requires no `chat.sessionSync.enabled` opt-in.
 
-Per [agentic-coding-explained.md §18](agentic-coding-explained.md#18-where-to-find-the-logs-data-sources-for-token-cache-and-cost-analysis),
+Per [agentic-coding-explained.md §18](agentic-coding-explained.md#18-where-to-find-the-logs-data-sources-for-token-cache-and-ai-credits-analysis),
 the two in-scope sources are:
 
 | Source | Gives us | Caveat |
@@ -143,7 +143,7 @@ showing the behavioral-proxy fallback silently.
   are local files (SQLite database, `main.jsonl` text logs), the app needs a
   small local process to read them and serve their contents to the UI; the
   browser layer itself can't reach arbitrary local files directly.
-- **Visualization**: the turns table, timeline scrubber, and token/cost
+- **Visualization**: the turns table, timeline scrubber, and token/AI Credits
   charts can be built with JS visualization libraries such as D3.js or
   similar — no specific library is mandated yet.
 - **Future path**: the app may later be repackaged as a shared VS Code
@@ -155,7 +155,7 @@ showing the behavioral-proxy fallback silently.
 ## 6. Non-goals
 
 - Not a replacement for the `/chronicle` skill's standup/search features —
-  this app is about visual, turn-by-turn exploration of cache/token/cost
+  this app is about visual, turn-by-turn exploration of cache/token/AI Credits
   mechanics, not activity reporting.
 - Not scoped to editing or replaying sessions (no `/rewind`-style mutation of
   real logs) — it's a read-only viewer/analyzer.

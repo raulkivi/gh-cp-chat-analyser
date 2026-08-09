@@ -7,22 +7,22 @@ its own system prompt, its own turns, and its own token usage, none of which is
 visible to (or paid for again by) the parent session. Only its final summary
 crosses back over, counted as the ~100 "tool" tokens in the parent's turn 2 row.
 
-| Subagent turn | What it does | Cache write (new) | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Subagent turn | What it does | Cache write (new) | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Searches the codebase (`grep_search`/`semantic_search`) for the bug's root cause | 1200 | 0 | 1200 | 250 | 600 | 180 | 120 | **2350** | **0.0163 AI Credits** |
 | 2 | Reads the matched files in full | 300 | 1200 | 1500 | 100 | 900 | 150 | 90 | **2740** | **0.0111 AI Credits** |
 | 3 | Synthesizes the compact summary returned to the parent | 150 | 1500 | 1650 | 50 | 0 | 100 | 200 | **2000** | **0.0064 AI Credits** |
 | **Subagent session total** | | **1650** | **2700** | — | **400** | **1500** | **430** | **410** | **7090** | **0.0338 AI Credits** |
 
-This subagent cost (**0.0338 AI Credits**) is real and billed — isolation doesn't make the
+This subagent's AI Credits spend (**0.0338 AI Credits**) is real and billed — isolation doesn't make the
 exploration free. What it *does* avoid is dumping all 7090 of those tokens into
 the **parent's** permanent cache. If that exploration had happened inline in
 parent turn 2 instead, the parent's cache size would have jumped by ~7090 tokens
 right there, and turns 3-6 would each re-read that extra history — roughly
 4 × 7090 ≈ 28,400 extra cache-read tokens (~0.0142 AI Credits) plus a bigger one-time write
 (~0.0443 AI Credits) — for a total of about 0.0585 AI Credits, *more* than the 0.0338 AI Credits the isolated
-subagent actually cost. Isolating exploratory work in a subagent keeps both the
-parent's context window and its long-run cache-driven cost smaller.
+subagent actually spent. Isolating exploratory work in a subagent keeps both the
+parent's context window and its long-run cache-driven AI Credits usage smaller.
 
 ```mermaid
 xychart-beta

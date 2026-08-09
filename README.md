@@ -1,9 +1,9 @@
 # GitHub Copilot Chat Session Analyser
 
 A local app that visualizes coding-agent sessions — turns, tool calls, cache
-behavior, and token/cost accounting — to help you learn how agentic coding
-tools spend tokens and money, and to analyze your own real Copilot Chat
-sessions.
+behavior, and token/AI Credits accounting — to help you learn how agentic
+coding tools spend tokens and AI Credits, and to analyze your own real
+Copilot Chat sessions.
 
 ![App landing page, showing the Learn mode scenario list](docs/images/landing-page.png)
 
@@ -60,7 +60,7 @@ npm run build        # type-checks/builds every workspace
 ## Enabling GitHub Copilot Chat debug logging
 
 Analyze mode's real per-turn token/cache numbers (cache write/read,
-uncached input, tool, vision, reasoning, output, and cost) come from
+uncached input, tool, vision, reasoning, output, and AI Credits) come from
 Copilot Chat's own debug log (`main.jsonl`). By default VS Code only
 writes a minimal log with no usage data, so this setting has to be turned
 on explicitly:
@@ -100,7 +100,7 @@ session turn by turn:
   caching and token accounting work, with a plain-language explanation for
   each turn.
 
-  ![Learn mode with a scenario selected: turns table, cost sparkline, timeline scrubber, and the explanation panel](docs/images/learn-scenario.png)
+  ![Learn mode with a scenario selected: turns table, AI Credits sparkline, timeline scrubber, and the explanation panel](docs/images/learn-scenario.png)
 
 - **Analyze mode** — pick one of your own real Copilot Chat sessions to see
   the same breakdown for what actually happened, plus (once debug logging

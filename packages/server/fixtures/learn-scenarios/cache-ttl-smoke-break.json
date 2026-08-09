@@ -155,7 +155,7 @@
         "costAiCredits": { "known": true, "value": 0.0746 },
         "model": "example-model"
       },
-      "explanation": "Cache miss: every provider's TTL has lapsed while the user was away, so the provider evicted the cache entry for this prefix. The full 5,750-token history plus the new message must be resent as plain uncached input (5,900 tokens), and a brand-new cache entry is written from scratch — about 8.5x the cost a normal turn here would have had (roughly 0.0088 AI Credits if the cache had stayed warm). Nothing about the conversation itself is lost — this is not a /clear or a /rewind; the full message history is still sent and visible to the model. Only the cache for reusing it cheaply had expired, so this one turn pays full price to 'rehydrate' it.",
+      "explanation": "Cache miss: every provider's TTL has lapsed while the user was away, so the provider evicted the cache entry for this prefix. The full 5,750-token history plus the new message must be resent as plain uncached input (5,900 tokens), and a brand-new cache entry is written from scratch — about 8.5x the AI Credits a normal turn here would have used (roughly 0.0088 AI Credits if the cache had stayed warm). Nothing about the conversation itself is lost — this is not a /clear or a /rewind; the full message history is still sent and visible to the model. Only the cache for reusing it cheaply had expired, so this one turn pays full price to 'rehydrate' it.",
       "triggeredEvent": "cache-expiry"
     },
     {

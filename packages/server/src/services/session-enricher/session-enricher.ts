@@ -31,7 +31,7 @@ export const PARSE_FAILURES_REASON =
   "corrupted log file, not a settings problem.";
 const UNKNOWN_MODEL = "unknown";
 const STUB_EXPLANATION =
-  "Token and cost usage data is not available for this turn (main.jsonl parsing is not implemented yet).";
+  "Token and AI Credits usage data is not available for this turn (main.jsonl parsing is not implemented yet).";
 export const TOOL_CALL_TOKEN_COUNT_UNAVAILABLE_REASON =
   "GitHub Copilot Chat's local debug log does not record a token count for individual tool calls.";
 

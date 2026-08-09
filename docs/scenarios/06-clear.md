@@ -27,7 +27,7 @@ Why use it:
   which is the key difference from compaction: `/clear` = full discard, no tax,
   no memory; compaction = partial discard, one-time tax, keeps the gist.
 
-| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
@@ -39,6 +39,6 @@ The tell is **turn 3's cache read (3000)**: instead of reading the full 4100-tok
 history a normal turn would have inherited (or a spike from a forced resend, as
 in [Scenario 4](04-model-switch.md)/[Scenario 5](05-mcp-tool-change.md)), it drops
 straight back to just the static prefix. And unlike a compaction or a model/tool
-switch, turn 3's cost (**0.0113 AI Credits**) isn't a spike at all — it's roughly in line
+switch, turn 3 (**0.0113 AI Credits**) isn't a spike at all — it's roughly in line
 with a normal turn, because nothing had to be summarized or resent; the old turns
 were simply never sent again.

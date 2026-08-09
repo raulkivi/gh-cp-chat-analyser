@@ -59,7 +59,7 @@
         "costAiCredits": { "known": true, "value": 0.108 },
         "model": "model-b"
       },
-      "explanation": "Model switch: prompt caches are scoped per model, so Model A's 4,100-token cache is worthless to Model B — the entire prior history plus the new message (4,300 tokens) must be resent as uncached input, and Model B writes its own first cache entry from scratch. New, pricier rates apply from this turn onward, making this turn about 10x costlier than turn 2.",
+      "explanation": "Model switch: prompt caches are scoped per model, so Model A's 4,100-token cache is worthless to Model B — the entire prior history plus the new message (4,300 tokens) must be resent as uncached input, and Model B writes its own first cache entry from scratch. New, pricier rates apply from this turn onward, making this turn use about 10x the AI Credits of turn 2.",
       "triggeredEvent": "model-switch"
     },
     {

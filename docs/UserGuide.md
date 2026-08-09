@@ -54,7 +54,7 @@ Tool, Vision, Reasoning, Output, AI Credits, Model**. An em dash (**—**) in an
 numeric cell means that figure is genuinely unknown for that turn — the
 app never shows a fabricated `0` in its place. The small line chart next
 to the session title (when visible) is an AI-Credits-per-turn sparkline; it
-only appears when every turn in the session has a known credit cost.
+only appears when every turn in the session has a known AI Credits value.
 
 The **Trigger** column flags turns where something out of the ordinary
 happened mid-session — a `compaction` event (shown above), a `tool

@@ -14,7 +14,7 @@ import { TurnsTable } from "./components/TurnsTable.js";
 import { Blueprint } from "./components/ui/Blueprint.js";
 import { SegmentedControl } from "./components/ui/SegmentedControl.js";
 import { Tag } from "./components/ui/Tag.js";
-import { CostSparkline } from "./charts/CostSparkline.js";
+import { AiCreditsSparkline } from "./charts/AiCreditsSparkline.js";
 import { useSessionStore } from "./state/session-store.js";
 
 interface HealthResponse {
@@ -87,7 +87,7 @@ export function App() {
   const listForMode = mode === "learn" ? scenarios : sessions;
   const listLoaded = mode === "learn" ? scenariosLoaded : sessionsLoaded;
   const showEmptyState = listLoaded && listForMode.length === 0;
-  const allCostsKnown =
+  const allAiCreditsKnown =
     session !== null && session.turns.length > 0 && session.turns.every((turn) => turn.usage.costAiCredits.known);
   // toolInventory only comes from a parsed main.jsonl; a turn's toolCalls
   // come independently from SQLite session_files, so either source having
@@ -187,11 +187,11 @@ export function App() {
                   <Tag variant={session.usageDataAvailable ? "accent" : "outline"}>
                     {session.usageDataAvailable ? "usage: known" : "usage: unavailable"}
                   </Tag>
-                  {allCostsKnown ? (
-                    <CostSparkline turns={session.turns} />
+                  {allAiCreditsKnown ? (
+                    <AiCreditsSparkline turns={session.turns} />
                   ) : (
                     <span className="text-muted" style={{ fontSize: 12 }}>
-                      cost: unavailable
+                      AI Credits: unavailable
                     </span>
                   )}
                 </div>

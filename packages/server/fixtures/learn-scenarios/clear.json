@@ -61,7 +61,7 @@
         "costAiCredits": { "known": true, "value": 0.0113 },
         "model": "example-model"
       },
-      "explanation": "/clear drops only the conversation-history portion (the 1,100 tokens turns 1-2 added) — cache read here (3,000) is just the still-valid static prefix, not the full 4,100-token history a normal turn would have inherited. Nothing is summarized and no extra reasoning/output tax is paid: the old turns are simply never resent again, so this turn's cost is roughly in line with a normal turn rather than a spike.",
+      "explanation": "/clear drops only the conversation-history portion (the 1,100 tokens turns 1-2 added) — cache read here (3,000) is just the still-valid static prefix, not the full 4,100-token history a normal turn would have inherited. Nothing is summarized and no extra reasoning/output tax is paid: the old turns are simply never resent again, so this turn's AI Credits are roughly in line with a normal turn rather than a spike.",
       "triggeredEvent": "clear"
     },
     {

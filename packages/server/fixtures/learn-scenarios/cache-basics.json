@@ -46,7 +46,7 @@
         "costAiCredits": { "known": true, "value": 0.0227 },
         "model": "example-model"
       },
-      "explanation": "Cache read (4,500) equals the cache size after turn 1 — everything written so far is reused. A screenshot adds 700 vision tokens. The subagent that searches for the root cause runs in its own isolated session (own cache, own ~2,000 tokens of internal usage) — only its ~100-token compact summary counts here as tool tokens; none of its internal cost lands in this session's cache."
+      "explanation": "Cache read (4,500) equals the cache size after turn 1 — everything written so far is reused. A screenshot adds 700 vision tokens. The subagent that searches for the root cause runs in its own isolated session (own cache, own ~2,000 tokens of internal usage) — only its ~100-token compact summary counts here as tool tokens; none of its internal AI Credits spend lands in this session's cache."
     },
     {
       "index": 3,
@@ -86,7 +86,7 @@
         "costAiCredits": { "known": true, "value": 0.0345 },
         "model": "example-model"
       },
-      "explanation": "Tool tokens spike to 1,800 here because the test runner's terminal output is verbose — this is the most common source of unexpected turn cost, distinct from cache behavior."
+      "explanation": "Tool tokens spike to 1,800 here because the test runner's terminal output is verbose — this is the most common source of unexpected turn AI Credits, distinct from cache behavior."
     },
     {
       "index": 5,
@@ -125,7 +125,7 @@
         "costAiCredits": { "known": true, "value": 0.0098 },
         "model": "example-model"
       },
-      "explanation": "No tool calls this turn — cost drops close to the session minimum since it's a pure confirmation message reusing the large existing cache."
+      "explanation": "No tool calls this turn — AI Credits drop close to the session minimum since it's a pure confirmation message reusing the large existing cache."
     },
     {
       "index": 7,
@@ -163,7 +163,7 @@
         "costAiCredits": { "known": true, "value": 0.0093 },
         "model": "example-model"
       },
-      "explanation": "Final low-cost turn: no tool calls, and the growing cache (12,240 read) keeps this cheap despite the session's long history."
+      "explanation": "Final low-AI-Credits turn: no tool calls, and the growing cache (12,240 read) keeps this cheap despite the session's long history."
     }
   ]
 }

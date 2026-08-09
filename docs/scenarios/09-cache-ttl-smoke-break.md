@@ -10,7 +10,7 @@ steps away for a **5+ minute smoke break** before turn 8 — long enough to exce
 every provider's default TTL (Anthropic: 5 minutes; OpenAI: ~5-10 minutes
 in-memory; see Section 17.1 of the main doc).
 
-| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content | 3000 | 0 | 3000 | 400 | 0 | 0 | 200 | **3600** | **0.0238 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 500 | 3000 | 3500 | 150 | 0 | 0 | 150 | **3800** | **0.0076 AI Credits** |
@@ -33,14 +33,14 @@ sequenceDiagram
     U->>S: "Looks good, continue"
     Note over U: 🚬 Smoke break — 5+ minutes idle
     Note over S: Provider-side TTL (5-10 min) lapses,<br/>cache entry for this prefix is evicted
-    Note over S: Turn 8 — cache_read=0, uncached_input=5900,<br/>cache_write=6200 (full resend + rebuild)<br/>cost ≈ 8-9x a normal turn
+    Note over S: Turn 8 — cache_read=0, uncached_input=5900,<br/>cache_write=6200 (full resend + rebuild)<br/>AI Credits ≈ 8-9x a normal turn
     U->>S: "Ok, next let's..."
     Note over S: Turn 9 — cache_read=6200, back to normal shape
 ```
 
-What the break actually costs: had the cache stayed warm, turn 8 would have
-looked like turn 7 — roughly 430 write / 5750 read / 130 uncached / 170
-output, about **0.0088 AI Credits**. Instead it costs **0.0746 AI Credits**, about **8.5x** more —
+What the break actually costs in AI Credits: had the cache stayed warm, turn 8
+would have looked like turn 7 — roughly 430 write / 5750 read / 130 uncached /
+170 output, about **0.0088 AI Credits**. Instead it uses **0.0746 AI Credits**, about **8.5x** more —
 roughly **0.066 AI Credits** in extra, avoidable spend for that one turn, purely because
 the pause outlasted the TTL. Turns 9-10 recover completely normal cache-growth
 behavior once the new cache has been (re-)written; the session total across

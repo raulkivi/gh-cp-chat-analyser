@@ -19,7 +19,7 @@ export interface LlmRequestUsage {
 // input for the request (cached + uncached) and `cachedTokens` as the
 // subset of it that was served from cache — there is no separate
 // cache-write figure or tool/vision/reasoning breakdown in this event shape.
-// Cost is recorded as nano-AIU and normalized here to AI Credits. An older/
+// Usage is recorded as nano-AIU and normalized here to AI Credits. An older/
 // unrecognized shape (missing numeric inputTokens or outputTokens) yields null
 // rather than a fabricated usage record.
 export function extractLlmRequestUsage(

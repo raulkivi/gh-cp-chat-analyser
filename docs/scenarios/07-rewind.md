@@ -7,10 +7,11 @@ editing an earlier user message and resubmitting — roll the conversation back 
 an earlier turn and continue from there, discarding every turn after that point
 (and often reverting the file edits those turns made).
 
-What this does to tokens/cache/cost:
+What this does to tokens/cache/AI Credits:
 
-- **The discarded turns' cost is already spent** — rewinding doesn't refund the
-  tokens/money already billed for the turns being thrown away. It's a sunk cost.
+- **The discarded turns' AI Credits are already spent** — rewinding doesn't
+  refund the tokens/AI Credits already billed for the turns being thrown away.
+  They're sunk.
 - **Going forward, those discarded turns are never resent again**: the next turn
   resumes from the cache size *at the rewind point*, not from the (larger) cache
   size the abandoned branch had reached. That's the actual saving — it stops a
@@ -23,7 +24,7 @@ What this does to tokens/cache/cost:
   on — a fresh branch starts from the rewind point, but still on top of the
   still-valid earlier cache.
 
-| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn cost** |
+| Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
@@ -34,6 +35,6 @@ What this does to tokens/cache/cost:
 Turn 3 (**0.0264 AI Credits**) is money already spent and gone — `/rewind` can't undo that
 charge. What it *does* do shows up in **turn 4's cache read (4100)**: it resumes
 from turn 2's cache size, not turn 3's larger 5930, so the mistaken turn never
-bloats any future turn's context or cost. Compare that to *not* rewinding and
+bloats any future turn's context or AI Credits. Compare that to *not* rewinding and
 instead just sending a correction on top — the model would keep re-reading (and
 re-paying for) that wrong 1830-token detour in every subsequent turn forever.

@@ -144,7 +144,7 @@ SQLite, `main.jsonl`, or scenario fixtures.
 | `components/ui/*` | Shared design-system primitives (`Blueprint`, `Tag`, `SegmentedControl`) used across the components above, per the "Industry" design tokens in `theme.css` |
 | `state/session-store` | Holds the currently loaded `Session`, the selected turn index, the Learn/Analyze `mode`, and the right-column `rightTab` (Analyze mode only); the rest of the UI is a pure function of this state |
 | `api-client` | Fetches from the local server's REST API; the only module that knows an HTTP boundary exists |
-| `charts/*` | D3-based cost sparkline rendered in the center column's header row |
+| `charts/*` | D3-based AI Credits sparkline rendered in the center column's header row |
 
 ### 4.3 Shared domain/schema package
 
@@ -218,8 +218,8 @@ interface Session {
 }
 ```
 
-Note this is the same reasoning as the "cost split" in vision §6 — each
-`TokenCount` slot maps 1:1 onto a term in that section's cost formula.
+Note this is the same reasoning as the "AI Credits split" in vision §6 — each
+`TokenCount` slot maps 1:1 onto a term in that section's AI Credits formula.
 
 `ConfigStatus` is a separate, session-independent shape — app health/
 prerequisites, not session content — computed at startup and re-checked on
@@ -385,7 +385,7 @@ this slice:
   `llm_request` carries usage numbers, in `attrs`: `model`, `inputTokens`
   (the request's total input, cached + uncached), `outputTokens`,
   `cachedTokens` (the subset of `inputTokens` served from cache), and
-  `copilotUsageNanoAiu` (request cost in nano-AIU), plus non-usage fields
+  `copilotUsageNanoAiu` (request usage in nano-AIU), plus non-usage fields
   (`ttft`, `debugName`,
   `requestOptions`, `requestShape`, `systemPromptFile`, `toolsFile`, and the
   full prompt/message content in `userRequest`/`inputMessages`, which the
@@ -396,8 +396,11 @@ this slice:
   $1\ \text{AI Credit}=10^9\ \text{nano-AIU}$. The extractor normalizes each
   request with that conversion and `extractTurnUsages` sums every request in
   the turn into `costAiCredits`. If any request lacks a numeric value, the
-  whole turn's credit cost stays `{ known: false }` rather than understating
-  a partial total.
+  whole turn's AI Credits stay `{ known: false }` rather than understating
+  a partial total. AI Credits are GitHub Copilot's own billing unit for
+  premium requests (not USD) — see [GitHub Copilot models and
+  pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
+  for how a given model's requests convert to AI Credits.
 - **The join key is positional, not `turnId`.** `main.jsonl`'s own
   `turnId` (on `turn_start`/`turn_end`) is an internal per-agent-iteration
   counter that **resets to 0 at every `user_message`**, not a running
@@ -894,7 +897,7 @@ Carried over from vision §7 plus new ones raised while designing this layer:
 — kept here as a record of what was asked and how it was answered, not as
 open questions:
 
-- `CostSparkline`'s home → kept, relocated to the center column's header
+- `AiCreditsSparkline`'s home → kept, relocated to the center column's header
   row next to the title/model tag/usage tag.
 - `TurnDetail`'s home → folded into the Explanation panel as a "Tool calls
   this turn" block (Analyze mode only), not the Tools tab and not a 4th

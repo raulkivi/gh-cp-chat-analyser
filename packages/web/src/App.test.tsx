@@ -377,4 +377,41 @@ describe("App", () => {
     expect(await screen.findByText("Config ✓")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Config" })).not.toBeInTheDocument();
   });
+
+  it("lets the user select sessions for an AI advice bundle and copy it", async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    render(<App />);
+
+    switchToAnalyze();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Fix the bug/ }));
+
+    expect(await screen.findByText("1 session selected for advice")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy advice prompt" })).toBeInTheDocument();
+  });
+
+  it("uses the fully-fetched session detail (turns, system prompt) for the advice bundle, not the lightweight list summary", async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    render(<App />);
+
+    switchToAnalyze();
+    fireEvent.click(await screen.findByRole("button", { name: "Fix the bug" }));
+    await screen.findByText("analyze turn explanation");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Fix the bug/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview", exact: true }));
+
+    expect(screen.getByTestId("advice-preview")).toHaveTextContent("Base system prompt (100 characters)");
+  });
+
+  it("clears the advice selection when switching modes", async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Cache Basics/ }));
+    expect(await screen.findByText("1 session selected for advice")).toBeInTheDocument();
+
+    switchToAnalyze();
+
+    await screen.findByRole("button", { name: "Fix the bug" });
+    expect(screen.queryByText(/selected for advice/)).not.toBeInTheDocument();
+  });
 });

@@ -41,7 +41,10 @@ import {
   buildSessionSummary,
   computeSessionCost,
 } from "./services/session-enricher/session-enricher.js";
-import { buildAnalyzeModeExtras } from "./services/session-enricher/analyze-mode-extras.js";
+import {
+  buildAnalyzeModeExtras,
+  resolveSystemPromptText,
+} from "./services/session-enricher/analyze-mode-extras.js";
 import { checkConfig } from "./services/config-check/config-check.js";
 
 const APP_VERSION = (
@@ -201,6 +204,59 @@ export function createApp(options: CreateAppOptions = {}): Express {
     } catch (error) {
       res.status(500).json({
         error: `Failed to load session "${req.params.id}": ${(error as Error).message}`,
+      });
+    } finally {
+      db.close();
+    }
+  });
+
+  // Raw, uninterpreted text of the base system prompt captured for this
+  // session — the "inspect as text file" counterpart to the estimated
+  // token count shown in SystemPromptBreakdown, for a component whose full
+  // content the app already reads (prompt-artifact-reader.ts) but otherwise
+  // never surfaces verbatim.
+  app.get("/api/sessions/:id/system-prompt", async (req, res) => {
+    const db = openSessionStoreDb();
+    if (!db) {
+      res.status(404).json({ error: `Unknown session id "${req.params.id}"` });
+      return;
+    }
+
+    try {
+      const sessionRow = getSessionRow(db, req.params.id);
+      if (!sessionRow) {
+        res
+          .status(404)
+          .json({ error: `Unknown session id "${req.params.id}"` });
+        return;
+      }
+
+      const mainJsonlPath = resolveMainJsonlPath(
+        resolvedDebugLogsDirPaths,
+        sessionRow.id,
+      );
+
+      const systemPromptText = mainJsonlPath
+        ? await (async () => {
+            const { envelopes, rawLineCount } = await readMainJsonlFile(mainJsonlPath);
+            if (classifyEnvelopesAvailability(envelopes, rawLineCount) !== "events-present") {
+              return null;
+            }
+            return resolveSystemPromptText(envelopes, mainJsonlPath);
+          })()
+        : null;
+
+      if (systemPromptText === null) {
+        res.status(404).json({
+          error: `No system-prompt artifact captured for session "${req.params.id}"`,
+        });
+        return;
+      }
+
+      res.type("text/plain").send(systemPromptText);
+    } catch (error) {
+      res.status(500).json({
+        error: `Failed to load system prompt for session "${req.params.id}": ${(error as Error).message}`,
       });
     } finally {
       db.close();

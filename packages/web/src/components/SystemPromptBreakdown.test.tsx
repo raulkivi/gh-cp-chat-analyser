@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { SystemPromptComponent } from "@gh-cp-chat-analyser/domain";
 import { SystemPromptBreakdown } from "./SystemPromptBreakdown.js";
 
@@ -50,5 +50,60 @@ describe("SystemPromptBreakdown", () => {
         "No prompt artifacts captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS Code.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("marks an estimated token count with a tilde and an explanatory tooltip", () => {
+    const components: SystemPromptComponent[] = [
+      { kind: "built-in", label: "Base system prompt (100 characters)", tokenCount: { known: true, value: 25, estimated: true } },
+    ];
+
+    render(<SystemPromptBreakdown components={components} />);
+
+    const value = screen.getByText("~25");
+    expect(value).toBeInTheDocument();
+    expect(value.getAttribute("title")).toMatch(/estimate/i);
+  });
+
+  it("does not mark a real, non-estimated token count", () => {
+    const components: SystemPromptComponent[] = [
+      { kind: "built-in", label: "Base system prompt (100 characters)", tokenCount: { known: true, value: 25 } },
+    ];
+
+    render(<SystemPromptBreakdown components={components} />);
+
+    const value = screen.getByText("25");
+    expect(value).not.toHaveAttribute("title");
+  });
+
+  it("renders a button that opens the system prompt inspector when a built-in component is present", () => {
+    const components: SystemPromptComponent[] = [
+      { kind: "built-in", label: "Base system prompt (100 characters)", tokenCount: { known: true, value: 25, estimated: true } },
+    ];
+    const onOpenInspector = vi.fn();
+
+    render(<SystemPromptBreakdown components={components} onOpenInspector={onOpenInspector} />);
+    fireEvent.click(screen.getByRole("button", { name: /open system prompt inspector/i }));
+
+    expect(onOpenInspector).toHaveBeenCalled();
+  });
+
+  it("omits the open-inspector button when there is no onOpenInspector handler", () => {
+    const components: SystemPromptComponent[] = [
+      { kind: "built-in", label: "Base system prompt (100 characters)", tokenCount: { known: true, value: 25, estimated: true } },
+    ];
+
+    render(<SystemPromptBreakdown components={components} />);
+
+    expect(screen.queryByRole("button", { name: /open system prompt inspector/i })).not.toBeInTheDocument();
+  });
+
+  it("omits the open-inspector button when there is no built-in component", () => {
+    const components: SystemPromptComponent[] = [
+      { kind: "skill-manifest", label: "graphify", tokenCount: { known: false, reason: "not broken down" } },
+    ];
+
+    render(<SystemPromptBreakdown components={components} onOpenInspector={() => {}} />);
+
+    expect(screen.queryByRole("button", { name: /open system prompt inspector/i })).not.toBeInTheDocument();
   });
 });

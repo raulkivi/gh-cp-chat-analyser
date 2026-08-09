@@ -128,4 +128,49 @@ describe("SessionList", () => {
 
     expect(screen.getByText("No matches.")).toBeInTheDocument();
   });
+
+  it("does not render advice-selection checkboxes when onToggleAdvice is omitted", () => {
+    const sessions = [makeSession({ id: "s1", title: "First" })];
+    render(<SessionList mode="learn" sessions={sessions} selectedSessionId={null} onSelect={vi.fn()} />);
+
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("renders an advice-selection checkbox per session, checked per adviceSelection, when onToggleAdvice is provided", () => {
+    const sessions = [makeSession({ id: "s1", title: "First" }), makeSession({ id: "s2", title: "Second" })];
+    render(
+      <SessionList
+        mode="learn"
+        sessions={sessions}
+        selectedSessionId={null}
+        onSelect={vi.fn()}
+        adviceSelection={new Set(["s2"])}
+        onToggleAdvice={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("checkbox", { name: /First/ })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Second/ })).toBeChecked();
+  });
+
+  it("calls onToggleAdvice (not onSelect) when a session's advice checkbox is clicked", () => {
+    const onSelect = vi.fn();
+    const onToggleAdvice = vi.fn();
+    const sessions = [makeSession({ id: "s1", title: "First" })];
+    render(
+      <SessionList
+        mode="learn"
+        sessions={sessions}
+        selectedSessionId={null}
+        onSelect={onSelect}
+        adviceSelection={new Set()}
+        onToggleAdvice={onToggleAdvice}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /First/ }));
+
+    expect(onToggleAdvice).toHaveBeenCalledWith(sessions[0]);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 });

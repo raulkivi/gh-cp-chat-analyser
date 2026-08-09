@@ -615,12 +615,12 @@ describe("GET /api/sessions/:id", () => {
       {
         kind: "built-in",
         label: "Base system prompt (28 characters)",
-        tokenCount: { known: false, reason: expect.any(String) },
+        tokenCount: { known: true, value: expect.any(Number), estimated: true },
       },
       {
         kind: "tool-definitions",
         label: "Tool definitions (2 tools)",
-        tokenCount: { known: false, reason: expect.any(String) },
+        tokenCount: { known: true, value: expect.any(Number), estimated: true },
       },
     ]);
     expect(response.body.turns[0].toolCalls).toEqual([
@@ -664,6 +664,79 @@ describe("GET /api/sessions/:id", () => {
     });
 
     const response = await request(app).get("/api/sessions/session-1");
+
+    expect(response.status).toBe(404);
+  });
+});
+
+describe("GET /api/sessions/:id/system-prompt", () => {
+  let dir: string;
+  let dbPath: string;
+  let debugLogsDirPath: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "app-test-system-prompt-"));
+    dbPath = path.join(dir, "state.vscdb");
+    debugLogsDirPath = path.join(dir, "debug-logs");
+    seedFixtureDb(dbPath);
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("returns the full raw system prompt text as text/plain", async () => {
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    const lines = [
+      {
+        v: 1, ts: 1, dur: 0, sid: "session-1", type: "session_start", name: "session_start", spanId: "a", status: "ok",
+        attrs: {},
+      },
+      {
+        v: 1, ts: 2, dur: 5, sid: "session-1", type: "llm_request", name: "llm_request", spanId: "b", status: "ok",
+        attrs: { model: "claude-sonnet-5", systemPromptFile: "system_prompt_0.json", toolsFile: "tools_0.json" },
+      },
+    ];
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
+    );
+    writeFileSync(
+      path.join(sessionLogDir, "system_prompt_0.json"),
+      JSON.stringify({
+        content: JSON.stringify([
+          { type: "text", content: "You are a helpful assistant." },
+        ]),
+      }),
+    );
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions/session-1/system-prompt");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toMatch(/^text\/plain/);
+    expect(response.text).toBe("You are a helpful assistant.");
+  });
+
+  it("returns 404 when the session has no captured system-prompt artifact", async () => {
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      `${JSON.stringify({ v: 1, ts: 1, dur: 0, sid: "session-1", type: "session_start", name: "session_start", spanId: "a", status: "ok", attrs: {} })}\n`,
+    );
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions/session-1/system-prompt");
+
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 404 for an unknown session id", async () => {
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions/does-not-exist/system-prompt");
 
     expect(response.status).toBe(404);
   });

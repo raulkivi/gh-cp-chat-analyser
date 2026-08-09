@@ -1,9 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { sumTokenCounts, tokenCountSchema, unavailableTokenCount } from "./token-count.js";
+import {
+  estimatedTokenCount,
+  sumTokenCounts,
+  tokenCountSchema,
+  unavailableTokenCount,
+} from "./token-count.js";
 
 describe("tokenCountSchema", () => {
   it("accepts a known token count", () => {
     const sample = { known: true, value: 42 };
+
+    expect(tokenCountSchema.parse(sample)).toEqual(sample);
+  });
+
+  it("accepts a known token count carrying the optional estimated flag", () => {
+    const sample = { known: true, value: 42, estimated: true };
 
     expect(tokenCountSchema.parse(sample)).toEqual(sample);
   });
@@ -28,6 +39,16 @@ describe("unavailableTokenCount", () => {
     expect(unavailableTokenCount("not recorded")).toEqual({
       known: false,
       reason: "not recorded",
+    });
+  });
+});
+
+describe("estimatedTokenCount", () => {
+  it("builds a known:true TokenCount flagged as estimated", () => {
+    expect(estimatedTokenCount(123)).toEqual({
+      known: true,
+      value: 123,
+      estimated: true,
     });
   });
 });

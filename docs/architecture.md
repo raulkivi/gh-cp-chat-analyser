@@ -35,7 +35,12 @@ before deviating from this document:
 6. **Explicit "unavailable", never fabricated.** If a session's `attrs` lack
    usage data, the app must say per-token figures are unavailable and fall
    back to behavioral proxies (turn counts, duration, checkpoints) instead of
-   showing zeros or estimates (vision §4).
+   showing zeros or estimates (vision §4). One narrow, deliberate exception
+   (§6.2.2 Phase 6 addendum): a `TokenCount` may carry `estimated: true` when
+   it's a real local-tokenizer count run over real captured text — never a
+   fabricated number or a char-count-divided-by-N guess — and every place
+   that renders it labels it visibly as an estimate. Still forbidden
+   wherever the underlying text itself isn't captured.
 7. **Single-developer, single-machine.** No multi-tenant concerns, no auth
    system — but still no unnecessary exposure of the local filesystem (see
    §11.2 Security).
@@ -159,7 +164,8 @@ SQLite, `main.jsonl`, or scenario fixtures.
 | `components/TurnsTable` | Center panel: one row per turn — Turn, Trigger, Uncached in, Cache read, Cache write, Tool, Vision, Reasoning, Output, AI Credits, Model |
 | `components/ExplanationPanel` | Right panel: plain-language explanation for the selected turn, plus (Analyze mode only) a "Tool calls this turn" block listing that turn's tool calls and touched files |
 | `components/TimelineScrubber` | Bottom slider driving the shared "selected turn" state |
-| `components/SystemPromptBreakdown` | Analyze-mode-only: token contribution per system-prompt component, rendered as a proportional bar-meter |
+| `components/SystemPromptBreakdown` | Analyze-mode-only: token contribution per system-prompt component (real or, where labeled, tokenizer-estimated), rendered as a proportional bar-meter; opens `SystemPromptInspector` for the base prompt |
+| `components/SystemPromptInspector` | Analyze-mode-only, full-page form (replaces the 3-column layout, not a tab): a three-pane view over the raw captured system-prompt text — a colored hierarchical tag/subtag menu (left), the byte-for-byte raw text with matching per-section background colors (center, scrolls to the clicked menu entry), and a description panel (right) explaining the selected tag, honestly labeled `Sourced` (with links) or `Not independently sourced` per constraint 6's spirit. Built entirely client-side from `lib/system-prompt-parser.ts` (defensive tag-tree parser), `lib/system-prompt-menu.ts` (labels + an 8-hue categorical palette), `lib/system-prompt-text.ts` (lossless colored-segment renderer), and `lib/system-prompt-descriptions.ts` (the tag glossary) — no new API surface, reuses `GET /api/sessions/:id/system-prompt` |
 | `components/ToolInventoryPanel` | Analyze-mode-only: tools loaded vs. tools actually invoked |
 | `components/ConfigWarningBanner` | Dismissible banner shown when `GET /api/config/status` reports unmet prerequisites; renders the exact setting name, current vs. recommended value, and step-by-step fix instructions (§6.3) |
 | `components/ui/*` | Shared design-system primitives (`Blueprint`, `Tag`, `SegmentedControl`) used across the components above, per the "Industry" design tokens in `theme.css` |
@@ -182,7 +188,9 @@ them cleanly; fields that may be genuinely unknown (constraint 6) are typed
 as an explicit union rather than defaulted to zero.
 
 ```ts
-type TokenCount = { known: true; value: number } | { known: false; reason: string };
+type TokenCount =
+  | { known: true; value: number; estimated?: boolean } // estimated ⇒ real tokenizer count over real captured text, not a billed figure (constraint 6)
+  | { known: false; reason: string };
 
 interface TurnUsage {
   uncachedInput: TokenCount;
@@ -646,6 +654,87 @@ confirm:
   real `tool_call` events round-trip correctly through
   `GET /api/sessions/:id`.
 
+**Implementation note (Phase 6 addendum, complete).** After the Phase 6 spike
+above shipped every `SystemPromptComponent.tokenCount` as permanently
+`unavailable`, a follow-up request asked specifically for a labeled estimate
+wherever the underlying text is actually available, plus a way to inspect
+that text directly instead of only a token count:
+
+- `data-sources/jsonl/token-estimator.ts` wraps `gpt-tokenizer`'s
+  `o200k_base` encoding — the same encoding VS Code's own model catalog
+  (`models.json`) names for Claude models, i.e. the client-side
+  prompt-budget estimator Copilot Chat itself relies on, not the real
+  Anthropic-side tokenizer that actually bills the request. `TokenCount`
+  gained an optional `estimated` flag (`domain/token-count.ts`'s
+  `estimatedTokenCount`) precisely so this stays distinguishable from a real
+  billed figure per constraint 6, rather than silently upgrading to
+  `known: true` indistinguishable from measured usage.
+- Only two of the five `SystemPromptComponent` kinds ever get an estimate:
+  `built-in` (the full system-prompt text is already read in full by
+  `prompt-artifact-reader.ts`) and `tool-definitions` (the full tool-def
+  JSON array, via the new `readToolDefinitionsRaw`, stringified before
+  tokenizing). `repo-instructions`/`skill-manifest` stay unavailable — only
+  filenames are ever parsed out of the fixed-template log line (per the
+  spike above), never the file/manifest content itself, so there is nothing
+  to tokenize for those regardless of policy.
+- `GET /api/sessions/:id/system-prompt` (§8) returns the captured base
+  system prompt's raw text as `text/plain`, reusing the same
+  artifact-source resolution as `buildAnalyzeModeExtras`
+  (`analyze-mode-extras.ts`'s `resolveSystemPromptText`) — 404 when no
+  artifact was captured for the session. `SystemPromptBreakdown.tsx` marks
+  any estimated figure with a `~` prefix plus an explanatory tooltip so it
+  never reads with the same confidence as a real measured count, and (per
+  the addendum immediately below) opens `SystemPromptInspector` — rather
+  than a bare new tab — whenever a `built-in` component is present.
+
+**Implementation note (Phase 6 second addendum, complete).** A follow-up
+request asked to present the raw system prompt as a dedicated three-pane
+form — a colored hierarchical tag/subtag menu, the raw text itself with
+matching colors, and a description panel — rather than a plain-text tab:
+
+- The prompt is not valid XML (it's prose that happens to contain tags), so
+  `lib/system-prompt-parser.ts` is a defensive, non-strict tag-tree parser
+  rather than an XML parser: it tolerates and safely ignores stray
+  angle-bracket text that isn't real markup (confirmed against this app's
+  own real captured prompt, which contains both a literal
+  `<your-model-id>` placeholder with no closing tag anywhere, and a prose
+  aside — "the `<file>` element" — reusing a name, `file`, that *is* real
+  markup elsewhere in the same document). Two signals, computed from the
+  document itself rather than any hardcoded tag name, separate real markup
+  from noise: an opening tag must sit at a tag boundary (start of text,
+  after a newline, or immediately after another tag's `>`), and its name
+  must have at least one matching close somewhere in the document. A
+  genuine structural error (an unclosed or crossed real tag) degrades to a
+  single unparsed section covering the whole text — never a guessed
+  structure — verified by round-tripping the parser's output back to the
+  exact original text, including against the real captured example.
+- `lib/system-prompt-menu.ts` derives a label per tag (its own `<name>`/
+  `<file>` child content or a `filePath` attribute where present — real
+  captured content, never invented — otherwise the tag name formatted as
+  Title Case) and a color, capped at menu/nesting depth 3 (tag → subtag →
+  that subtag's own repeated entries, e.g. `skills` → `skill` → its
+  `<name>`) using the dataviz skill's validated 8-hue categorical palette;
+  a repeated tag name reuses its family's hue, and nested tags tint it
+  lighter via `color-mix` rather than claiming an unrelated hue.
+- `lib/system-prompt-descriptions.ts` is a glossary keyed by tag name,
+  grounded in a source-level read of the public `microsoft/vscode-copilot-chat`
+  repository (the captured prompt matches its `Claude46SonnetPrompt`/
+  `Claude46OptimizedBasePrompt` templates almost verbatim) and VS Code's
+  custom-instructions/Agent-Skills/subagents docs. Each entry is explicitly
+  `sourced: true` (with the URL shown in the UI) or, for the small number
+  of tags with no confirmed source (e.g. the two `<instructions>` tags are
+  disambiguated by structure — the second one wraps `skills`/`agents`/
+  `attachment` — and preamble/trailing-text sections), `sourced: false`
+  with an honest "not independently sourced" label rather than a
+  fabricated-sounding explanation. An unrecognized tag name gets a plain
+  "no description available" fallback, the same never-fabricate posture as
+  constraint 6, generalized from token counts to explanatory text.
+- `SystemPromptInspector.tsx` composes these three modules client-side —
+  fetching only the existing `GET /api/sessions/:id/system-prompt` text —
+  and replaces the 3-column layout (not a tab within it) while open;
+  clicking a menu entry calls `scrollIntoView` on that section's `<span>`
+  in the text panel and outlines it.
+
 **Implementation note (Phase 8.5, complete).** A source-level investigation
 of the Copilot Chat extension itself
 ([docs/copilot-chat-source-investigation.md](copilot-chat-source-investigation.md))
@@ -867,6 +956,7 @@ read-only viewer).
 | `PUT /api/log-providers/active` | Selects an available provider by generic provider id; returns the updated `LogProviderStatus` |
 | `GET /api/sessions` | `Session[]` summaries from the active log provider; the endpoint and response shape do not vary by provider |
 | `GET /api/sessions/:id` | Full enriched `Session` from the active provider (mode=`analyze`), including `usageDataAvailable` |
+| `GET /api/sessions/:id/system-prompt` | Raw `text/plain` of the session's captured base system prompt (Phase 6 addendum); 404 if no system-prompt artifact was captured |
 | `GET /api/sessions/:id/turns/:turnIndex` | Single `Turn` with full tool-call/file detail (used for on-demand deep dives, avoiding sending every turn's full detail up front) |
 | `GET /api/config/status` | `ConfigStatus` — current prerequisite-setting check results and any `warnings[]` (§6.3) |
 
@@ -884,6 +974,7 @@ The server binds to `localhost` only (see §11.2).
 | Frontend framework | React + TypeScript + Vite | Fast local dev loop; component model matches the panel breakdown in §4.2 |
 | Visualization | D3.js | Explicitly suggested in vision §5; fine-grained control over the turns table's per-token-type bars and the scrubber |
 | Settings parsing | `jsonc-parser` (same library VS Code itself uses) | `settings.json` allows comments/trailing commas; a strict `JSON.parse` would break on real-world files (§6.3) |
+| Token estimation | `gpt-tokenizer` (`o200k_base` encoding), pure JS/no native build step | Matches VS Code's own model-catalog encoding for Claude models (§6.2.2 Phase 6 addendum); only ever used to produce an explicitly `estimated: true` `TokenCount`, never a substitute for real usage data |
 | Monorepo tooling | npm workspaces | Small project; avoids adding a build-orchestration tool (Turborepo/Nx) before it's needed |
 
 These are default choices consistent with the constraints, not locked in —

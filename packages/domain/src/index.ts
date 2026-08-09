@@ -1,6 +1,7 @@
 export {
   tokenCountSchema,
   unavailableTokenCount,
+  estimatedTokenCount,
   sumTokenCounts,
   type TokenCount,
 } from "./token-count.js";

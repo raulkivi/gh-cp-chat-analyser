@@ -11,6 +11,8 @@ interface SessionListProps {
   sessions: Session[];
   selectedSessionId: string | null;
   onSelect: (session: Session) => void;
+  adviceSelection?: Set<string>;
+  onToggleAdvice?: (session: Session) => void;
 }
 
 function kicker(mode: Mode, session: Session): string {
@@ -20,7 +22,14 @@ function kicker(mode: Mode, session: Session): string {
   return session.startedAt ? `Analyze · ${formatRelativeTime(session.startedAt)}` : "Analyze";
 }
 
-export function SessionList({ mode, sessions, selectedSessionId, onSelect }: SessionListProps) {
+export function SessionList({
+  mode,
+  sessions,
+  selectedSessionId,
+  onSelect,
+  adviceSelection,
+  onToggleAdvice,
+}: SessionListProps) {
   const [query, setQuery] = useState("");
   const filtered = sessions.filter((session) =>
     session.title.toLowerCase().includes(query.toLowerCase()),
@@ -63,16 +72,32 @@ export function SessionList({ mode, sessions, selectedSessionId, onSelect }: Ses
               background: session.id === selectedSessionId ? "var(--color-accent-100)" : undefined,
             }}
           >
-            <div style={{ padding: "var(--space-3)" }}>
-              <div className="card-kicker">{kicker(mode, session)}</div>
-              <div className="card-title truncate" style={{ fontSize: 15, marginTop: 2 }}>
-                {session.title}
-              </div>
-              <div className="card-meta" style={{ marginTop: 6 }}>
-                {session.turnCount} {session.turnCount === 1 ? "turn" : "turns"}
-                {session.costAiCredits.known && (
-                  <> · {formatAiCredits(session.costAiCredits)} AI Credits</>
-                )}
+            <div style={{ padding: "var(--space-3)", display: "flex", gap: "var(--space-2)" }}>
+              {onToggleAdvice && (
+                <label
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  style={{ paddingTop: 2 }}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${session.title} for advice`}
+                    checked={adviceSelection?.has(session.id) ?? false}
+                    onChange={() => onToggleAdvice(session)}
+                  />
+                </label>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="card-kicker">{kicker(mode, session)}</div>
+                <div className="card-title truncate" style={{ fontSize: 15, marginTop: 2 }}>
+                  {session.title}
+                </div>
+                <div className="card-meta" style={{ marginTop: 6 }}>
+                  {session.turnCount} {session.turnCount === 1 ? "turn" : "turns"}
+                  {session.costAiCredits.known && (
+                    <> · {formatAiCredits(session.costAiCredits)} AI Credits</>
+                  )}
+                </div>
               </div>
             </div>
           </Blueprint>

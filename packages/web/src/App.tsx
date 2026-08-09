@@ -3,11 +3,13 @@ import type { ConfigWarning, Session } from "@gh-cp-chat-analyser/domain";
 import { fetchConfigStatus } from "./api-client/config-status.js";
 import { fetchLearnScenarios } from "./api-client/learn-scenarios.js";
 import { fetchSession, fetchSessions } from "./api-client/sessions.js";
+import { AdviceExportPanel } from "./components/AdviceExportPanel.js";
 import { AppHeader } from "./components/AppHeader.js";
 import { ConfigWarningBanner } from "./components/ConfigWarningBanner.js";
 import { ExplanationPanel } from "./components/ExplanationPanel.js";
 import { SessionList } from "./components/SessionList.js";
 import { SystemPromptBreakdown } from "./components/SystemPromptBreakdown.js";
+import { SystemPromptInspector } from "./components/SystemPromptInspector.js";
 import { TimelineScrubber } from "./components/TimelineScrubber.js";
 import { ToolInventoryPanel } from "./components/ToolInventoryPanel.js";
 import { TurnsTable } from "./components/TurnsTable.js";
@@ -48,6 +50,8 @@ export function App() {
   const [configWarnings, setConfigWarnings] = useState<ConfigWarning[]>([]);
   const [showConfigBanner, setShowConfigBanner] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [adviceSelection, setAdviceSelection] = useState<Set<string>>(new Set());
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const { session, selectedTurnIndex, mode, rightTab, loadSession, selectTurn, setMode, setRightTab } =
     useSessionStore();
   const latestSessionRequestId = useRef(0);
@@ -94,8 +98,34 @@ export function App() {
   // data means tool-call detail is available for the selected turn.
   const toolCallsAvailable =
     (selectedTurn?.toolCalls.length ?? 0) > 0 || (session?.toolInventory?.length ?? 0) > 0;
+  // Use the fully-fetched session (with turns/systemPrompt/toolInventory) in
+  // place of its lightweight list summary when it's the currently open one —
+  // fetchSessions() only returns per-session summaries, so the advice bundle
+  // would otherwise report an empty turn history for Analyze-mode sessions.
+  const adviceSessions = listForMode
+    .filter((candidate) => adviceSelection.has(candidate.id))
+    .map((candidate) => (session?.id === candidate.id ? session : candidate));
+
+  function handleModeChange(next: typeof mode): void {
+    setAdviceSelection(new Set());
+    setInspectorOpen(false);
+    setMode(next);
+  }
+
+  function handleToggleAdvice(picked: Session): void {
+    setAdviceSelection((current) => {
+      const next = new Set(current);
+      if (next.has(picked.id)) {
+        next.delete(picked.id);
+      } else {
+        next.add(picked.id);
+      }
+      return next;
+    });
+  }
 
   function handleSelectSession(picked: Session): void {
+    setInspectorOpen(false);
     if (mode === "analyze") {
       const requestId = ++latestSessionRequestId.current;
       fetchSession(picked.id)
@@ -121,7 +151,7 @@ export function App() {
     <main>
       <AppHeader
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={handleModeChange}
         hasConfigWarnings={configWarnings.length > 0}
         onConfigClick={() => setShowConfigBanner(true)}
       />
@@ -140,7 +170,9 @@ export function App() {
         <ConfigWarningBanner warnings={configWarnings} onDismiss={() => setShowConfigBanner(false)} />
       )}
 
-      {showEmptyState ? (
+      {inspectorOpen && session ? (
+        <SystemPromptInspector sessionId={session.id} onClose={() => setInspectorOpen(false)} />
+      ) : showEmptyState ? (
         <div style={{ padding: "var(--space-8) var(--space-4)", display: "flex", justifyContent: "center" }}>
           <Blueprint style={{ maxWidth: 420, padding: "var(--space-4)", textAlign: "center" }}>
             <div className="card-title" style={{ marginBottom: 6 }}>
@@ -161,12 +193,17 @@ export function App() {
             alignItems: "start",
           }}
         >
-          <SessionList
-            mode={mode}
-            sessions={listForMode}
-            selectedSessionId={session?.id ?? null}
-            onSelect={handleSelectSession}
-          />
+          <div>
+            <SessionList
+              mode={mode}
+              sessions={listForMode}
+              selectedSessionId={session?.id ?? null}
+              onSelect={handleSelectSession}
+              adviceSelection={adviceSelection}
+              onToggleAdvice={handleToggleAdvice}
+            />
+            <AdviceExportPanel sessions={adviceSessions} />
+          </div>
 
           <div>
             {session ? (
@@ -228,7 +265,10 @@ export function App() {
                 <ExplanationPanel turn={selectedTurn} mode={mode} toolCallsAvailable={toolCallsAvailable} />
               )}
               {mode === "analyze" && rightTab === "system-prompt" && (
-                <SystemPromptBreakdown components={session?.systemPrompt ?? []} />
+                <SystemPromptBreakdown
+                  components={session?.systemPrompt ?? []}
+                  onOpenInspector={session ? () => setInspectorOpen(true) : undefined}
+                />
               )}
               {mode === "analyze" && rightTab === "tools" && (
                 <ToolInventoryPanel entries={session?.toolInventory ?? []} />

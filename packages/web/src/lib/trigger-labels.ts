@@ -8,4 +8,7 @@ export const TRIGGER_LABELS: Record<TriggeredEvent, string> = {
   rewind: "/rewind",
   fork: "fork",
   "cache-expiry": "cache expiry",
+  "instructions-change": "instructions change",
+  "image-change": "image change",
+  "reasoning-toggle": "reasoning toggle",
 };

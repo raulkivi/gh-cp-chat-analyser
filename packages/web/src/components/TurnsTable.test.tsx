@@ -64,6 +64,9 @@ describe("TurnsTable", () => {
       makeTurn({ index: 3, triggeredEvent: "rewind" }),
       makeTurn({ index: 4, triggeredEvent: "fork" }),
       makeTurn({ index: 5, triggeredEvent: "cache-expiry" }),
+      makeTurn({ index: 6, triggeredEvent: "instructions-change" }),
+      makeTurn({ index: 7, triggeredEvent: "image-change" }),
+      makeTurn({ index: 8, triggeredEvent: "reasoning-toggle" }),
     ];
 
     render(<TurnsTable turns={turns} selectedTurnIndex={0} onSelectTurn={() => {}} />);
@@ -74,6 +77,9 @@ describe("TurnsTable", () => {
     expect(screen.getByText("/rewind")).toBeInTheDocument();
     expect(screen.getByText("fork")).toBeInTheDocument();
     expect(screen.getByText("cache expiry")).toBeInTheDocument();
+    expect(screen.getByText("instructions change")).toBeInTheDocument();
+    expect(screen.getByText("image change")).toBeInTheDocument();
+    expect(screen.getByText("reasoning toggle")).toBeInTheDocument();
   });
 
   it("renders the turn's model, muted", () => {

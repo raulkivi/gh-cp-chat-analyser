@@ -2,15 +2,20 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { fetchSystemPromptText } from "../api-client/sessions.js";
 import { describeTag } from "../lib/system-prompt-descriptions.js";
-import { buildMenu, assignColors } from "../lib/system-prompt-menu.js";
+import { assignTextColors, buildMenu } from "../lib/system-prompt-menu.js";
 import type { MenuEntry } from "../lib/system-prompt-menu.js";
 import { parseSystemPrompt } from "../lib/system-prompt-parser.js";
+import { buildPrettyTextSegments } from "../lib/system-prompt-pretty.js";
 import { buildTextSegments } from "../lib/system-prompt-text.js";
 import type { TextSegment } from "../lib/system-prompt-text.js";
 import { Blueprint } from "./ui/Blueprint.js";
+import { SegmentedControl } from "./ui/SegmentedControl.js";
+import { Tag } from "./ui/Tag.js";
 
 interface SystemPromptInspectorProps {
   sessionId: string;
+  sessionTitle?: string;
+  model?: string;
   onClose: () => void;
 }
 
@@ -18,6 +23,24 @@ type LoadState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; text: string };
+
+type PromptFormat = "pretty" | "raw";
+
+const FORMAT_OPTIONS = [
+  { value: "pretty", label: "Pretty" },
+  { value: "raw", label: "Raw" },
+] as const;
+
+// Structure nav indent: ~14px per depth (roughly 1 character advance in the
+// 12px UI font) plus an 8px base offset. Built as a single `padding`
+// shorthand (not a separate `paddingLeft`) because a later `padding`
+// declaration in the same style object would silently reset paddingLeft to
+// its shorthand default, flattening the tree visually — a real bug this
+// structure avoids by construction.
+function navButtonPadding(depth: number): string {
+  const indent = (depth - 1) * 14 + 8;
+  return `4px var(--space-2) 4px ${indent}px`;
+}
 
 function nodeDomId(id: string): string {
   return `prompt-node-${id}`;
@@ -46,9 +69,10 @@ function renderSegments(segments: TextSegment[], selectedNodeId: string | null):
   });
 }
 
-export function SystemPromptInspector({ sessionId, onClose }: SystemPromptInspectorProps) {
+export function SystemPromptInspector({ sessionId, sessionTitle, model, onClose }: SystemPromptInspectorProps) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [format, setFormat] = useState<PromptFormat>("pretty");
 
   useEffect(() => {
     let cancelled = false;
@@ -82,8 +106,11 @@ export function SystemPromptInspector({ sessionId, onClose }: SystemPromptInspec
   );
   const segments = useMemo(() => {
     if (!parsed || state.status !== "ready") return [];
-    return buildTextSegments(parsed.root, state.text, assignColors(parsed.root));
-  }, [parsed, state]);
+    const colors = assignTextColors(parsed.root);
+    return format === "pretty"
+      ? buildPrettyTextSegments(parsed.root, state.text, colors)
+      : buildTextSegments(parsed.root, state.text, colors);
+  }, [parsed, state, format]);
 
   const selectedEntry: MenuEntry | undefined = menu.find((entry) => entry.node.id === selectedId);
 
@@ -94,11 +121,17 @@ export function SystemPromptInspector({ sessionId, onClose }: SystemPromptInspec
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", padding: "var(--space-4)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
         <button type="button" className="btn btn-secondary" onClick={onClose}>
-          ← Back
+          ← Back to session
         </button>
+        {sessionTitle && (
+          <span className="text-muted" style={{ fontSize: 12 }}>
+            {sessionTitle}
+          </span>
+        )}
         <h4 style={{ margin: 0 }}>System prompt inspector</h4>
+        {model && <Tag variant="accent">{model}</Tag>}
       </div>
 
       {state.status === "loading" && <p className="text-muted">Loading system prompt…</p>}
@@ -114,7 +147,7 @@ export function SystemPromptInspector({ sessionId, onClose }: SystemPromptInspec
           }}
         >
           <Blueprint
-            style={{ padding: "var(--space-3)", maxHeight: "75vh", overflow: "auto" }}
+            style={{ padding: "var(--space-3)", maxHeight: "70vh", overflow: "auto" }}
           >
             <div className="card-kicker" style={{ marginBottom: "var(--space-2)" }}>
               Structure
@@ -130,7 +163,6 @@ export function SystemPromptInspector({ sessionId, onClose }: SystemPromptInspec
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
-                    paddingLeft: (entry.node.depth - 1) * 14,
                     background: entry.node.id === selectedId ? "var(--color-surface)" : "transparent",
                     border: "none",
                     borderRadius: 0,
@@ -139,7 +171,7 @@ export function SystemPromptInspector({ sessionId, onClose }: SystemPromptInspec
                     fontSize: 12,
                     textAlign: "left",
                     color: "var(--color-text)",
-                    padding: "3px var(--space-2)",
+                    padding: navButtonPadding(entry.node.depth),
                   }}
                 >
                   <span
@@ -152,9 +184,18 @@ export function SystemPromptInspector({ sessionId, onClose }: SystemPromptInspec
             </nav>
           </Blueprint>
 
-          <Blueprint style={{ padding: "var(--space-3)", maxHeight: "75vh", overflow: "auto" }}>
-            <div className="card-kicker" style={{ marginBottom: "var(--space-2)" }}>
-              Raw text
+          <Blueprint style={{ padding: "var(--space-3)", maxHeight: "70vh", overflow: "auto" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "var(--space-2)",
+                marginBottom: "var(--space-2)",
+              }}
+            >
+              <div className="card-kicker">Raw text</div>
+              <SegmentedControl name="promptFormat" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
             </div>
             <pre
               style={{
@@ -170,7 +211,7 @@ export function SystemPromptInspector({ sessionId, onClose }: SystemPromptInspec
             </pre>
           </Blueprint>
 
-          <Blueprint style={{ padding: "var(--space-3)", maxHeight: "75vh", overflow: "auto" }}>
+          <Blueprint style={{ padding: "var(--space-3)", maxHeight: "70vh", overflow: "auto" }}>
             <div className="card-kicker" style={{ marginBottom: "var(--space-2)" }}>
               Component description
             </div>

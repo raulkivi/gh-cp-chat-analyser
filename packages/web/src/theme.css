@@ -194,13 +194,13 @@ a { color: var(--color-accent); text-underline-offset: 3px; }
 /* — tool inventory: compact loaded/used indicators — */
 .tool-status-dot {
   display: inline-block; width: 8px; height: 8px; flex-shrink: 0;
-  border-radius: 50%; background: var(--color-neutral-400);
+  border-radius: 50%; border: 1px solid var(--color-accent-800); background: transparent;
 }
-.tool-status-dot--loaded { background: var(--color-accent); }
+.tool-status-dot--loaded { background: var(--color-accent-800); }
 .tool-usage-count {
-  display: inline-block; min-width: 14px; text-align: right;
+  display: inline-block; min-width: 16px; text-align: center;
   font-size: 11px; font-variant-numeric: tabular-nums;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  color: var(--color-accent-800);
 }
 
 /* — navigation — */
@@ -213,6 +213,24 @@ a { color: var(--color-accent); text-underline-offset: 3px; }
   font-family: var(--font-heading); font-weight: var(--font-heading-weight);
   font-size: 18px; margin-right: auto;
 }
+
+/* — dialog — */
+.dialog-backdrop {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+}
+.dialog {
+  width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4); border-radius: var(--radius-lg);
+  background: var(--color-bg); box-shadow: var(--shadow-lg);
+}
+.dialog-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 20px;
+}
+.dialog-body { font-size: 14px; opacity: 0.85; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 
 /* — tables — */
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -234,8 +252,14 @@ a { color: var(--color-accent); text-underline-offset: 3px; }
 
 /* — blueprint frame override: components are wireframe objects — square,
      transparent, hairline-bordered — this wins over the radius scale above — */
-.card, .btn, .input, .tag, .seg { border-radius: 0; }
+.card, .btn, .input, .tag, .seg, .dialog { border-radius: 0; }
 .card { background: transparent; border: 1px solid var(--color-divider); }
+/* Unlike .card (which sits directly on --color-bg), .dialog sits on the
+   dimmed .dialog-backdrop — transparent would let that dark scrim (and the
+   dimmed page behind it) show through dark body text, making it unreadable.
+   Keep the solid ground + hairline border instead of the source design
+   system's transparent treatment. */
+.dialog { background: var(--color-bg); border: 1px solid var(--color-divider); }
 .btn { border: 1px solid var(--color-divider); }
 .btn-primary { border-color: var(--color-accent); }
 .btn-ghost { border-color: transparent; }

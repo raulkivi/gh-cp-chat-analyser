@@ -44,14 +44,20 @@ function findChild(node: PromptNode, tagName: string): PromptNode | undefined {
   return node.children.find((child) => child.tagName === tagName);
 }
 
-// One color per node, assigned by walking depth-1 first: a new distinct
+interface HueAssignment {
+  hue: string;
+  tagged: boolean;
+}
+
+// One hue-family per node, assigned by walking depth-1 first: a new distinct
 // tagName claims the next categorical slot (cycling); a repeated tagName
 // (e.g. two root-level <instructions>) reuses its family's slot. Depth-2/3
-// descendants inherit their depth-1 ancestor's hue, lightened via
-// color-mix so nesting reads as "same family, more specific," not as an
-// unrelated color.
-export function assignColors(root: PromptNode): Map<string, string> {
-  const colors = new Map<string, string>();
+// descendants inherit their depth-1 ancestor's hue. Shared by both color
+// schemes below — the nav swatch dots and the raw/pretty text backgrounds —
+// so a given tag family reads as the same hue everywhere, just tinted
+// differently for each use.
+function assignHues(root: PromptNode): Map<string, HueAssignment> {
+  const hues = new Map<string, HueAssignment>();
   const hueByTagName = new Map<string, string>();
   let nextHueIndex = 0;
 
@@ -65,22 +71,58 @@ export function assignColors(root: PromptNode): Map<string, string> {
     return hue;
   }
 
+  function walk(node: PromptNode, depth1Hue: string | null): void {
+    for (const child of node.children) {
+      if (child.depth > MAX_MENU_DEPTH) continue;
+      const hue = child.depth === 1 ? hueForDepth1(child) : (depth1Hue ?? NEUTRAL_COLOR);
+      hues.set(child.id, { hue, tagged: child.tagName !== null });
+      walk(child, child.depth === 1 ? hue : depth1Hue);
+    }
+  }
+  walk(root, null);
+  return hues;
+}
+
+// Nav swatch-dot colors: depth-1 shows the full hue, depth-2/3 are
+// progressively lightened via color-mix so nesting reads as "same family,
+// more specific," not as an unrelated color. These swatches are small,
+// standalone chips — full saturation is legible at that size.
+export function assignColors(root: PromptNode): Map<string, string> {
+  const hues = assignHues(root);
+  const colors = new Map<string, string>();
+
   function tint(hue: string, depth: number): string {
     if (depth <= 1 || hue === NEUTRAL_COLOR) return hue;
     const mixPercent = depth === 2 ? 62 : 38;
     return `color-mix(in srgb, ${hue} ${mixPercent}%, white)`;
   }
 
-  function walk(node: PromptNode, depth1Hue: string | null): void {
-    for (const child of node.children) {
-      if (child.depth > MAX_MENU_DEPTH) continue;
-      const hue = child.depth === 1 ? hueForDepth1(child) : (depth1Hue ?? NEUTRAL_COLOR);
-      colors.set(child.id, tint(hue, child.depth));
-      walk(child, child.depth === 1 ? hue : depth1Hue);
-    }
+  for (const [id, node] of allNodesById(root)) {
+    const assignment = hues.get(id);
+    if (assignment) colors.set(id, tint(assignment.hue, node.depth));
   }
-  walk(root, null);
   return colors;
+}
+
+// Raw/pretty-print text-pane background colors: a light, uniform tint
+// regardless of nesting depth — full-saturation hue directly behind 12px
+// monospace body text reads poorly, so every block gets the same light
+// treatment, just distinguishing tagged blocks (16%) from untagged
+// preamble/trailing free text (12%).
+export function assignTextColors(root: PromptNode): Map<string, string> {
+  const hues = assignHues(root);
+  const colors = new Map<string, string>();
+  for (const [id, { hue, tagged }] of hues) {
+    colors.set(id, `color-mix(in srgb, ${hue} ${tagged ? 16 : 12}%, white)`);
+  }
+  return colors;
+}
+
+function* allNodesById(node: PromptNode): Generator<[string, PromptNode]> {
+  for (const child of node.children) {
+    yield [child.id, child];
+    yield* allNodesById(child);
+  }
 }
 
 export function buildMenu(root: PromptNode, malformed: boolean, text: string): MenuEntry[] {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseSystemPrompt } from "./system-prompt-parser.js";
-import { buildMenu, CATEGORICAL_PALETTE, NEUTRAL_COLOR } from "./system-prompt-menu.js";
+import { assignTextColors, buildMenu, CATEGORICAL_PALETTE, NEUTRAL_COLOR } from "./system-prompt-menu.js";
 
 describe("buildMenu labels", () => {
   it("labels a repeated container's child using its own <name> content", () => {
@@ -130,5 +130,40 @@ describe("buildMenu colors", () => {
 
     expect(entries[0].color).toBe(NEUTRAL_COLOR);
     expect(entries[1].color).toBe(CATEGORICAL_PALETTE[0]);
+  });
+});
+
+describe("assignTextColors", () => {
+  it("tints a tagged node's own hue at 16%, uniformly regardless of nesting depth", () => {
+    const text = "<outer><inner><leaf>x</leaf></inner></outer>";
+    const { root } = parseSystemPrompt(text);
+
+    const colors = assignTextColors(root);
+
+    const [outer] = root.children;
+    const [inner] = outer.children;
+    const [leaf] = inner.children;
+    expect(colors.get(outer.id)).toBe(`color-mix(in srgb, ${CATEGORICAL_PALETTE[0]} 16%, white)`);
+    expect(colors.get(inner.id)).toBe(`color-mix(in srgb, ${CATEGORICAL_PALETTE[0]} 16%, white)`);
+    expect(colors.get(leaf.id)).toBe(`color-mix(in srgb, ${CATEGORICAL_PALETTE[0]} 16%, white)`);
+  });
+
+  it("tints untagged preamble/trailing nodes at 12% of the neutral color", () => {
+    const text = "intro\n<a>x</a>";
+    const { root } = parseSystemPrompt(text);
+
+    const colors = assignTextColors(root);
+
+    const [preamble] = root.children;
+    expect(colors.get(preamble.id)).toBe(`color-mix(in srgb, ${NEUTRAL_COLOR} 12%, white)`);
+  });
+
+  it("never returns a full-saturation (untinted) color, unlike the nav swatch scheme", () => {
+    const text = "<a>x</a>";
+    const { root } = parseSystemPrompt(text);
+
+    const colors = assignTextColors(root);
+
+    expect(colors.get(root.children[0].id)).not.toBe(CATEGORICAL_PALETTE[0]);
   });
 });

@@ -3,7 +3,8 @@ import type { ConfigWarning, Session } from "@gh-cp-chat-analyser/domain";
 import { fetchConfigStatus } from "./api-client/config-status.js";
 import { fetchLearnScenarios } from "./api-client/learn-scenarios.js";
 import { fetchSession, fetchSessions } from "./api-client/sessions.js";
-import { AdviceExportPanel } from "./components/AdviceExportPanel.js";
+import { AdviceExportDialog } from "./components/AdviceExportDialog.js";
+import { AdviceExportTriggerBar } from "./components/AdviceExportTriggerBar.js";
 import { AppHeader } from "./components/AppHeader.js";
 import { ConfigWarningBanner } from "./components/ConfigWarningBanner.js";
 import { ExplanationPanel } from "./components/ExplanationPanel.js";
@@ -51,6 +52,7 @@ export function App() {
   const [showConfigBanner, setShowConfigBanner] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [adviceSelection, setAdviceSelection] = useState<Set<string>>(new Set());
+  const [adviceDialogOpen, setAdviceDialogOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const { session, selectedTurnIndex, mode, rightTab, loadSession, selectTurn, setMode, setRightTab } =
     useSessionStore();
@@ -108,6 +110,7 @@ export function App() {
 
   function handleModeChange(next: typeof mode): void {
     setAdviceSelection(new Set());
+    setAdviceDialogOpen(false);
     setInspectorOpen(false);
     setMode(next);
   }
@@ -171,7 +174,12 @@ export function App() {
       )}
 
       {inspectorOpen && session ? (
-        <SystemPromptInspector sessionId={session.id} onClose={() => setInspectorOpen(false)} />
+        <SystemPromptInspector
+          sessionId={session.id}
+          sessionTitle={session.title}
+          model={session.model}
+          onClose={() => setInspectorOpen(false)}
+        />
       ) : showEmptyState ? (
         <div style={{ padding: "var(--space-8) var(--space-4)", display: "flex", justifyContent: "center" }}>
           <Blueprint style={{ maxWidth: 420, padding: "var(--space-4)", textAlign: "center" }}>
@@ -202,7 +210,12 @@ export function App() {
               adviceSelection={adviceSelection}
               onToggleAdvice={handleToggleAdvice}
             />
-            <AdviceExportPanel sessions={adviceSessions} />
+            <AdviceExportTriggerBar count={adviceSessions.length} onExport={() => setAdviceDialogOpen(true)} />
+            <AdviceExportDialog
+              sessions={adviceSessions}
+              open={adviceDialogOpen}
+              onClose={() => setAdviceDialogOpen(false)}
+            />
           </div>
 
           <div>

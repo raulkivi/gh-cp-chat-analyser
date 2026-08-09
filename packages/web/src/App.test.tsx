@@ -378,7 +378,7 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "Config" })).not.toBeInTheDocument();
   });
 
-  it("lets the user select sessions for an AI advice bundle and copy it", async () => {
+  it("lets the user select sessions for an AI advice bundle, open the export dialog, and copy it", async () => {
     Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     render(<App />);
 
@@ -386,6 +386,9 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("checkbox", { name: /Fix the bug/ }));
 
     expect(await screen.findByText("1 session selected for advice")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Export advice" }));
+
+    expect(screen.getByText("Export advice bundle")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy advice prompt" })).toBeInTheDocument();
   });
 
@@ -398,6 +401,7 @@ describe("App", () => {
     await screen.findByText("analyze turn explanation");
 
     fireEvent.click(screen.getByRole("checkbox", { name: /Fix the bug/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Export advice" }));
     fireEvent.click(screen.getByRole("button", { name: "Preview", exact: true }));
 
     expect(screen.getByTestId("advice-preview")).toHaveTextContent("Base system prompt (100 characters)");

@@ -75,7 +75,7 @@ export function TurnsTable({ turns, selectedTurnIndex, onSelectTurn }: TurnsTabl
             <td>{formatTokenCount(turn.usage.reasoning)}</td>
             <td>{formatTokenCount(turn.usage.output)}</td>
             <td>{formatAiCredits(turn.usage.costAiCredits)}</td>
-            <td>{formatAiCredits(cumulativeCostThrough(turns, turnIndex))}</td>
+            <td className="text-muted">{formatAiCredits(cumulativeCostThrough(turns, turnIndex))}</td>
             <td className="text-muted truncate" style={{ fontSize: 12, maxWidth: 110 }}>
               {turn.usage.model}
             </td>

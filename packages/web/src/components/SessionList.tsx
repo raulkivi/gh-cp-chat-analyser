@@ -69,24 +69,33 @@ export function SessionList({
             aria-label={session.title}
             style={{
               cursor: "pointer",
+              position: "relative",
               background: session.id === selectedSessionId ? "var(--color-accent-100)" : undefined,
             }}
           >
-            <div style={{ padding: "var(--space-3)", display: "flex", gap: "var(--space-2)" }}>
-              {onToggleAdvice && (
-                <label
-                  onClick={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => event.stopPropagation()}
-                  style={{ paddingTop: 2 }}
-                >
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${session.title} for advice`}
-                    checked={adviceSelection?.has(session.id) ?? false}
-                    onChange={() => onToggleAdvice(session)}
-                  />
-                </label>
-              )}
+            {onToggleAdvice && (
+              <label
+                title="Select for advice export"
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+                style={{ position: "absolute", top: 6, right: 6, lineHeight: 0 }}
+              >
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${session.title} for advice`}
+                  checked={adviceSelection?.has(session.id) ?? false}
+                  onChange={() => onToggleAdvice(session)}
+                />
+              </label>
+            )}
+            <div
+              style={{
+                padding: "var(--space-3)",
+                paddingRight: onToggleAdvice ? 26 : undefined,
+                display: "flex",
+                gap: "var(--space-2)",
+              }}
+            >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="card-kicker">{kicker(mode, session)}</div>
                 <div className="card-title truncate" style={{ fontSize: 15, marginTop: 2 }}>

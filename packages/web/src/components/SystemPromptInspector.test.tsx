@@ -37,6 +37,46 @@ describe("SystemPromptInspector", () => {
     expect(screen.getByTestId("prompt-node-root.1").textContent).toContain("Follow OWASP.");
   });
 
+  it("shows a breadcrumb with the session title and model tag alongside the back button", async () => {
+    stubFetchText(SAMPLE_TEXT);
+
+    render(
+      <SystemPromptInspector
+        sessionId="session-1"
+        sessionTitle="Phase 4 build"
+        model="claude-sonnet-5"
+        onClose={() => {}}
+      />,
+    );
+    await screen.findByRole("button", { name: /security requirements/i });
+
+    expect(screen.getByRole("button", { name: /back to session/i })).toBeInTheDocument();
+    expect(screen.getByText("Phase 4 build")).toBeInTheDocument();
+    expect(screen.getByText("claude-sonnet-5")).toBeInTheDocument();
+  });
+
+  it("defaults to the Pretty format and re-indents nested tags onto their own lines", async () => {
+    stubFetchText(SAMPLE_TEXT);
+    render(<SystemPromptInspector sessionId="session-1" onClose={() => {}} />);
+    await screen.findByRole("button", { name: /security requirements/i });
+
+    expect(screen.getByRole("radio", { name: "Pretty" })).toBeChecked();
+    expect(screen.getByTestId("prompt-node-root.2").textContent).toContain("\n  <skill>");
+  });
+
+  it("switches to the Raw format, showing the literal captured text with no inserted indentation", async () => {
+    stubFetchText(SAMPLE_TEXT);
+    render(<SystemPromptInspector sessionId="session-1" onClose={() => {}} />);
+    await screen.findByRole("button", { name: /security requirements/i });
+
+    fireEvent.click(screen.getByRole("radio", { name: "Raw" }));
+
+    expect(screen.getByRole("radio", { name: "Raw" })).toBeChecked();
+    expect(screen.getByTestId("prompt-node-root.2").textContent).toBe(
+      "<skills><skill><name>graphify</name><description>Graph things.</description></skill></skills>",
+    );
+  });
+
   it("shows a not-captured message when the session has no system-prompt artifact", async () => {
     stubFetchText("", false, 404);
 
@@ -62,6 +102,20 @@ describe("SystemPromptInspector", () => {
 
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
     expect(screen.getByText(/owasp top 10/i)).toBeInTheDocument();
+  });
+
+  it("indents a depth-2 nav entry via a single padding shorthand, not a separate paddingLeft a later padding could clobber", async () => {
+    stubFetchText(SAMPLE_TEXT);
+    render(<SystemPromptInspector sessionId="session-1" onClose={() => {}} />);
+    const depth2Item = await screen.findByRole("button", { name: /graphify/i });
+
+    // depth 2 -> (2 - 1) * 14 + 8 = 22px, per the design spec's indent formula.
+    // Asserted via the shorthand string (not .style.paddingLeft): a shorthand
+    // containing var() never decomposes into readable longhands in any
+    // engine, so a longhand-based assertion can't tell shorthand-last from
+    // shorthand-first — checking the shorthand is the only way to pin the
+    // fix (a single declaration, indent baked into its last value).
+    expect(depth2Item.style.padding).toBe("4px var(--space-2) 4px 22px");
   });
 
   it("calls onClose when the close/back control is activated", async () => {

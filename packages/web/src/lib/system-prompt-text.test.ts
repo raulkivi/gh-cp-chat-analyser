@@ -3,12 +3,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseSystemPrompt } from "./system-prompt-parser.js";
-import { assignColors } from "./system-prompt-menu.js";
+import { assignTextColors } from "./system-prompt-menu.js";
 import { buildTextSegments, flattenText } from "./system-prompt-text.js";
 
 function build(text: string) {
   const { root } = parseSystemPrompt(text);
-  const colors = assignColors(root);
+  const colors = assignTextColors(root);
   return buildTextSegments(root, text, colors);
 }
 
@@ -71,6 +71,15 @@ describe("buildTextSegments", () => {
     const segments = build(text);
 
     expect(flattenText(segments)).toBe(text);
+  });
+
+  it("uses a light, uniform text-background tint rather than the nav swatch's full-saturation hue", () => {
+    const text = "<foo>hello world</foo>";
+
+    const [node] = build(text);
+
+    if (node.kind !== "node") throw new Error("unreachable");
+    expect(node.color).toMatch(/^color-mix\(in srgb, #2a78d6 16%, white\)$/);
   });
 });
 

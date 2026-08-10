@@ -11,6 +11,18 @@ them to implementation-ready detail.
 It opens with the critical review that produced the decisions below, then
 lays out contracts, module-by-module TDD steps, fixtures, and rollout.
 
+**Update (2026-08-10): agent-traces sequencing decided.**
+[log-provider-alternatives.md](log-provider-alternatives.md) (2026-08-09)
+recommended prioritizing `agent-traces.db` over mitmproxy for the Copilot
+cache-write/reasoning gap, which raised an open question this document
+hadn't answered: does that mean re-homing Phase 8.5's `agent-traces.db`
+integration inside `VscodeLogProvider`, or giving `agent-traces` its own
+provider id? Decided: it's re-homed inside `VscodeLogProvider` — see step 2
+below (updated in this change). It is **not** a separate provider id, and it
+is **not** left as Phase 8.5's direct `app.ts` wiring. `mitmproxy` remains
+this phase's second, and only other, registered provider — unchanged from
+the original plan.
+
 ## 1. Critical review of the 2026-08-09 log-provider requirements
 
 The three commits that introduced provider-extensible ingestion (`docs:
@@ -197,7 +209,18 @@ code before being made to pass, per constraint 11 and §11.4:
    and `session-enricher` behind a `VscodeLogProvider` that satisfies the
    contract suite. This is a refactor of Phases 3–6's working code, not new
    ingestion logic — the existing SQLite/jsonl tests keep passing unchanged;
-   only the new adapter class gets new tests.
+   only the new adapter class gets new tests. **Also fold in Phase 8.5's
+   `agent-traces.db` enrichment here** (decided 2026-08-10, see
+   `docs/log-provider-alternatives.md`): move its current `app.ts`-level
+   wiring — the `data-sources/agent-traces` lookup and
+   `session-usage-spans.ts`'s `agentTraceUsageByResponseId` param — behind
+   this same `VscodeLogProvider` adapter, so cache-write/reasoning
+   enrichment becomes an internal detail of the VS Code provider rather than
+   a parallel direct-wired path or its own provider id. Write the failing
+   test asserting `VscodeLogProvider.readSession()` returns real
+   `cacheWrite`/`reasoning` values from a fixture `agent-traces.db` before
+   moving the wiring, so the refactor is TDD-verified rather than a blind
+   code move.
 3. **Registry + settings + API, VS Code as the only registered provider.**
    `platform/app-settings-dir` (§6) → provider registry (`register`,
    `list`, `getActive`, `setActive`) → `GET /api/log-providers` and
@@ -253,7 +276,10 @@ this just makes the ownership explicit:
   `LogProvider` interface, contract test harness, `platform/app-settings-dir`
   usage.
 - `packages/server/src/data-sources/log-providers/vscode/` —
-  `VscodeLogProvider` (wraps existing `sqlite`/`jsonl`/`session-enricher`).
+  `VscodeLogProvider` (wraps existing `sqlite`/`jsonl`/`session-enricher`,
+  and, per step 2's 2026-08-10 update, the existing
+  `data-sources/agent-traces` reader — moved here from its current `app.ts`
+  call site, not duplicated).
 - `packages/server/src/data-sources/log-providers/mitmproxy/` —
   `MitmproxyLogProvider`, `redact-headers.ts`, HAR parsing.
 - `packages/server/src/data-sources/log-providers/mitmproxy/decoders/` —

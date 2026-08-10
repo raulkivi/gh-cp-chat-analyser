@@ -620,17 +620,37 @@ existing behavior is unchanged except for a more actionable `reason`
 string, and `GET /api/config/status` surfaces the new optional warning.
 
 **Dependencies**: Phase 6 (`session-usage-spans.ts`/`session-enricher.ts`
-exist to extend). No dependency on, or from, Phase 9.
+exist to extend). No dependency on, or from, Phase 9 at the time this phase
+shipped.
+
+**Status (2026-08-10) update: this phase's `app.ts`-level wiring is planned
+to be refactored, not left in place.** A follow-up review
+(`docs/log-provider-alternatives.md`) recommended, and this was confirmed as
+the decision to build against, that `agent-traces.db` access moves into
+Phase 9's `VscodeLogProvider` adapter rather than staying a direct `app.ts`
+path or becoming its own provider id — see the Phase 9 section below and
+`docs/phase-9-log-providers-implementation.md` §8 step 2 (updated in this
+change). This phase's own exit criterion already shipped and stays met in
+the meantime; the refactor is scoped to Phase 9, not a reopening of this
+phase.
 
 ## Phase 9 — Extensible log providers and mitmproxy ingestion
 
+**See also**: `docs/phase-9-log-providers-implementation.md` for the
+detailed contracts, module ownership, and TDD sequence, and
+`docs/log-provider-alternatives.md` for the `agent-traces.db` sourcing
+decision referenced below. Not yet started — see the "Status" note below.
+
 **Goal**: make Analyze mode source-extensible without changing its session
-endpoints or shared UI, then add mitmproxy as the first non-VS-Code provider.
+endpoints or shared UI, then add mitmproxy as the second provider.
 
 - Define and test the provider-neutral `LogProvider` contract in the domain/
   server boundary: list session summaries and read one normalized session's
   structural, usage, tool, and prompt records. Adapt the existing VS Code
-  SQLite/`main.jsonl` path to this contract before adding a second provider.
+  SQLite/`main.jsonl` path to this contract, folding Phase 8.5's
+  `agent-traces.db` enrichment into this same `VscodeLogProvider` adapter
+  (decided 2026-08-10 — not a separate provider id, and no longer a direct
+  `app.ts` path) before adding the second provider, mitmproxy.
 - Implement a server-owned provider registry with stable descriptors
   (`id`, label, availability, unavailable reason), a persisted active-provider
   setting, `GET /api/log-providers`, and `PUT /api/log-providers/active`.
@@ -659,8 +679,20 @@ contract and shared UI. Anthropic and OpenAI fixture captures normalize to the
 same domain schema, and adding a test-only third provider proves no API or
 frontend component changes are required.
 
-**Dependencies**: Phase 8 (the Analyze header/state exists) and Phases 3-6
-(the VS Code reading/enrichment path exists to adapt).
+**Dependencies**: Phase 8 (the Analyze header/state exists), Phases 3-6 (the
+VS Code reading/enrichment path exists to adapt), and Phase 8.5 (its
+`agent-traces.db` reader is what this phase's `VscodeLogProvider` step folds
+in — see the Phase 8.5 status note above).
+
+**Status (2026-08-10): sequencing decided, implementation not started.** A
+prior review flagged an open question — whether Phase 8.5's `agent-traces.db`
+integration should be re-homed inside `VscodeLogProvider` or become its own
+provider id — raised by `docs/log-provider-alternatives.md`'s recommendation
+to prioritize `agent-traces.db` over mitmproxy for the Copilot cache-data
+gap. Resolved: `agent-traces.db` access is refactored out of `app.ts` and
+into `VscodeLogProvider` (sub-plan §8 step 2), not given its own provider id.
+`mitmproxy` remains Phase 9's second provider, unchanged from the original
+plan. No code exists for this phase yet.
 
 ## Phase 10 — VS Code extension packaging (future, out of MVP scope)
 
@@ -692,6 +724,7 @@ flowchart LR
     P6 --> P85["Phase 8.5<br/>Agent-traces enrichment"]
     P8 --> P9["Phase 9<br/>Log providers + mitmproxy"]
     P6 --> P9
+    P85 --> P9
     P9 --> P10["Phase 10<br/>VS Code extension (future)"]
     P5 --> P10
 ```

@@ -5,7 +5,12 @@ import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { configStatusSchema, logProviderStatusSchema, sessionSchema } from "@gh-cp-chat-analyser/domain";
+import {
+  configStatusSchema,
+  logProviderStatusSchema,
+  sessionSchema,
+  turnInspectorDetailSchema,
+} from "@gh-cp-chat-analyser/domain";
 import { createApp } from "./app.js";
 import { listLearnScenarios } from "./data-sources/learn-scenarios/loader.js";
 import {
@@ -667,6 +672,76 @@ describe("GET /api/sessions/:id", () => {
     const response = await request(app).get("/api/sessions/session-1");
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe("GET /api/sessions/:id/turns/:turnIndex", () => {
+  let dir: string;
+  let dbPath: string;
+  let debugLogsDirPath: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "app-test-turn-detail-"));
+    dbPath = path.join(dir, "session-store.db");
+    seedFixtureDb(dbPath);
+    debugLogsDirPath = path.join(dir, "debug-logs");
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("returns a schema-valid TurnInspectorDetail for a turn with captured round-trip data", async () => {
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    const lines = [
+      { type: "user_message", attrs: { content: "hi" } },
+      { type: "llm_request", attrs: { inputMessages: [{ role: "system", content: "You are an agent." }] } },
+      { type: "agent_response", attrs: { response: "hello" } },
+    ];
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
+    );
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions/session-1/turns/0");
+
+    expect(response.status).toBe(200);
+    expect(() => turnInspectorDetailSchema.parse(response.body)).not.toThrow();
+    expect(response.body.rounds).toHaveLength(1);
+  });
+
+  it("returns 404 for an unknown session id", async () => {
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions/does-not-exist/turns/0");
+
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 404 for a turnIndex the session doesn't have", async () => {
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions/session-1/turns/99");
+
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 400 for a non-numeric turnIndex", async () => {
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions/session-1/turns/not-a-number");
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 400 for a negative turnIndex", async () => {
+    const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions/session-1/turns/-1");
+
+    expect(response.status).toBe(400);
   });
 });
 

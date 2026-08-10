@@ -1,4 +1,4 @@
-import type { Session } from "@gh-cp-chat-analyser/domain";
+import type { Session, TurnInspectorDetail } from "@gh-cp-chat-analyser/domain";
 import { describeLogProviderContract } from "./contract.js";
 import type { LogProvider, LogProviderAvailability } from "./log-provider.js";
 
@@ -40,6 +40,23 @@ class FakeLogProvider implements LogProvider {
   async readSession(sessionId: string): Promise<Session | null> {
     return this.sessions.find((session) => session.id === sessionId) ?? null;
   }
+
+  async readTurnDetail(sessionId: string, turnIndex: number): Promise<TurnInspectorDetail | null> {
+    const session = this.sessions.find((candidate) => candidate.id === sessionId);
+    if (!session || turnIndex !== 0) {
+      return null;
+    }
+    return {
+      turnIndex,
+      userMessage: [{ kind: "text", text: "fake user message" }],
+      rounds: [
+        {
+          request: { index: 0, addedMessages: [{ kind: "text", text: "fake request" }], toolCalls: [] },
+          response: { index: 0, response: [{ kind: "text", text: "fake response" }] },
+        },
+      ],
+    };
+  }
 }
 
 describeLogProviderContract("fake in-memory provider", {
@@ -52,4 +69,5 @@ describeLogProviderContract("fake in-memory provider", {
       available: false,
       unavailableReason: "Fake source not configured.",
     }),
+  turnIndexWithRoundTrip: 0,
 });

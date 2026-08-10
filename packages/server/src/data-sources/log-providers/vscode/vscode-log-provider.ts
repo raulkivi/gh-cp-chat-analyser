@@ -1,6 +1,12 @@
 import { existsSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
-import type { Session, SystemPromptComponent, ToolInventoryEntry, TurnUsage } from "@gh-cp-chat-analyser/domain";
+import type {
+  Session,
+  SystemPromptComponent,
+  ToolInventoryEntry,
+  TurnInspectorDetail,
+  TurnUsage,
+} from "@gh-cp-chat-analyser/domain";
 import {
   classifyEnvelopesAvailability,
   readMainJsonlFile,
@@ -11,6 +17,8 @@ import {
   collectResponseIds,
   extractTurnUsages,
 } from "../../jsonl/session-usage-spans.js";
+import { readMainJsonlEnvelopesForTurn } from "../../jsonl/turn-inspector-reader.js";
+import { buildTurnInspectorDetail } from "./turn-inspector-builder.js";
 import { loadAgentTraceUsageForResponseIds } from "../../agent-traces/agent-traces-reader.js";
 import {
   getSessionFileRows,
@@ -161,6 +169,40 @@ export class VscodeLogProvider implements LogProvider {
         }),
         providerId: PROVIDER_ID,
       };
+    } finally {
+      db.close();
+    }
+  }
+
+  // null has exactly one meaning here, matching readSession's null-for-404
+  // convention: the session or the turn index doesn't exist per SQLite —
+  // the ground truth for "does this turn exist" in this provider, decoupled
+  // from whether main.jsonl happens to have round-trip data for it. A turn
+  // that exists in SQLite but has no captured round-trip (session never
+  // logged, or logging started after this turn ran) is a valid, non-null
+  // TurnInspectorDetail with rounds: [] (turn-inspector-plan.md §5.3).
+  async readTurnDetail(sessionId: string, turnIndex: number): Promise<TurnInspectorDetail | null> {
+    const db = this.openDb();
+    if (!db) {
+      return null;
+    }
+
+    try {
+      const sessionRow = getSessionRow(db, sessionId);
+      if (!sessionRow || turnIndex < 0 || turnIndex >= sessionRow.turn_count) {
+        return null;
+      }
+
+      const mainJsonlPath = resolveMainJsonlPath(this.options.debugLogsDirPaths, sessionId);
+      const result = mainJsonlPath
+        ? await readMainJsonlEnvelopesForTurn(mainJsonlPath, turnIndex)
+        : null;
+
+      if (!result) {
+        return { turnIndex, userMessage: [], rounds: [] };
+      }
+
+      return buildTurnInspectorDetail(turnIndex, result.turnEnvelopes, result.previousInputMessagesLength);
     } finally {
       db.close();
     }

@@ -1,8 +1,15 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import type { Session } from "@gh-cp-chat-analyser/domain";
-import { fetchSession, fetchSessions, fetchSystemPromptText, systemPromptTextUrl } from "./sessions.js";
+import type { Session, TurnInspectorDetail } from "@gh-cp-chat-analyser/domain";
+import {
+  fetchSession,
+  fetchSessions,
+  fetchSystemPromptText,
+  fetchTurnInspectorDetail,
+  systemPromptTextUrl,
+} from "./sessions.js";
 
 const sessionSummary = { id: "session-1", mode: "analyze" } as unknown as Session;
+const turnDetail: TurnInspectorDetail = { turnIndex: 2, userMessage: [], rounds: [] };
 
 describe("sessions api-client", () => {
   afterEach(() => {
@@ -68,5 +75,23 @@ describe("sessions api-client", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
 
     await expect(fetchSystemPromptText("does-not-exist")).rejects.toThrow(/404/);
+  });
+
+  it("fetches a turn's inspector detail by session id and turn index", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(turnDetail) }),
+    );
+
+    const detail = await fetchTurnInspectorDetail("session-1", 2);
+
+    expect(fetch).toHaveBeenCalledWith("/api/sessions/session-1/turns/2");
+    expect(detail).toEqual(turnDetail);
+  });
+
+  it("throws when fetching turn inspector detail fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(fetchTurnInspectorDetail("session-1", 99)).rejects.toThrow(/404/);
   });
 });

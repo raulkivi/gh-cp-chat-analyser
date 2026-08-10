@@ -1,4 +1,4 @@
-import type { Session } from "@gh-cp-chat-analyser/domain";
+import type { Session, TurnInspectorDetail } from "@gh-cp-chat-analyser/domain";
 import { getJson, getText } from "./http.js";
 
 export function fetchSessions(): Promise<Session[]> {
@@ -17,4 +17,8 @@ export function systemPromptTextUrl(id: string): string {
 
 export function fetchSystemPromptText(id: string): Promise<string> {
   return getText(systemPromptTextUrl(id));
+}
+
+export function fetchTurnInspectorDetail(sessionId: string, turnIndex: number): Promise<TurnInspectorDetail> {
+  return getJson<TurnInspectorDetail>(`/api/sessions/${sessionId}/turns/${turnIndex}`);
 }

@@ -711,6 +711,88 @@ was implemented in (no `npm`/`npx` permission) — verify with
 `npm install && npm test` and `tsc --noEmit` before relying on this status
 note as proof the suite is green.
 
+## Phase 9.5 — Turn request/response inspector
+
+**See also**: [docs/turn-inspector-plan.md](turn-inspector-plan.md) for the
+full investigation, resolved design decisions, contracts, and module-by-
+module TDD sequence.
+
+**Goal**: a per-turn analog of `SystemPromptInspector` — inspect one turn's
+actual LLM request/response round-trip(s), scoped to only the content that
+turn added, with large text/image content replaced by placeholders
+(issue #10).
+
+- Add `readTurnDetail(sessionId, turnIndex)` to the `LogProvider` interface
+  (architecture.md §6.2.1) and implement it in both `VscodeLogProvider`
+  (a second, bounded, on-demand wide-attrs `main.jsonl` read, isolated to
+  one turn's span, per turn-inspector-plan.md §4/§5.4) and
+  `MitmproxyLogProvider` (the matching HAR entry's full raw request/response
+  body, one round, per §5.5).
+- New domain type `TurnInspectorDetail` (`packages/domain`), deliberately
+  not a field on `Turn` itself.
+- New endpoint `GET /api/sessions/:id/turns/:turnIndex`, filling in the row
+  architecture.md §8 already lists but has never implemented.
+- New `components/TurnInspector.tsx`, structured like `SystemPromptInspector`
+  (full-page view, not a tab), one Request/Response card per round-trip,
+  reasoning shown inline, placeholders rendered as `Tag`-styled chips.
+- TDD order: domain schema → provider-neutral placeholder-detection helper →
+  `LogProvider` contract-suite extension → VS Code bounded reader/builder →
+  `VscodeLogProvider`/`MitmproxyLogProvider` wiring → API route → frontend —
+  see turn-inspector-plan.md §7 for the full sequence.
+
+**Exit criterion**: opening the inspector for a real multi-round Analyze-mode
+turn, on either provider, shows one Request/Response card pair per
+round-trip with reasoning inline and oversized/file content replaced by
+placeholder chips; a turn with no captured round-trip data shows the correct
+one of two distinct empty-state messages; no provider-specific branching
+exists in the frontend.
+
+**Dependencies**: Phase 9 (the `LogProvider` abstraction this phase extends
+already exists).
+
+**Status (2026-08-10): done.** Built TDD-first per turn-inspector-plan.md
+§7's module-by-module sequence — see architecture.md §6.2.4's implementation
+note for the full list of facts/decisions. Summary: `packages/domain/src/
+turn-inspector.ts` (`TurnInspectorDetail`/`MessageContentPart`/
+`ContentPlaceholder`); `data-sources/log-providers/build-content-parts.ts`
+(provider-neutral placeholder detection, `PLACEHOLDER_THRESHOLD_CHARS =
+2000`); `readTurnDetail` added to the `LogProvider` interface and its shared
+contract test suite; `data-sources/jsonl/turn-inspector-reader.ts` (bounded
+second read of `main.jsonl`, isolated to one turn's span) and
+`data-sources/log-providers/vscode/turn-inspector-builder.ts` (envelopes →
+`TurnInspectorDetail`, per-round suffix diffing); both `VscodeLogProvider`
+and `MitmproxyLogProvider` implement `readTurnDetail`; `GET /api/sessions/:id/
+turns/:turnIndex` fills in the previously-undocumented route; frontend gained
+`components/TurnInspector.tsx` and an "Inspect request/response" button in
+`ExplanationPanel`. 46 domain tests, 311 server tests, 235 web tests pass;
+`tsc --noEmit`/`vite build` clean.
+
+- **Real shape differed from this phase's own planning doc, discovered via
+  live verification.** `turn-inspector-plan.md` §5.4's design assumed
+  `llm_request.attrs.inputMessages`/`agent_response.attrs.response` were raw
+  arrays. Verified against this machine's own real, unredacted `main.jsonl`
+  (not just the repo's privacy-redacted `real-session-with-usage.jsonl`
+  fixture, which blanks these fields to placeholder strings and so couldn't
+  have caught this): both are actually **JSON-encoded strings** of a
+  `[{ role, parts: [{ type, content? }, ...] }, ...]` array — a second layer
+  of stringification, the same pattern `requestShape` already has. The
+  builder parses this before diffing/extracting text; a value that isn't a
+  JSON-encoded array (older/unrecognized shape, or the redacted fixture)
+  still falls back to best-effort single-part display rather than throwing.
+  Caught by browser-driving this machine's own real Analyze-mode session
+  data end-to-end (Playwright via CDP) after the test suite was already
+  green — the tests alone (built against the redacted fixture, which
+  can't exercise real array/JSON-string content) would not have caught this;
+  `turn-inspector-builder.test.ts` was rewritten with hand-authored
+  envelopes in the confirmed real shape once found.
+- Verified against this machine's own real session history in a live
+  browser: opening the inspector on a real multi-round turn shows correctly
+  diffed per-round content (each round's request card shows only that
+  round's new messages, not a repeat of earlier rounds), real tool-call
+  names/args/results with placeholder chips (including a `read_file` call's
+  path-based chip even under the size threshold), and both reasoning cases
+  (`"[encrypted]"` and real reasoning text) rendered inline.
+
 ## Phase 10 — VS Code extension packaging (future, out of MVP scope)
 
 Not part of the initial build (vision §5 "future path"); tracked here only
@@ -742,6 +824,7 @@ flowchart LR
     P8 --> P9["Phase 9<br/>Log providers + mitmproxy"]
     P6 --> P9
     P85 --> P9
-    P9 --> P10["Phase 10<br/>VS Code extension (future)"]
+    P9 --> P95["Phase 9.5<br/>Turn inspector"]
+    P95 --> P10["Phase 10<br/>VS Code extension (future)"]
     P5 --> P10
 ```

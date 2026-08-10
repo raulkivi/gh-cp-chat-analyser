@@ -83,6 +83,36 @@ describe("MitmproxyLogProvider", () => {
 
     await expect(provider.readSession("does-not-exist")).resolves.toBeNull();
   });
+
+  describe("readTurnDetail", () => {
+    const id = computeHarSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"));
+
+    it("returns exactly one round with the full raw request/response body as text parts", async () => {
+      const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
+
+      const detail = await provider.readTurnDetail(id, 0);
+
+      expect(detail).not.toBeNull();
+      expect(detail!.turnIndex).toBe(0);
+      expect(detail!.userMessage).toEqual([]);
+      expect(detail!.rounds).toHaveLength(1);
+      expect(detail!.rounds[0].request.toolCalls).toEqual([]);
+      expect(detail!.rounds[0].request.addedMessages[0].kind).toBe("text");
+      expect(detail!.rounds[0].response.response[0].kind).toBe("text");
+    });
+
+    it("returns null for an unknown session id", async () => {
+      const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
+
+      await expect(provider.readTurnDetail("does-not-exist", 0)).resolves.toBeNull();
+    });
+
+    it("returns null for a turnIndex beyond this HAR file's entry count", async () => {
+      const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
+
+      await expect(provider.readTurnDetail(id, 999)).resolves.toBeNull();
+    });
+  });
 });
 
 describeLogProviderContract("MitmproxyLogProvider", {
@@ -94,4 +124,5 @@ describeLogProviderContract("MitmproxyLogProvider", {
   knownSessionId: computeHarSessionId(path.join(fixturesDir, "anthropic-non-streamed.har")),
   unknownSessionId: "does-not-exist",
   buildUnavailableProvider: () => new MitmproxyLogProvider({ capturesDirPath: null }),
+  turnIndexWithRoundTrip: 0,
 });

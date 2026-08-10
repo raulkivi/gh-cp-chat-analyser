@@ -159,6 +159,36 @@ export function createApp(options: CreateAppOptions = {}): Express {
     }
   });
 
+  // One turn's actual LLM request/response round-trip(s) (turn-inspector-
+  // plan.md §5.6) — fetched on demand rather than sent with every turn up
+  // front, since this content can be arbitrarily large. Goes through the
+  // generic LogProvider contract (both vscode and mitmproxy implement
+  // readTurnDetail), unlike the VS Code-only system-prompt route below.
+  app.get("/api/sessions/:id/turns/:turnIndex", async (req, res) => {
+    const turnIndex = Number(req.params.turnIndex);
+    if (!Number.isInteger(turnIndex) || turnIndex < 0) {
+      res.status(400).json({
+        error: `"${req.params.turnIndex}" is not a valid turn index.`,
+      });
+      return;
+    }
+
+    try {
+      const detail = await registry.getActiveProvider().readTurnDetail(req.params.id, turnIndex);
+      if (!detail) {
+        res.status(404).json({
+          error: `Unknown session id "${req.params.id}" or turn index ${turnIndex}`,
+        });
+        return;
+      }
+      res.json(detail);
+    } catch (error) {
+      res.status(500).json({
+        error: `Failed to load turn ${turnIndex} for session "${req.params.id}": ${(error as Error).message}`,
+      });
+    }
+  });
+
   // Raw, uninterpreted text of the base system prompt captured for this
   // session — the "inspect as text file" counterpart to the estimated
   // token count shown in SystemPromptBreakdown. This stays wired directly

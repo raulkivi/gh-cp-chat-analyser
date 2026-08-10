@@ -25,10 +25,11 @@ content here.
   met.
 - Commit all changes to git as soon as a phase's exit criterion is met,
   before starting the next phase.
-- Repo status: Phases 0-9 complete — npm workspaces with `packages/domain`
+- Repo status: Phases 0-9.5 complete — npm workspaces with `packages/domain`
   (zod schemas + types for every architecture.md §5 shape, including
-  `Session.category`/`startedAt`/`providerId`, `ConfigWarning.severity`, and
-  `LogProviderDescriptor`/`LogProviderStatus`), `packages/server`
+  `Session.category`/`startedAt`/`providerId`, `ConfigWarning.severity`,
+  `LogProviderDescriptor`/`LogProviderStatus`, and `TurnInspectorDetail`),
+  `packages/server`
   (Express API: Learn-mode fixtures plus real Analyze-mode sessions read
   through a provider-extensible `LogProvider` registry — `VscodeLogProvider`
   (SQLite + `main.jsonl`, enriched with real per-turn token/cache numbers
@@ -47,6 +48,9 @@ content here.
   column, a dismissible structured config-warning banner (required vs.
   optional severity styled distinctly), zero-data empty states — built on
   shared `components/ui/*` primitives; `charts/AiCreditsSparkline` is the
-  sole remaining D3 chart, in the center column's header row), Vitest wired
-  with TDD-first tests. Phase 10 (VS Code extension packaging) is
+  sole remaining D3 chart, in the center column's header row; `TurnInspector`
+  is a per-turn request/response drill-down opened from `ExplanationPanel`,
+  showing one Request/Response card pair per LLM round-trip with
+  oversized/file/image content collapsed into placeholder chips), Vitest
+  wired with TDD-first tests. Phase 10 (VS Code extension packaging) is
   future/out of MVP scope — see implementation-plan.md.

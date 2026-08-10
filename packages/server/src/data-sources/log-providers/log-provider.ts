@@ -1,4 +1,4 @@
-import type { Session } from "@gh-cp-chat-analyser/domain";
+import type { Session, TurnInspectorDetail } from "@gh-cp-chat-analyser/domain";
 
 // The provider-neutral boundary (architecture.md §6.2.1/§12): every log
 // source — VS Code local logs, mitmproxy captures, or a future source —
@@ -30,4 +30,11 @@ export interface LogProvider {
   // failure (e.g. a corrupted store) should reject/throw so the API layer's
   // existing 500 handling applies — only "not found" is a null return.
   readSession(sessionId: string): Promise<Session | null>;
+  // One turn's actual LLM request/response round-trip(s) (turn-inspector-
+  // plan.md §5.3), fetched on demand rather than up front. `null` has
+  // exactly one meaning, matching readSession's null-for-404 convention:
+  // the session or the turn index doesn't exist. It does NOT mean "no
+  // round-trip data available" — that's a valid, non-null
+  // TurnInspectorDetail with `rounds: []`.
+  readTurnDetail(sessionId: string, turnIndex: number): Promise<TurnInspectorDetail | null>;
 }

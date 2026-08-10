@@ -14,6 +14,7 @@ import { SystemPromptBreakdown } from "./components/SystemPromptBreakdown.js";
 import { SystemPromptInspector } from "./components/SystemPromptInspector.js";
 import { TimelineScrubber } from "./components/TimelineScrubber.js";
 import { ToolInventoryPanel } from "./components/ToolInventoryPanel.js";
+import { TurnInspector } from "./components/TurnInspector.js";
 import { TurnsTable } from "./components/TurnsTable.js";
 import { Blueprint } from "./components/ui/Blueprint.js";
 import { SegmentedControl } from "./components/ui/SegmentedControl.js";
@@ -55,6 +56,7 @@ export function App() {
   const [adviceSelection, setAdviceSelection] = useState<Set<string>>(new Set());
   const [adviceDialogOpen, setAdviceDialogOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [turnInspectorOpen, setTurnInspectorOpen] = useState(false);
   const [providers, setProviders] = useState<LogProviderDescriptor[]>([]);
   const {
     session,
@@ -148,6 +150,7 @@ export function App() {
     setAdviceSelection(new Set());
     setAdviceDialogOpen(false);
     setInspectorOpen(false);
+    setTurnInspectorOpen(false);
     setMode(next);
   }
 
@@ -165,6 +168,7 @@ export function App() {
 
   function handleSelectSession(picked: Session): void {
     setInspectorOpen(false);
+    setTurnInspectorOpen(false);
     if (mode === "analyze") {
       const requestId = ++latestSessionRequestId.current;
       fetchSession(picked.id)
@@ -218,6 +222,15 @@ export function App() {
           sessionTitle={session.title}
           model={session.model}
           onClose={() => setInspectorOpen(false)}
+        />
+      ) : turnInspectorOpen && session ? (
+        <TurnInspector
+          sessionId={session.id}
+          turnIndex={selectedTurnIndex}
+          sessionTitle={session.title}
+          triggeredEvent={selectedTurn?.triggeredEvent}
+          usageDataAvailable={session.usageDataAvailable}
+          onClose={() => setTurnInspectorOpen(false)}
         />
       ) : showEmptyState ? (
         <div style={{ padding: "var(--space-8) var(--space-4)", display: "flex", justifyContent: "center" }}>
@@ -314,7 +327,14 @@ export function App() {
             )}
             <div style={{ marginTop: "var(--space-2)" }}>
               {(mode === "learn" || rightTab === "explanation") && (
-                <ExplanationPanel turn={selectedTurn} mode={mode} toolCallsAvailable={toolCallsAvailable} />
+                <ExplanationPanel
+                  turn={selectedTurn}
+                  mode={mode}
+                  toolCallsAvailable={toolCallsAvailable}
+                  onOpenTurnInspector={
+                    mode === "analyze" && session ? () => setTurnInspectorOpen(true) : undefined
+                  }
+                />
               )}
               {mode === "analyze" && rightTab === "system-prompt" && (
                 <SystemPromptBreakdown

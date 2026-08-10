@@ -17,6 +17,9 @@ export interface LogProviderContractFixture {
   unknownSessionId: string;
   // A provider instance whose configured source is missing/misconfigured.
   buildUnavailableProvider: () => LogProvider;
+  // A turn index within knownSessionId that has captured round-trip data
+  // (Phase 9.5) — used to assert readTurnDetail returns non-empty rounds.
+  turnIndexWithRoundTrip: number;
 }
 
 export function describeLogProviderContract(
@@ -68,6 +71,35 @@ export function describeLogProviderContract(
 
       expect(availability.available).toBe(false);
       expect(availability.unavailableReason).toBeTruthy();
+    });
+
+    it("readTurnDetail returns null for an unknown session id", async () => {
+      const provider = fixture.buildAvailableProvider();
+
+      await expect(
+        provider.readTurnDetail(fixture.unknownSessionId, 0),
+      ).resolves.toBeNull();
+    });
+
+    it("readTurnDetail returns null for a turnIndex the session doesn't have", async () => {
+      const provider = fixture.buildAvailableProvider();
+
+      await expect(
+        provider.readTurnDetail(fixture.knownSessionId, 999_999),
+      ).resolves.toBeNull();
+    });
+
+    it("readTurnDetail returns non-empty rounds for a turn with captured round-trip data", async () => {
+      const provider = fixture.buildAvailableProvider();
+
+      const detail = await provider.readTurnDetail(
+        fixture.knownSessionId,
+        fixture.turnIndexWithRoundTrip,
+      );
+
+      expect(detail).not.toBeNull();
+      expect(detail!.turnIndex).toBe(fixture.turnIndexWithRoundTrip);
+      expect(detail!.rounds.length).toBeGreaterThan(0);
     });
   });
 }

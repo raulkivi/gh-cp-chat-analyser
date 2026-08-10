@@ -1,8 +1,9 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
-import type { Session, TokenCount, Turn, TurnUsage } from "@gh-cp-chat-analyser/domain";
+import type { Session, TokenCount, Turn, TurnInspectorDetail, TurnUsage } from "@gh-cp-chat-analyser/domain";
 import { unavailableTokenCount } from "@gh-cp-chat-analyser/domain";
 import type { LogProvider, LogProviderAvailability } from "../log-provider.js";
+import { buildContentPart } from "../build-content-parts.js";
 import { harEntryToRawExchange, readHarFile } from "./har.js";
 import { decodeExchange } from "./decoders/registry.js";
 import type { MitmExchangeDecoder } from "./decoders/decoder.js";
@@ -128,5 +129,44 @@ export class MitmproxyLogProvider implements LogProvider {
       return null;
     }
     return this.buildSessionFromFile(file);
+  }
+
+  // A HAR entry is already a complete, self-contained request/response pair
+  // (turn-inspector-plan.md §5.5) — unlike main.jsonl there's no cross-
+  // request inputMessages-growth invariant a capture is guaranteed to
+  // follow, so this returns exactly one round with the full raw bodies as
+  // text/placeholder parts, bypassing the MitmExchangeDecoder registry
+  // entirely (decoders normalize usage, discarding message content, which
+  // is exactly what this feature needs back).
+  async readTurnDetail(sessionId: string, turnIndex: number): Promise<TurnInspectorDetail | null> {
+    const file = this.listHarFiles().find((candidate) => computeHarSessionId(candidate) === sessionId);
+    if (!file) {
+      return null;
+    }
+
+    const har = readHarFile(file);
+    const entry = har.log.entries[turnIndex];
+    if (!entry) {
+      return null;
+    }
+
+    const exchange = harEntryToRawExchange(entry);
+    return {
+      turnIndex,
+      userMessage: [],
+      rounds: [
+        {
+          request: {
+            index: 0,
+            addedMessages: [buildContentPart(exchange.requestBody)],
+            toolCalls: [],
+          },
+          response: {
+            index: 0,
+            response: [buildContentPart(exchange.responseBody)],
+          },
+        },
+      ],
+    };
   }
 }

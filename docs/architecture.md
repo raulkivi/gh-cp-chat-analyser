@@ -138,9 +138,9 @@ outbound network calls.
 | Module | Responsibility |
 |---|---|
 | `data-sources/sqlite` | Read-only queries against the local Copilot Chat session store (`sessions`, `turns`, `checkpoints`, `session_files`, `session_refs`) per vision §4/18.1 |
-| `data-sources/jsonl` | Streams a session's `main.jsonl`, extracts request/response spans, and pulls out token/cache usage from each event's `attrs` — defensively, per §7 below |
-| `data-sources/log-providers` | Owns the `LogProvider` registry, exposes provider descriptors, persists the active provider in app-owned local settings, and presents one provider-neutral session-reading interface to the API/services layer |
-| `data-sources/log-providers/vscode` | Adapts the existing SQLite and `main.jsonl` readers into the `LogProvider` interface; VS Code-specific paths, settings, and event extraction stay here. Also owns the optional `agent-traces.db` cache-write/reasoning enrichment (Phase 8.5) — folded in here, not a separate provider id or a direct `app.ts` path (decided 2026-08-10, see `docs/log-provider-alternatives.md`) |
+| `data-sources/jsonl` | Streams a session's `main.jsonl`, extracts request/response spans, and pulls out token/cache usage from each event's `attrs` — defensively, per §7 below. `turn-inspector-reader.ts` (Phase 9.5) is a second, on-demand, bounded read of the same file for one turn's wide-content `attrs` (§6.2.4) |
+| `data-sources/log-providers` | Owns the `LogProvider` registry, exposes provider descriptors, persists the active provider in app-owned local settings, and presents one provider-neutral session-reading interface to the API/services layer. `build-content-parts.ts` (Phase 9.5) is a provider-neutral placeholder-detection helper shared by both concrete providers' `readTurnDetail` (§6.2.4) |
+| `data-sources/log-providers/vscode` | Adapts the existing SQLite and `main.jsonl` readers into the `LogProvider` interface; VS Code-specific paths, settings, and event extraction stay here. Also owns the optional `agent-traces.db` cache-write/reasoning enrichment (Phase 8.5) — folded in here, not a separate provider id or a direct `app.ts` path (decided 2026-08-10, see `docs/log-provider-alternatives.md`) — and `turn-inspector-builder.ts` (Phase 9.5), which turns one turn's isolated envelopes into a `TurnInspectorDetail` (§6.2.4) |
 | `data-sources/log-providers/mitmproxy` | Reads local mitmproxy capture files and dispatches each intercepted LLM request/response to the vendor decoder that recognizes its SDK/protocol shape |
 | `data-sources/log-providers/mitmproxy/decoders` | Independent vendor decoders (initially Anthropic and OpenAI) that convert a matched exchange into provider-neutral intermediate records; an unrecognized exchange is reported as unavailable, never guessed |
 | `data-sources/learn-scenarios` | Loads bundled scenario fixtures (seeded from [agentic-coding-explained.md](agentic-coding-explained.md)) that already conform to the domain model, so Learn mode needs no parsing/enrichment step |
@@ -162,7 +162,8 @@ SQLite, `main.jsonl`, or scenario fixtures.
 | `components/AppHeader` | Brand mark/wordmark, the Learn/Analyze mode `SegmentedControl`, a provider `Select` in Analyze mode, and the Config button (or a static "Config ✓" tag when there are no warnings) |
 | `components/SessionList` | Left panel: searchable, scrollable list of `Session` cards (Learn scenarios or Analyze sessions, per mode) with a category/relative-time kicker and turn count |
 | `components/TurnsTable` | Center panel: one row per turn — Turn, Trigger, Uncached in, Cache read, Cache write, Tool, Vision, Reasoning, Output, AI Credits, Model |
-| `components/ExplanationPanel` | Right panel: plain-language explanation for the selected turn, plus (Analyze mode only) a "Tool calls this turn" block listing that turn's tool calls and touched files |
+| `components/ExplanationPanel` | Right panel: plain-language explanation for the selected turn, plus (Analyze mode only) a "Tool calls this turn" block listing that turn's tool calls and touched files, and an "Inspect request/response" button opening `TurnInspector` |
+| `components/TurnInspector` | Analyze-mode-only, full-page view (replaces the 3-column layout, not a tab), structured like `SystemPromptInspector`: one Request/Response `Blueprint` card pair per LLM round-trip for the selected turn, reasoning shown inline under the response with no toggle, oversized/file/image content rendered as `Tag`-styled placeholder chips instead of raw text. No provider-specific branching — both `LogProvider`s implement `readTurnDetail` (§6.2.4) |
 | `components/TimelineScrubber` | Bottom slider driving the shared "selected turn" state |
 | `components/SystemPromptBreakdown` | Analyze-mode-only: token contribution per system-prompt component (real or, where labeled, tokenizer-estimated), rendered as a proportional bar-meter; opens `SystemPromptInspector` for the base prompt |
 | `components/SystemPromptInspector` | Analyze-mode-only, full-page form (replaces the 3-column layout, not a tab): a three-pane view over the raw captured system-prompt text — a colored hierarchical tag/subtag menu (left), the byte-for-byte raw text with matching per-section background colors (center, scrolls to the clicked menu entry), and a description panel (right) explaining the selected tag, honestly labeled `Sourced` (with links) or `Not independently sourced` per constraint 6's spirit. Built entirely client-side from `lib/system-prompt-parser.ts` (defensive tag-tree parser), `lib/system-prompt-menu.ts` (labels + an 8-hue categorical palette), `lib/system-prompt-text.ts` (lossless colored-segment renderer), and `lib/system-prompt-descriptions.ts` (the tag glossary) — no new API surface, reuses `GET /api/sessions/:id/system-prompt` |
@@ -270,6 +271,36 @@ capture-file discovery, and vendor protocol details do not escape the
 provider implementation. Changing the active provider clears the selected
 Analyze session and reloads the same `GET /api/sessions` resource; Learn mode
 is unaffected.
+
+`TurnInspectorDetail` (Phase 9.5) is a per-turn analog of
+`SystemPromptComponent`, deliberately **not** a field on `Turn` itself — it's
+fetched on demand via `GET /api/sessions/:id/turns/:turnIndex` (§8) rather
+than sent with every turn up front, since this content (the turn's actual
+LLM request/response round-trip(s)) can be arbitrarily large:
+
+```ts
+type ContentPlaceholder = {
+  placeholder: true;
+  kind: "file" | "image";
+  path?: string;
+  sizeBytes?: number;
+};
+
+type MessageContentPart = { kind: "text"; text: string } | ContentPlaceholder;
+
+interface TurnInspectorDetail {
+  turnIndex: number;
+  userMessage: MessageContentPart[];
+  rounds: {
+    request: { index: number; addedMessages: MessageContentPart[]; toolCalls: { name: string; args: MessageContentPart[]; result: MessageContentPart[] }[] };
+    response: { index: number; response: MessageContentPart[]; reasoning?: MessageContentPart[] };
+  }[];
+}
+```
+
+`rounds: []` is a valid, non-error value (the turn genuinely made no model
+request), distinct from `readTurnDetail` returning `null` (the session or
+turn index doesn't exist at all) — see §6.2.4.
 
 Note this is the same reasoning as the "AI Credits split" in vision §6 — each
 `TokenCount` slot maps 1:1 onto a term in that section's AI Credits formula.
@@ -915,6 +946,91 @@ simpler shape:
   `LogProviderRegistry`, the `LogProvider` interface, or any other
   production file.
 
+#### 6.2.4 Turn request/response inspector (Phase 9.5)
+
+A per-turn analog of `SystemPromptInspector` (§4.2): drills into one turn's
+actual LLM request/response round-trip(s) instead of the session-level
+system prompt, scoped to only the content that turn added. `readTurnDetail`
+(`sessionId, turnIndex): Promise<TurnInspectorDetail | null>`) joins
+`checkAvailability`/`listSessions`/`readSession` as a fourth required
+`LogProvider` method — both `VscodeLogProvider` and `MitmproxyLogProvider`
+implement it. `null` means only "the session or turn index doesn't exist"
+(matching `readSession`'s null-for-404 convention); a turn that exists but
+made no model request is a valid, non-null `TurnInspectorDetail` with
+`rounds: []`.
+
+**`main.jsonl`'s memory/security constraint (VS Code provider).** The
+existing whole-session `readMainJsonlFile` path trims every envelope's
+`attrs` down to a small `KNOWN_ATTRS_KEYS` allow-list (§7) specifically
+*because* the dropped fields (`user_message.attrs.content`,
+`llm_request.attrs.userRequest`/`inputMessages`,
+`agent_response.attrs.response`/`reasoning`, `tool_call.attrs.args`/
+`result`) can carry arbitrarily large raw content — the 2026-08-08
+security-review fix this phase deliberately doesn't reopen. Instead,
+`turn-inspector-reader.ts`'s `readMainJsonlEnvelopesForTurn` is a **second,
+separate, on-demand** stream of the same file, through its own
+`WIDE_ATTRS_KEYS` projector, that isolates only the envelopes belonging to
+one `user_message`-to-`user_message` span (the requested `turnIndex`) and
+stops reading once that span ends — bounded to one turn's content in memory
+regardless of session length, and only invoked when a user explicitly opens
+the inspector for that turn.
+
+**Per-round content diffing.** One SQLite turn can contain several
+`llm_request`/`agent_response` round-trips (the agent looping through tool
+calls before a final answer — already true of `session-usage-spans.ts`'s
+positional turn grouping). Each round's `llm_request.attrs.inputMessages`
+carries the *entire* accumulated conversation so far, so showing it verbatim
+on a later round would re-dump every earlier round's content. The rule:
+diff each round's message array against the previous round's (or, for a
+turn's first round, the previous turn's last round) by array **length** —
+`inputMessages.slice(prevLength)` — never by re-parsing message contents,
+since the array only ever grows.
+
+**Confirmed real shape (differs from this phase's initial investigation
+notes in `docs/turn-inspector-plan.md` §5.4/§5.5).** Verified against this
+machine's own real, unredacted `main.jsonl`: `llm_request.attrs.inputMessages`
+and `agent_response.attrs.response` are not raw arrays but **JSON-encoded
+strings** of a `[{ role, parts: [{ type, content? }, ...] }, ...]` array — a
+second layer of stringification on top of the already-JSON log line (the
+same pattern already known for `requestShape`, §6.2 note above). A "text" or
+"reasoning" part carries its text in a `content` string field; a "tool_call"
+or "tool_call_response" part has no single string field and is stringified
+whole via `build-content-parts.ts`'s defensive fallback instead. Content
+that isn't a JSON-encoded message array at all (an older/unrecognized shape,
+or this repo's own privacy-redacted test fixture, which blanks these fields
+to short placeholder strings) is surfaced best-effort as a single text part
+rather than silently dropped.
+
+**Placeholder detection** (`build-content-parts.ts`, provider-neutral,
+shared by both providers): any string content part over
+`PLACEHOLDER_THRESHOLD_CHARS` (2000, a named exported constant) becomes a
+`{ kind: "file", sizeBytes }` placeholder regardless of source; a `tool_call`
+whose name is a confirmed file-reading tool (`read_file`, the only one
+observed in a real capture so far) gets `path` populated from its args even
+under the size threshold; a `type: "image"`/data-URI content block becomes a
+`{ kind: "image" }` placeholder, best-effort (no real image-bearing capture
+has been found on this machine to confirm the shape against).
+
+**mitmproxy provider**: a HAR entry is already one complete, self-contained
+request/response pair with no cross-request `inputMessages`-growth
+invariant to diff against, so `MitmproxyLogProvider.readTurnDetail` returns
+exactly one round — the full raw `requestBody`/`responseBody` text
+(already redacted, from the same `harEntryToRawExchange` the decoder
+registry uses) run through `build-content-parts.ts` — bypassing the
+`MitmExchangeDecoder` registry entirely, since decoders normalize usage by
+discarding message content, which is exactly what this feature needs back.
+
+**API/frontend**: `GET /api/sessions/:id/turns/:turnIndex` (§8) validates
+`turnIndex` as a non-negative integer (400 otherwise), calls the active
+provider's `readTurnDetail`, and maps `null` to 404. `components/TurnInspector`
+(§4.2) renders it; the empty state picks between two distinct messages using
+a signal the UI already has before the fetch — `Session.usageDataAvailable`
+(known from the `GET /api/sessions/:id` call made before the inspector could
+be opened) — rather than needing a second signal from this endpoint: `false`
+⇒ the actionable "enable logging" copy shown immediately, without waiting on
+the fetch; `true` but `rounds: []` ⇒ "This turn made no request to the
+model."
+
 ### 6.3 Startup configuration check
 
 ```mermaid
@@ -1043,7 +1159,7 @@ read-only viewer).
 | `GET /api/sessions` | `Session[]` summaries from the active log provider; the endpoint and response shape do not vary by provider |
 | `GET /api/sessions/:id` | Full enriched `Session` from the active provider (mode=`analyze`), including `usageDataAvailable` |
 | `GET /api/sessions/:id/system-prompt` | Raw `text/plain` of the session's captured base system prompt (Phase 6 addendum); 404 if no system-prompt artifact was captured |
-| `GET /api/sessions/:id/turns/:turnIndex` | Single `Turn` with full tool-call/file detail (used for on-demand deep dives, avoiding sending every turn's full detail up front) |
+| `GET /api/sessions/:id/turns/:turnIndex` | `TurnInspectorDetail` — one turn's actual LLM request/response round-trip(s), scoped to only the content that turn added (Phase 9.5, §6.2.4); used for on-demand deep dives, avoiding sending every turn's full detail up front. 404 if the session or turn index doesn't exist; 400 for a non-numeric/negative `turnIndex` |
 | `GET /api/config/status` | `ConfigStatus` — current prerequisite-setting check results and any `warnings[]` (§6.3) |
 
 The server binds to `localhost` only (see §11.2).

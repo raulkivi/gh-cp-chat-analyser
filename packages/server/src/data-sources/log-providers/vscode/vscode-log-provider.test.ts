@@ -123,14 +123,30 @@ describe("VscodeLogProvider", () => {
   });
 });
 
+function seedRoundTripLog(debugLogsDirPath: string, sessionId: string): void {
+  const sessionLogDir = path.join(debugLogsDirPath, sessionId);
+  mkdirSync(sessionLogDir, { recursive: true });
+  const lines = [
+    { type: "user_message", attrs: { content: "hi" } },
+    { type: "llm_request", attrs: { inputMessages: [{ role: "system", content: "You are an agent." }] } },
+    { type: "agent_response", attrs: { response: "hello" } },
+  ];
+  writeFileSync(
+    path.join(sessionLogDir, "main.jsonl"),
+    lines.map((line) => JSON.stringify(line)).join("\n") + "\n",
+  );
+}
+
 describeLogProviderContract("VscodeLogProvider", {
   buildAvailableProvider: () => {
     const dir = mkdtempSync(path.join(tmpdir(), "vscode-log-provider-contract-"));
     const dbPath = path.join(dir, "session-store.db");
     seedFixtureDb(dbPath);
+    const debugLogsDirPath = path.join(dir, "debug-logs");
+    seedRoundTripLog(debugLogsDirPath, "session-1");
     return new VscodeLogProvider({
       sessionStoreDbPath: dbPath,
-      debugLogsDirPaths: [],
+      debugLogsDirPaths: [debugLogsDirPath],
       agentTracesDbPath: null,
     });
   },
@@ -142,4 +158,80 @@ describeLogProviderContract("VscodeLogProvider", {
       debugLogsDirPaths: [],
       agentTracesDbPath: null,
     }),
+  turnIndexWithRoundTrip: 0,
+});
+
+describe("VscodeLogProvider.readTurnDetail", () => {
+  let dir: string;
+  let dbPath: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "vscode-log-provider-turn-detail-"));
+    dbPath = path.join(dir, "session-store.db");
+    seedFixtureDb(dbPath);
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("returns real round-trip content for a turn captured in main.jsonl", async () => {
+    const debugLogsDirPath = path.join(dir, "debug-logs");
+    seedRoundTripLog(debugLogsDirPath, "session-1");
+    const provider = new VscodeLogProvider({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+      agentTracesDbPath: null,
+    });
+
+    const detail = await provider.readTurnDetail("session-1", 0);
+
+    expect(detail).not.toBeNull();
+    expect(detail!.userMessage).toEqual([{ kind: "text", text: "hi" }]);
+    expect(detail!.rounds).toHaveLength(1);
+    expect(detail!.rounds[0].response.response).toEqual([{ kind: "text", text: "hello" }]);
+  });
+
+  it("returns null for a turnIndex beyond this session's SQLite turn count", async () => {
+    const provider = new VscodeLogProvider({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [],
+      agentTracesDbPath: null,
+    });
+
+    await expect(provider.readTurnDetail("session-1", 5)).resolves.toBeNull();
+  });
+
+  it("returns an empty-rounds detail (not null) when the turn exists in SQLite but main.jsonl has no coverage at all", async () => {
+    const provider = new VscodeLogProvider({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [],
+      agentTracesDbPath: null,
+    });
+
+    const detail = await provider.readTurnDetail("session-1", 0);
+
+    expect(detail).not.toBeNull();
+    expect(detail!.rounds).toEqual([]);
+  });
+
+  it("returns an empty-rounds detail (not null) when main.jsonl exists but never reached this turn's user_message", async () => {
+    const debugLogsDirPath = path.join(dir, "debug-logs");
+    const sessionLogDir = path.join(debugLogsDirPath, "session-1");
+    mkdirSync(sessionLogDir, { recursive: true });
+    writeFileSync(
+      path.join(sessionLogDir, "main.jsonl"),
+      JSON.stringify({ type: "session_start", attrs: {} }) + "\n",
+    );
+    const provider = new VscodeLogProvider({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [debugLogsDirPath],
+      agentTracesDbPath: null,
+    });
+
+    const detail = await provider.readTurnDetail("session-1", 0);
+
+    expect(detail).not.toBeNull();
+    expect(detail!.rounds).toEqual([]);
+  });
 });

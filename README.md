@@ -24,6 +24,9 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
 - [Agentic coding explained](docs/agentic-coding-explained.md) — reference
   document on sessions, turns, tool calls, prompt caching, and token
   accounting; the source material Learn mode's scenarios are seeded from.
+- [AI-assisted coding terminology](docs/terminology.md) — alphabetical
+  glossary of AI-assisted coding terms, cross-referenced with the reference
+  document above.
 - [Copilot Chat source investigation](docs/copilot-chat-source-investigation.md) —
   findings from inspecting the Copilot Chat extension's own source for
   richer cache/token-usage log data than `main.jsonl` carries.

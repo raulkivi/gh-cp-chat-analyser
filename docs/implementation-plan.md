@@ -684,15 +684,32 @@ VS Code reading/enrichment path exists to adapt), and Phase 8.5 (its
 `agent-traces.db` reader is what this phase's `VscodeLogProvider` step folds
 in — see the Phase 8.5 status note above).
 
-**Status (2026-08-10): sequencing decided, implementation not started.** A
-prior review flagged an open question — whether Phase 8.5's `agent-traces.db`
-integration should be re-homed inside `VscodeLogProvider` or become its own
-provider id — raised by `docs/log-provider-alternatives.md`'s recommendation
-to prioritize `agent-traces.db` over mitmproxy for the Copilot cache-data
-gap. Resolved: `agent-traces.db` access is refactored out of `app.ts` and
-into `VscodeLogProvider` (sub-plan §8 step 2), not given its own provider id.
-`mitmproxy` remains Phase 9's second provider, unchanged from the original
-plan. No code exists for this phase yet.
+**Status (2026-08-10): done.** Built TDD-first per
+`docs/phase-9-log-providers-implementation.md`'s module-by-module sequence
+— see architecture.md §6.2.3's implementation note for the full list of
+facts/decisions, including the deliberate departure from the sub-plan's
+illustrative `ProviderSessionSummary`/`NormalizedSession` contracts in favor
+of `LogProvider` returning the actual `Session` type directly. Summary:
+`VscodeLogProvider` (`data-sources/log-providers/vscode/`) is a refactor of
+the existing Phases 3-6/8.5 code (agent-traces.db enrichment folded in, not
+a separate provider id, resolving the open question from
+`docs/log-provider-alternatives.md`); `MitmproxyLogProvider`
+(`data-sources/log-providers/mitmproxy/`) reads HAR files from a
+conventional `<app-settings-dir>/mitmproxy-captures/` directory, redacts
+credential headers, and dispatches each exchange through an Anthropic/
+OpenAI `MitmExchangeDecoder` registry (SSE-aware, unknown-vendor and
+malformed-payload cases degrade to unavailable rather than throwing); a new
+`platform/app-settings-dir` + `data-sources/log-providers/registry.ts`
+persist the active provider and back `GET /api/log-providers`/
+`PUT /api/log-providers/active`; the frontend gained an Analyze-mode-only
+provider `<select>` in `AppHeader`. A registry-level test with a third,
+in-memory provider proves the OCP exit criterion. Fixtures are hand-authored
+synthetic HAR files under `packages/server/fixtures/mitmproxy/` covering
+every case listed in the sub-plan's §9. **Not run in this change:** the
+automated test suite/`tsc` could not be executed in the sandbox this phase
+was implemented in (no `npm`/`npx` permission) — verify with
+`npm install && npm test` and `tsc --noEmit` before relying on this status
+note as proof the suite is green.
 
 ## Phase 10 — VS Code extension packaging (future, out of MVP scope)
 

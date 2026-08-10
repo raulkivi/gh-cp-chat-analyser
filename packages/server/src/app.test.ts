@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { configStatusSchema, sessionSchema } from "@gh-cp-chat-analyser/domain";
+import { configStatusSchema, logProviderStatusSchema, sessionSchema } from "@gh-cp-chat-analyser/domain";
 import { createApp } from "./app.js";
 import { listLearnScenarios } from "./data-sources/learn-scenarios/loader.js";
 import {
@@ -783,5 +784,97 @@ describe("GET /api/config/status", () => {
     expect(response.status).toBe(200);
     expect(() => configStatusSchema.parse(response.body)).not.toThrow();
     expect(response.body.warnings).toEqual([]);
+  });
+});
+
+describe("GET /api/log-providers and PUT /api/log-providers/active", () => {
+  let dir: string;
+  let dbPath: string;
+  let appSettingsDir: string;
+  let mitmproxyCapturesDirPath: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "app-test-log-providers-"));
+    dbPath = path.join(dir, "session-store.db");
+    seedFixtureDb(dbPath);
+    appSettingsDir = path.join(dir, "app-settings");
+    mitmproxyCapturesDirPath = path.join(dir, "mitmproxy-captures");
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function buildApp(overrides: Parameters<typeof createApp>[0] = {}) {
+    return createApp({
+      sessionStoreDbPath: dbPath,
+      debugLogsDirPaths: [path.join(dir, "debug-logs")],
+      appSettingsDir,
+      mitmproxyCapturesDirPath,
+      ...overrides,
+    });
+  }
+
+  it("defaults to vscode active with both providers listed", async () => {
+    const app = buildApp();
+
+    const response = await request(app).get("/api/log-providers");
+
+    expect(response.status).toBe(200);
+    expect(() => logProviderStatusSchema.parse(response.body)).not.toThrow();
+    expect(response.body.activeProviderId).toBe("vscode");
+    const ids = response.body.providers.map((p: { id: string }) => p.id);
+    expect(ids).toEqual(["vscode", "mitmproxy"]);
+    expect(response.body.providers.find((p: { id: string }) => p.id === "vscode").available).toBe(true);
+    expect(response.body.providers.find((p: { id: string }) => p.id === "mitmproxy").available).toBe(false);
+  });
+
+  it("rejects PUT to an unregistered provider id with a 4xx", async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .put("/api/log-providers/active")
+      .send({ id: "does-not-exist" });
+
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
+  });
+
+  it("PUT persists the active provider so a later GET reflects it, across a fresh app instance", async () => {
+    mkdirSync(mitmproxyCapturesDirPath, { recursive: true });
+    const app1 = buildApp();
+
+    const putResponse = await request(app1)
+      .put("/api/log-providers/active")
+      .send({ id: "mitmproxy" });
+    expect(putResponse.status).toBe(200);
+    expect(putResponse.body.activeProviderId).toBe("mitmproxy");
+
+    const app2 = buildApp();
+    const getResponse = await request(app2).get("/api/log-providers");
+    expect(getResponse.body.activeProviderId).toBe("mitmproxy");
+  });
+
+  it("GET /api/sessions reads from whichever provider is active, with no endpoint-level branching", async () => {
+    const fixturesDir = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../fixtures/mitmproxy",
+    );
+    mkdirSync(mitmproxyCapturesDirPath, { recursive: true });
+    writeFileSync(
+      path.join(mitmproxyCapturesDirPath, "capture.har"),
+      readFileSync(path.join(fixturesDir, "anthropic-non-streamed.har")),
+    );
+    const app = buildApp();
+    await request(app).put("/api/log-providers/active").send({ id: "mitmproxy" });
+
+    const response = await request(app).get("/api/sessions");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0].providerId).toBe("mitmproxy");
+    for (const session of response.body) {
+      expect(() => sessionSchema.parse(session)).not.toThrow();
+    }
   });
 });

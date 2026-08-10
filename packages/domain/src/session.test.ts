@@ -100,6 +100,22 @@ describe("sessionSchema", () => {
     expect(sessionSchema.parse(sample)).toEqual(sample);
   });
 
+  it("accepts an Analyze-mode session with a providerId", () => {
+    const sample = {
+      id: "session-123",
+      mode: "analyze",
+      providerId: "mitmproxy",
+      title: "Real session",
+      model: "gpt-4o",
+      turns: [turn],
+      turnCount: 1,
+      costAiCredits: { known: true, value: 2.79598 },
+      usageDataAvailable: true,
+    };
+
+    expect(sessionSchema.parse(sample)).toEqual(sample);
+  });
+
   it("rejects an invalid mode", () => {
     const sample = {
       id: "session-123",

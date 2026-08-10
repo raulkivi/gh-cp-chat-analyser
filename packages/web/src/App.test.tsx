@@ -109,8 +109,15 @@ const cleanConfigStatus = {
 };
 
 let configStatus: ConfigStatus = cleanConfigStatus;
+let logProviderStatus = {
+  providers: [
+    { id: "vscode", label: "VS Code", available: true },
+    { id: "mitmproxy", label: "mitmproxy", available: true },
+  ],
+  activeProviderId: "vscode",
+};
 
-function fakeFetch(url: string) {
+function fakeFetch(url: string, init?: { method?: string; body?: string }) {
   if (url === "/api/health") {
     return Promise.resolve({
       ok: true,
@@ -119,6 +126,14 @@ function fakeFetch(url: string) {
   }
   if (url === "/api/learn/scenarios") {
     return Promise.resolve({ ok: true, json: () => Promise.resolve([scenario]) });
+  }
+  if (url === "/api/log-providers") {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(logProviderStatus) });
+  }
+  if (url === "/api/log-providers/active") {
+    const { id } = JSON.parse(init?.body ?? "{}") as { id: string };
+    logProviderStatus = { ...logProviderStatus, activeProviderId: id };
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(logProviderStatus) });
   }
   if (url === "/api/sessions") {
     return Promise.resolve({
@@ -148,6 +163,13 @@ function switchToAnalyze() {
 describe("App", () => {
   beforeEach(() => {
     configStatus = cleanConfigStatus;
+    logProviderStatus = {
+      providers: [
+        { id: "vscode", label: "VS Code", available: true },
+        { id: "mitmproxy", label: "mitmproxy", available: true },
+      ],
+      activeProviderId: "vscode",
+    };
     vi.stubGlobal("fetch", vi.fn(fakeFetch));
   });
 
@@ -193,6 +215,39 @@ describe("App", () => {
 
     expect(await screen.findByRole("button", { name: "Fix the bug" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cache Basics" })).not.toBeInTheDocument();
+  });
+
+  it("selecting a different log provider clears the selected session and refetches the session list", async () => {
+    render(<App />);
+
+    switchToAnalyze();
+    fireEvent.click(await screen.findByRole("button", { name: "Fix the bug" }));
+    await screen.findByText("analyze turn explanation");
+
+    const providerSelect = await screen.findByLabelText("Log provider");
+    const fetchCallsBefore = (fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.length;
+
+    fireEvent.change(providerSelect, { target: { value: "mitmproxy" } });
+
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/log-providers/active",
+        expect.objectContaining({ method: "PUT" }),
+      ),
+    );
+    await waitFor(() => {
+      const fetchCallsAfter = (fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.length;
+      expect(fetchCallsAfter).toBeGreaterThan(fetchCallsBefore);
+    });
+    expect(screen.queryByText("analyze turn explanation")).not.toBeInTheDocument();
+  });
+
+  it("does not render a provider select in Learn mode", async () => {
+    render(<App />);
+
+    await screen.findByRole("button", { name: "Cache Basics" });
+
+    expect(screen.queryByLabelText("Log provider")).not.toBeInTheDocument();
   });
 
   it("lets the user pick a real Analyze session and renders the shared layout", async () => {

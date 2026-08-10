@@ -777,17 +777,15 @@ internally coherent against a real capture on the development machine.
   token pair, not a new one) rather than the same urgency as a warning that
   blocks all usage data.
 
-**Planned refactor (decided 2026-08-10, not yet implemented — tracked as
-Phase 9 sub-plan §8 step 2).** This section's `app.ts`-level wiring
-(`data-sources/agent-traces` read directly by `app.ts`, alongside
-`data-sources/sqlite`/`data-sources/jsonl`) is intentionally temporary. Per
-[log-provider-alternatives.md](log-provider-alternatives.md)'s ranked
-recommendation, once Phase 9's `VscodeLogProvider` adapter exists this
-enrichment moves inside it: `agent-traces.db` becomes an internal detail of
-the VS Code provider, not a separate `LogProvider` id and not a parallel
-direct-wired path. `mitmproxy` stays Phase 9's second, and only other,
-registered provider. This paragraph, and the module table row above, will be
-updated again once that refactor lands.
+**Refactor complete (Phase 9, see §6.2.3's implementation note below).**
+This section's `app.ts`-level wiring (`data-sources/agent-traces` read
+directly by `app.ts`, alongside `data-sources/sqlite`/`data-sources/jsonl`)
+has been moved: `data-sources/log-providers/vscode/vscode-log-provider.ts`
+now owns this enrichment as an internal detail of the VS Code provider —
+`app.ts` no longer imports `data-sources/agent-traces` or
+`data-sources/sqlite`/`data-sources/jsonl` directly for session reads, only
+through `VscodeLogProvider`. `agent-traces.db` is still not a separate
+`LogProvider` id, per the 2026-08-10 decision.
 
 #### 6.2.3 mitmproxy provider flow
 
@@ -840,6 +838,82 @@ without `stream_options.include_usage`) marks that exchange's usage
 never estimates. An exchange no registered decoder recognizes is surfaced the
 same way, tagged with an "unrecognized vendor" reason, and does not prevent
 the rest of the session from loading.
+
+**Implementation note (Phase 9, complete).** Built TDD-first per
+`docs/phase-9-log-providers-implementation.md`'s module-by-module sequence.
+Facts and decisions from this slice, including a few deliberate departures
+from that sub-plan's illustrative contracts where implementation revealed a
+simpler shape:
+
+- **`LogProvider` returns the actual `Session` domain type directly**,
+  rather than the sub-plan §7's separate `ProviderSessionSummary`/
+  `NormalizedSession` shapes: `listSessions(): Promise<Session[]>` (summaries,
+  `turns: []`, matching the existing `GET /api/sessions` contract) and
+  `readSession(id): Promise<Session | null>` (`null` ⇒ the API layer's
+  existing 404 handling; a thrown/rejected error ⇒ its existing 500
+  handling). Since `Session` is already the one normalized contract the
+  API/UI consume (§5), inserting a second intermediate shape between a
+  provider and it would be pure translation overhead with nothing left to
+  normalize — `packages/server/src/data-sources/log-providers/log-provider.ts`
+  records this reasoning inline. `RawMitmExchange`/`MitmExchangeDecoder`
+  (mitmproxy-internal, never escaping `data-sources/log-providers/mitmproxy`)
+  are implemented as specified.
+- `VscodeLogProvider` (`data-sources/log-providers/vscode/`) is a direct
+  refactor of the Phase 3-6/8.5 `app.ts` route bodies into a class — the
+  underlying `sqlite`/`jsonl`/`session-enricher`/`agent-traces` modules and
+  their existing tests are unchanged. `GET /api/sessions/:id/system-prompt`
+  deliberately stays wired directly to the SQLite/`main.jsonl` path rather
+  than going through `LogProvider` — a captured system-prompt artifact is a
+  VS Code-specific concept mitmproxy sessions have no equivalent of, and this
+  endpoint was already outside the Phase 9 requirements' scope.
+- The provider registry (`data-sources/log-providers/registry.ts`) is
+  constructed once per `createApp()` call with explicit provider instances
+  (`[vscodeProvider, mitmproxyProvider, ...additionalLogProviders]`) — no
+  dynamic loading, matching §6.2.1. `platform/app-settings-dir` resolves an
+  OS-conventional per-user config directory (Linux: `$XDG_CONFIG_HOME` or
+  `~/.config`; macOS: `~/Library/Application Support`; Windows: `%APPDATA%`)
+  containing `settings.json` (`{ activeProviderId }`); a missing or corrupt
+  file degrades to the `"vscode"` default rather than crashing startup.
+- **mitmproxy capture configuration convention**: the app looks for `.har`
+  files in `<app-settings-dir>/mitmproxy-captures/` (`resolve-mitmproxy-
+  captures-dir.ts`) rather than a single user-supplied path setting — there
+  is no capture-path configuration UI in this phase (only the provider
+  *select*, per the requirements), so a fixed, documented directory the user
+  drops HAR exports into avoids inventing a second app-settings value ahead
+  of need (§13 still tracks whether the settings file should ever grow
+  beyond `activeProviderId`). One `.har` file = one session (§3), id = a
+  hash of the file's path + mtime.
+- `MitmExchangeDecoder.recognizes()` works from `RawMitmExchange`'s headers/
+  body alone — there is no request URL in the redacted-exchange shape
+  (deliberately: mitmproxy hosts vary and the decoder boundary shouldn't
+  need to special-case them), so Anthropic is recognized via the
+  `anthropic-version` request header or a `"type":"message"`/
+  `message_start` response shape, and OpenAI via the `openai-organization`/
+  `openai-project` request headers or a `"chat.completion"`-prefixed
+  `object` field.
+- Every non-Copilot vendor exchange's `costAiCredits` is permanently
+  `unavailable` (a distinct reason from the jsonl path's) — AI Credits are
+  GitHub Copilot's own billing unit with no defined conversion for a direct
+  Anthropic/OpenAI API call, so computing one would be constraint-6
+  fabrication, not a gap to close later.
+- Fixtures are hand-authored synthetic HAR files (never a real captured key
+  or prompt) under `packages/server/fixtures/mitmproxy/`, covering every
+  case §9 of the sub-plan lists: non-streamed and streamed Anthropic,
+  OpenAI streamed with/without `stream_options.include_usage`, an
+  unrecognized-vendor shape, malformed SSE, and a credentials-bearing
+  exchange for the redaction test.
+- Frontend: `AppHeader` gained an optional Analyze-mode-only provider
+  `<select>` (native element, not a new `components/ui/*` primitive — used
+  in exactly one place); `state/session-store.ts` gained `activeProviderId`/
+  `setActiveProviderId` (clears the selected session the same way `setMode`
+  does); `App.tsx` refetches `GET /api/sessions` whenever the active
+  provider id changes. No session-list/table/panel/chart component branches
+  on provider id, per the exit criterion.
+- The OCP proof (sub-plan §8 step 9) is a registry-level test
+  (`registry.test.ts`): a third, in-memory `LogProvider` is registered
+  alongside `vscode`/`mitmproxy` and served correctly with zero changes to
+  `LogProviderRegistry`, the `LogProvider` interface, or any other
+  production file.
 
 ### 6.3 Startup configuration check
 

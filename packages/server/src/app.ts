@@ -1,51 +1,31 @@
 import { existsSync, readFileSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import express, { type Express } from "express";
-import type {
-  Session,
-  SystemPromptComponent,
-  ToolInventoryEntry,
-  TurnUsage,
-} from "@gh-cp-chat-analyser/domain";
 import {
   getLearnScenario,
   listLearnScenarios,
 } from "./data-sources/learn-scenarios/loader.js";
+import { resolveMainJsonlPath } from "./data-sources/jsonl/session-log-path.js";
 import {
   classifyEnvelopesAvailability,
   readMainJsonlFile,
-  type MainJsonlAvailability,
 } from "./data-sources/jsonl/main-jsonl-reader.js";
 import {
   listWorkspaceDebugLogsDirPaths,
-  resolveMainJsonlPath,
 } from "./data-sources/jsonl/session-log-path.js";
-import {
-  collectResponseIds,
-  extractTurnUsages,
-} from "./data-sources/jsonl/session-usage-spans.js";
+import { getSessionRow, openReadOnlyDb } from "./data-sources/sqlite/session-store.js";
 import { resolveSessionStoreDbPath } from "./data-sources/sqlite/session-store-path.js";
 import { resolveAgentTracesDbPath } from "./data-sources/agent-traces/agent-traces-db-path.js";
-import { loadAgentTraceUsageForResponseIds } from "./data-sources/agent-traces/agent-traces-reader.js";
-import {
-  getSessionFileRows,
-  getSessionRow,
-  getTurnRows,
-  listSessionRows,
-  openReadOnlyDb,
-  type SessionRow,
-} from "./data-sources/sqlite/session-store.js";
 import { resolveVscodeSettingsPath } from "./data-sources/vscode-settings/vscode-settings-path.js";
-import {
-  buildSession,
-  buildSessionSummary,
-  computeSessionCost,
-} from "./services/session-enricher/session-enricher.js";
-import {
-  buildAnalyzeModeExtras,
-  resolveSystemPromptText,
-} from "./services/session-enricher/analyze-mode-extras.js";
+import { resolveSystemPromptText } from "./services/session-enricher/analyze-mode-extras.js";
 import { checkConfig } from "./services/config-check/config-check.js";
+import { VscodeLogProvider } from "./data-sources/log-providers/vscode/vscode-log-provider.js";
+import { MitmproxyLogProvider } from "./data-sources/log-providers/mitmproxy/mitmproxy-log-provider.js";
+import { defaultMitmExchangeDecoders } from "./data-sources/log-providers/mitmproxy/decoders/default-decoders.js";
+import { resolveMitmproxyCapturesDir } from "./data-sources/log-providers/mitmproxy/resolve-mitmproxy-captures-dir.js";
+import { resolveAppSettingsDir } from "./platform/app-settings-dir/resolve-app-settings-dir.js";
+import { LogProviderRegistry, UnknownLogProviderIdError } from "./data-sources/log-providers/registry.js";
+import type { LogProvider } from "./data-sources/log-providers/log-provider.js";
 
 const APP_VERSION = (
   JSON.parse(
@@ -58,6 +38,12 @@ export interface CreateAppOptions {
   debugLogsDirPaths?: string[];
   vscodeSettingsPath?: string | null;
   agentTracesDbPath?: string | null;
+  appSettingsDir?: string;
+  mitmproxyCapturesDirPath?: string | null;
+  // Additional providers registered alongside vscode/mitmproxy — exists so
+  // tests can prove the registry is open/closed (phase-9-log-providers-
+  // implementation.md §8 step 9) without any other file needing to change.
+  additionalLogProviders?: LogProvider[];
 }
 
 export function createApp(options: CreateAppOptions = {}): Express {
@@ -74,13 +60,37 @@ export function createApp(options: CreateAppOptions = {}): Express {
     options.agentTracesDbPath !== undefined
       ? options.agentTracesDbPath
       : resolveAgentTracesDbPath();
+  const resolvedAppSettingsDir = options.appSettingsDir ?? resolveAppSettingsDir();
+  const resolvedMitmproxyCapturesDirPath =
+    options.mitmproxyCapturesDirPath !== undefined
+      ? options.mitmproxyCapturesDirPath
+      : resolveMitmproxyCapturesDir(resolvedAppSettingsDir);
 
+  const vscodeProvider = new VscodeLogProvider({
+    sessionStoreDbPath: resolvedDbPath,
+    debugLogsDirPaths: resolvedDebugLogsDirPaths,
+    agentTracesDbPath: resolvedAgentTracesDbPath,
+  });
+  const mitmproxyProvider = new MitmproxyLogProvider({
+    capturesDirPath: resolvedMitmproxyCapturesDirPath,
+    decoders: defaultMitmExchangeDecoders,
+  });
+  const registry = new LogProviderRegistry(
+    [vscodeProvider, mitmproxyProvider, ...(options.additionalLogProviders ?? [])],
+    resolvedAppSettingsDir,
+  );
+
+  // Used only by GET /api/sessions/:id/system-prompt below, which stays
+  // wired directly to the VS Code session store/main.jsonl path rather than
+  // the generic LogProvider contract (see that route's own comment).
   function openSessionStoreDb(): DatabaseSync | null {
     if (!resolvedDbPath || !existsSync(resolvedDbPath)) {
       return null;
     }
     return openReadOnlyDb(resolvedDbPath);
   }
+
+  app.use(express.json());
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", version: APP_VERSION });
@@ -105,116 +115,58 @@ export function createApp(options: CreateAppOptions = {}): Express {
     res.json(scenario);
   });
 
-  // costAiCredits per session requires reading each session's main.jsonl (the
-  // only source of AI Credits numbers) — an accurate list is worth an extra
-  // file read per session for a local tool with a bounded session count.
-  // A single session's read failing (corrupt/missing file) degrades that
-  // session's cost to unavailable rather than failing the whole list.
-  async function summarizeSessionWithCost(row: SessionRow): Promise<Session> {
-    try {
-      const mainJsonlPath = resolveMainJsonlPath(resolvedDebugLogsDirPaths, row.id);
-      let mainJsonlAvailability: MainJsonlAvailability = "missing";
-      let turnUsages: (TurnUsage | null)[] = [];
-      if (mainJsonlPath) {
-        const { envelopes, rawLineCount } = await readMainJsonlFile(mainJsonlPath);
-        mainJsonlAvailability = classifyEnvelopesAvailability(envelopes, rawLineCount);
-        if (mainJsonlAvailability === "events-present") {
-          turnUsages = extractTurnUsages(envelopes);
-        }
-      }
-      return buildSessionSummary(row, computeSessionCost(mainJsonlAvailability, turnUsages));
-    } catch {
-      return buildSessionSummary(row);
-    }
-  }
+  app.get("/api/log-providers", async (_req, res) => {
+    res.json(await registry.getStatus());
+  });
 
-  app.get("/api/sessions", async (_req, res) => {
-    const db = openSessionStoreDb();
-    if (!db) {
-      res.json([]);
+  app.put("/api/log-providers/active", async (req, res) => {
+    const { id } = (req.body ?? {}) as { id?: unknown };
+    if (typeof id !== "string" || id.length === 0) {
+      res.status(400).json({ error: "Request body must include a string \"id\"." });
       return;
     }
-
     try {
-      const rows = listSessionRows(db);
-      const summaries = await Promise.all(rows.map(summarizeSessionWithCost));
-      res.json(summaries);
-    } finally {
-      db.close();
+      registry.setActive(id);
+    } catch (error) {
+      if (error instanceof UnknownLogProviderIdError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      throw error;
     }
+    res.json(await registry.getStatus());
+  });
+
+  // Selects the active log provider (architecture.md §6.2.1) — every
+  // session endpoint below reads through this and never branches on which
+  // provider is active, per the Phase 9 exit criterion.
+  app.get("/api/sessions", async (_req, res) => {
+    res.json(await registry.getActiveProvider().listSessions());
   });
 
   app.get("/api/sessions/:id", async (req, res) => {
-    const db = openSessionStoreDb();
-    if (!db) {
-      res.status(404).json({ error: `Unknown session id "${req.params.id}"` });
-      return;
-    }
-
     try {
-      const sessionRow = getSessionRow(db, req.params.id);
-      if (!sessionRow) {
-        res
-          .status(404)
-          .json({ error: `Unknown session id "${req.params.id}"` });
+      const session = await registry.getActiveProvider().readSession(req.params.id);
+      if (!session) {
+        res.status(404).json({ error: `Unknown session id "${req.params.id}"` });
         return;
       }
-
-      const turnRows = getTurnRows(db, sessionRow.id);
-      const fileRows = getSessionFileRows(db, sessionRow.id);
-      const mainJsonlPath = resolveMainJsonlPath(
-        resolvedDebugLogsDirPaths,
-        sessionRow.id,
-      );
-
-      let mainJsonlAvailability: MainJsonlAvailability = "missing";
-      let turnUsages: (TurnUsage | null)[] = [];
-      let invokedToolNamesByTurn: string[][] = [];
-      let systemPrompt: SystemPromptComponent[] = [];
-      let toolInventory: ToolInventoryEntry[] = [];
-      if (mainJsonlPath) {
-        const { envelopes, rawLineCount } = await readMainJsonlFile(mainJsonlPath);
-        mainJsonlAvailability = classifyEnvelopesAvailability(
-          envelopes,
-          rawLineCount,
-        );
-        if (mainJsonlAvailability === "events-present") {
-          const agentTraceUsageByResponseId = loadAgentTraceUsageForResponseIds(
-            resolvedAgentTracesDbPath,
-            collectResponseIds(envelopes),
-          );
-          turnUsages = extractTurnUsages(envelopes, agentTraceUsageByResponseId);
-          ({ invokedToolNamesByTurn, systemPrompt, toolInventory } =
-            await buildAnalyzeModeExtras(envelopes, mainJsonlPath));
-        }
-      }
-
-      res.json(
-        buildSession({
-          sessionRow,
-          turnRows,
-          fileRows,
-          mainJsonlAvailability,
-          turnUsages,
-          invokedToolNamesByTurn,
-          systemPrompt,
-          toolInventory,
-        }),
-      );
+      res.json(session);
     } catch (error) {
       res.status(500).json({
         error: `Failed to load session "${req.params.id}": ${(error as Error).message}`,
       });
-    } finally {
-      db.close();
     }
   });
 
   // Raw, uninterpreted text of the base system prompt captured for this
   // session — the "inspect as text file" counterpart to the estimated
-  // token count shown in SystemPromptBreakdown, for a component whose full
-  // content the app already reads (prompt-artifact-reader.ts) but otherwise
-  // never surfaces verbatim.
+  // token count shown in SystemPromptBreakdown. This stays wired directly
+  // to the VS Code main.jsonl artifact path rather than going through the
+  // generic LogProvider contract: a captured system-prompt artifact is a
+  // VS Code/main.jsonl-specific concept (mitmproxy sessions have no
+  // artifact file of this shape to read), matching this endpoint's existing
+  // scope from before Phase 9.
   app.get("/api/sessions/:id/system-prompt", async (req, res) => {
     const db = openSessionStoreDb();
     if (!db) {
@@ -231,10 +183,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
         return;
       }
 
-      const mainJsonlPath = resolveMainJsonlPath(
-        resolvedDebugLogsDirPaths,
-        sessionRow.id,
-      );
+      const mainJsonlPath = resolveMainJsonlPath(resolvedDebugLogsDirPaths, sessionRow.id);
 
       const systemPromptText = mainJsonlPath
         ? await (async () => {

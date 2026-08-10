@@ -1,0 +1,73 @@
+import { describe, expect, it } from "vitest";
+import { sessionSchema } from "@gh-cp-chat-analyser/domain";
+import type { LogProvider } from "./log-provider.js";
+
+// Shared assertions every LogProvider must satisfy, regardless of source
+// (architecture.md §11.4: "write contract tests that run the same
+// list/read assertions against VS Code and mitmproxy fixtures before wiring
+// either provider into the registry"). Each concrete provider's own test
+// file calls this against a fixture-backed instance rather than duplicating
+// these assertions per provider.
+export interface LogProviderContractFixture {
+  // A provider instance whose configured source is present and has at
+  // least one readable session, `knownSessionId`.
+  buildAvailableProvider: () => LogProvider;
+  knownSessionId: string;
+  // A session id `buildAvailableProvider()`'s provider does not have.
+  unknownSessionId: string;
+  // A provider instance whose configured source is missing/misconfigured.
+  buildUnavailableProvider: () => LogProvider;
+}
+
+export function describeLogProviderContract(
+  label: string,
+  fixture: LogProviderContractFixture,
+): void {
+  describe(`LogProvider contract: ${label}`, () => {
+    it("listSessions returns schema-valid session summaries with non-empty ids", async () => {
+      const provider = fixture.buildAvailableProvider();
+
+      const sessions = await provider.listSessions();
+
+      expect(sessions.length).toBeGreaterThan(0);
+      for (const session of sessions) {
+        expect(() => sessionSchema.parse(session)).not.toThrow();
+        expect(session.id).not.toBe("");
+      }
+    });
+
+    it("readSession returns a schema-valid session for a known id", async () => {
+      const provider = fixture.buildAvailableProvider();
+
+      const session = await provider.readSession(fixture.knownSessionId);
+
+      expect(session).not.toBeNull();
+      expect(() => sessionSchema.parse(session)).not.toThrow();
+    });
+
+    it("readSession returns null for an unknown id, predictably rather than throwing", async () => {
+      const provider = fixture.buildAvailableProvider();
+
+      await expect(
+        provider.readSession(fixture.unknownSessionId),
+      ).resolves.toBeNull();
+    });
+
+    it("checkAvailability reports available: true when the source is present", async () => {
+      const provider = fixture.buildAvailableProvider();
+
+      await expect(provider.checkAvailability()).resolves.toEqual({
+        available: true,
+      });
+    });
+
+    it("checkAvailability reflects a missing/misconfigured source", async () => {
+      const provider = fixture.buildUnavailableProvider();
+
+      const availability = await provider.checkAvailability();
+
+      expect(availability.available).toBe(false);
+      expect(availability.unavailableReason).toBeTruthy();
+    });
+  });
+}

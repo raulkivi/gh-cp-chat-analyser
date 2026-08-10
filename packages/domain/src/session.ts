@@ -7,6 +7,7 @@ import { turnSchema } from "./turn.js";
 export const sessionSchema = z.object({
   id: z.string(),
   mode: z.enum(["learn", "analyze"]),
+  providerId: z.string().optional(), // Analyze mode only — id of the log provider that produced this session
   title: z.string(),
   model: z.string(),
   turns: z.array(turnSchema),

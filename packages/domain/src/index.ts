@@ -16,3 +16,9 @@ export { toolInventoryEntrySchema, type ToolInventoryEntry } from "./tool-invent
 export { sessionSchema, type Session } from "./session.js";
 export { configWarningSchema, type ConfigWarning } from "./config-warning.js";
 export { configStatusSchema, type ConfigStatus } from "./config-status.js";
+export {
+  logProviderDescriptorSchema,
+  type LogProviderDescriptor,
+  logProviderStatusSchema,
+  type LogProviderStatus,
+} from "./log-provider.js";

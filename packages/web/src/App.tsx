@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import type { ConfigWarning, Session } from "@gh-cp-chat-analyser/domain";
+import type { ConfigWarning, LogProviderDescriptor, Session } from "@gh-cp-chat-analyser/domain";
 import { fetchConfigStatus } from "./api-client/config-status.js";
 import { fetchLearnScenarios } from "./api-client/learn-scenarios.js";
+import { fetchLogProviderStatus, setActiveLogProvider } from "./api-client/log-providers.js";
 import { fetchSession, fetchSessions } from "./api-client/sessions.js";
 import { AdviceExportDialog } from "./components/AdviceExportDialog.js";
 import { AdviceExportTriggerBar } from "./components/AdviceExportTriggerBar.js";
@@ -54,8 +55,19 @@ export function App() {
   const [adviceSelection, setAdviceSelection] = useState<Set<string>>(new Set());
   const [adviceDialogOpen, setAdviceDialogOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const { session, selectedTurnIndex, mode, rightTab, loadSession, selectTurn, setMode, setRightTab } =
-    useSessionStore();
+  const [providers, setProviders] = useState<LogProviderDescriptor[]>([]);
+  const {
+    session,
+    selectedTurnIndex,
+    mode,
+    rightTab,
+    activeProviderId,
+    loadSession,
+    selectTurn,
+    setMode,
+    setRightTab,
+    setActiveProviderId,
+  } = useSessionStore();
   const latestSessionRequestId = useRef(0);
 
   useEffect(() => {
@@ -75,13 +87,28 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    fetchLogProviderStatus()
+      .then((status) => {
+        setProviders(status.providers);
+        setActiveProviderId(status.activeProviderId);
+      })
+      .catch((error: Error) => setFetchError(error.message));
+    // Only ever needs to run once — subsequent provider changes go through
+    // handleProviderChange below, which already has the fresh status.
+  }, []);
+
+  // Re-fetches whenever the active Analyze-mode provider changes, so the
+  // list reflects whichever provider GET /api/sessions currently reads from
+  // (architecture.md §5's "reloads the same GET /api/sessions resource").
+  useEffect(() => {
+    setSessionsLoaded(false);
     fetchSessions()
       .then((result) => {
         setSessions(result);
         setSessionsLoaded(true);
       })
       .catch((error: Error) => setFetchError(error.message));
-  }, []);
+  }, [activeProviderId]);
 
   useEffect(() => {
     fetchConfigStatus()
@@ -107,6 +134,15 @@ export function App() {
   const adviceSessions = listForMode
     .filter((candidate) => adviceSelection.has(candidate.id))
     .map((candidate) => (session?.id === candidate.id ? session : candidate));
+
+  function handleProviderChange(id: string): void {
+    setActiveLogProvider(id)
+      .then((status) => {
+        setProviders(status.providers);
+        setActiveProviderId(status.activeProviderId);
+      })
+      .catch((error: Error) => setFetchError(error.message));
+  }
 
   function handleModeChange(next: typeof mode): void {
     setAdviceSelection(new Set());
@@ -157,6 +193,9 @@ export function App() {
         onModeChange={handleModeChange}
         hasConfigWarnings={configWarnings.length > 0}
         onConfigClick={() => setShowConfigBanner(true)}
+        providers={providers}
+        activeProviderId={activeProviderId}
+        onProviderChange={handleProviderChange}
       />
       <p className="text-muted" style={{ fontSize: 11, margin: "var(--space-2) var(--space-4) 0" }}>
         {health ? `status: ${health.status} · v${health.version}` : "Checking server…"}

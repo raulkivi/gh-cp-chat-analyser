@@ -89,4 +89,35 @@ describe("useSessionStore", () => {
 
     expect(result.current.rightTab).toBe("tools");
   });
+
+  it("starts with the vscode provider active", () => {
+    const { result } = renderHook(() => useSessionStore());
+
+    expect(result.current.activeProviderId).toBe("vscode");
+  });
+
+  it("setActiveProviderId switches the active provider and clears the loaded session", () => {
+    const { result } = renderHook(() => useSessionStore());
+
+    act(() => result.current.loadSession(session));
+    act(() => result.current.selectTurn(3));
+    act(() => result.current.setRightTab("tools"));
+    act(() => result.current.setActiveProviderId("mitmproxy"));
+
+    expect(result.current.activeProviderId).toBe("mitmproxy");
+    expect(result.current.session).toBeNull();
+    expect(result.current.selectedTurnIndex).toBe(0);
+    expect(result.current.rightTab).toBe("explanation");
+  });
+
+  it("setActiveProviderId is a no-op when the provider is unchanged", () => {
+    const { result } = renderHook(() => useSessionStore());
+
+    act(() => result.current.loadSession(session));
+    act(() => result.current.selectTurn(2));
+    act(() => result.current.setActiveProviderId("vscode"));
+
+    expect(result.current.session).toEqual(session);
+    expect(result.current.selectedTurnIndex).toBe(2);
+  });
 });

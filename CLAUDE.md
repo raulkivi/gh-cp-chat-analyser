@@ -25,25 +25,28 @@ content here.
   met.
 - Commit all changes to git as soon as a phase's exit criterion is met,
   before starting the next phase.
-- Repo status: Phases 0-8.5 complete — npm workspaces with `packages/domain`
+- Repo status: Phases 0-9 complete — npm workspaces with `packages/domain`
   (zod schemas + types for every architecture.md §5 shape, including
-  `Session.category`/`startedAt`, and `ConfigWarning.severity`), `packages/server`
+  `Session.category`/`startedAt`/`providerId`, `ConfigWarning.severity`, and
+  `LogProviderDescriptor`/`LogProviderStatus`), `packages/server`
   (Express API: Learn-mode fixtures plus real Analyze-mode sessions read
-  read-only from the local VS Code SQLite store via `node:sqlite`, enriched
-  with real per-turn token/cache numbers extracted from `main.jsonl` plus
-  (Phase 8.5, optional) cache-write/reasoning tokens from `agent-traces.db`,
-  and Analyze-mode-only system-prompt breakdown and tool-inventory/tool-call
-  detail extracted from `main.jsonl`'s sibling artifacts; a startup config
-  check reads `settings.json` and exposes `GET /api/config/status`),
+  through a provider-extensible `LogProvider` registry — `VscodeLogProvider`
+  (SQLite + `main.jsonl`, enriched with real per-turn token/cache numbers
+  plus optional cache-write/reasoning tokens from `agent-traces.db`, and
+  Analyze-mode-only system-prompt breakdown/tool-inventory detail) and
+  `MitmproxyLogProvider` (local HAR captures, redacted, decoded through an
+  Anthropic/OpenAI vendor-decoder registry); `GET /api/log-providers` and
+  `PUT /api/log-providers/active` select the source; a startup config check
+  reads `settings.json` and exposes `GET /api/config/status`),
   `packages/web` (Vite + React, styled with the "Industry" design system
-  ported from `Design/` into `theme.css` — header with mode switch, a
-  searchable session list showing each session's total AI Credits, a
-  12-column turns table (incl. a running cumulative AI Credits total per
-  row; AI Credits figures are rounded to 2 decimal places throughout), a
-  tabbed Explanation/System-prompt/Tools right column, a dismissible structured
-  config-warning banner (required vs. optional severity styled distinctly),
-  zero-data empty states — built on shared `components/ui/*` primitives;
-  `charts/AiCreditsSparkline` is the sole remaining D3 chart, in the center
-  column's header row), Vitest wired with TDD-first tests. Phase 9
-  (extensible log providers + mitmproxy) and Phase 10 (VS Code extension
-  packaging) are future/out of MVP scope — see implementation-plan.md.
+  ported from `Design/` into `theme.css` — header with mode switch and an
+  Analyze-mode provider select, a searchable session list showing each
+  session's total AI Credits, a 12-column turns table (incl. a running
+  cumulative AI Credits total per row; AI Credits figures are rounded to 2
+  decimal places throughout), a tabbed Explanation/System-prompt/Tools right
+  column, a dismissible structured config-warning banner (required vs.
+  optional severity styled distinctly), zero-data empty states — built on
+  shared `components/ui/*` primitives; `charts/AiCreditsSparkline` is the
+  sole remaining D3 chart, in the center column's header row), Vitest wired
+  with TDD-first tests. Phase 10 (VS Code extension packaging) is
+  future/out of MVP scope — see implementation-plan.md.

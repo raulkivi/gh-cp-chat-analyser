@@ -56,21 +56,6 @@ function messageToContentParts(message: unknown): MessageContentPart[] {
   return [buildContentPart(message)];
 }
 
-// Diffs by array length: inputMessages only ever grows, so the suffix
-// beyond prevLength is exactly what this round
-// added. A value that isn't a JSON-encoded message array (an older/
-// unrecognized shape, or — as in this repo's own redacted test fixture —
-// content deliberately blanked to a placeholder string) can't be diffed at
-// all; it's surfaced best-effort as a single part instead of silently
-// dropped.
-function addedMessagesFromInputMessages(raw: unknown, prevLength: number): MessageContentPart[] {
-  const messages = parseMessageArray(raw);
-  if (messages) {
-    return messages.slice(prevLength).flatMap(messageToContentParts);
-  }
-  return partsOrEmpty(raw);
-}
-
 function responseContentParts(raw: unknown): MessageContentPart[] {
   const messages = parseMessageArray(raw);
   if (messages) {

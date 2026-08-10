@@ -61,6 +61,7 @@ describe("extractTurnUsages", () => {
       output: { known: true, value: 1146 },
       costAiCredits: { known: true, value: 7.33953 },
       model: "claude-sonnet-5",
+      roundsCount: 2,
     });
     expect(turn1).toEqual({
       uncachedInput: { known: true, value: 1835 },
@@ -72,7 +73,34 @@ describe("extractTurnUsages", () => {
       output: { known: true, value: 440 },
       costAiCredits: { known: true, value: 2.30782 },
       model: "claude-sonnet-5",
+      roundsCount: 2,
     });
+  });
+
+  it("counts roundsCount as the number of usable llm_request spans in the turn's group", () => {
+    const envelopes: JsonlEnvelope[] = [
+      { type: "user_message", spanId: "u1" },
+      {
+        type: "llm_request",
+        spanId: "r1",
+        attrs: { inputTokens: 100, outputTokens: 10, cachedTokens: 0 },
+      },
+      { type: "tool_call", spanId: "t1" },
+      {
+        type: "llm_request",
+        spanId: "r2",
+        attrs: { inputTokens: 50, outputTokens: 5, cachedTokens: 0 },
+      },
+      {
+        type: "llm_request",
+        spanId: "r3",
+        attrs: { inputTokens: 20, outputTokens: 2, cachedTokens: 0 },
+      },
+    ];
+
+    const [turn0] = extractTurnUsages(envelopes);
+
+    expect(turn0?.roundsCount).toBe(3);
   });
 
   it("returns null for a turn whose group has no usable llm_request span", () => {

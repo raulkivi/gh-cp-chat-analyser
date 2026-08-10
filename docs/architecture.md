@@ -161,7 +161,7 @@ SQLite, `main.jsonl`, or scenario fixtures.
 |---|---|
 | `components/AppHeader` | Brand mark/wordmark, the Learn/Analyze mode `SegmentedControl`, a provider `Select` in Analyze mode, and the Config button (or a static "Config ✓" tag when there are no warnings) |
 | `components/SessionList` | Left panel: searchable, scrollable list of `Session` cards (Learn scenarios or Analyze sessions, per mode) with a category/relative-time kicker and turn count |
-| `components/TurnsTable` | Center panel: one row per turn — Turn, Trigger, Uncached in, Cache read, Cache write, Tool, Vision, Reasoning, Output, AI Credits, Model |
+| `components/TurnsTable` | Center panel: one row per turn — Turn, Trigger, Rounds, Uncached in, Cache read, Cache write, Tool, Vision, Reasoning, Output, AI Credits, Cumulative, Model |
 | `components/ExplanationPanel` | Right panel: plain-language explanation for the selected turn, plus (Analyze mode only) a "Tool calls this turn" block listing that turn's tool calls and touched files, and an "Inspect request/response" button opening `TurnInspector` |
 | `components/TurnInspector` | Analyze-mode-only, full-page view (replaces the 3-column layout, not a tab), structured like `SystemPromptInspector`: one Request/Response `Blueprint` card pair per LLM round-trip for the selected turn, reasoning shown inline under the response with no toggle, oversized/file/image content rendered as `Tag`-styled placeholder chips instead of raw text. No provider-specific branching — both `LogProvider`s implement `readTurnDetail` (§6.2.4) |
 | `components/TimelineScrubber` | Bottom slider driving the shared "selected turn" state |
@@ -203,6 +203,7 @@ interface TurnUsage {
   output: TokenCount;
   costAiCredits: TokenCount;
   model: string;
+  roundsCount?: number; // LLM request/response round-trips this turn made; absent when the source doesn't compute it
 }
 
 interface ToolCallRecord {

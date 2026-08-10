@@ -12,6 +12,10 @@ function formatTokenCount(tokenCount: TokenCount): string {
   return tokenCount.known ? tokenCount.value.toLocaleString() : "—";
 }
 
+function formatRoundsCount(roundsCount: number | undefined): string {
+  return roundsCount === undefined ? "—" : roundsCount.toLocaleString();
+}
+
 // Running total through and including this row — all-or-nothing (an
 // earlier turn with unknown cost makes every later row's total unknown too).
 function cumulativeCostThrough(turns: Turn[], turnIndex: number): TokenCount {
@@ -34,6 +38,7 @@ export function TurnsTable({ turns, selectedTurnIndex, onSelectTurn }: TurnsTabl
         <tr>
           <th>Turn</th>
           <th>Trigger</th>
+          <th>Rounds</th>
           <th>Uncached in</th>
           <th>Cache read</th>
           <th>Cache write</th>
@@ -67,6 +72,7 @@ export function TurnsTable({ turns, selectedTurnIndex, onSelectTurn }: TurnsTabl
                 <span className="text-muted">—</span>
               )}
             </td>
+            <td>{formatRoundsCount(turn.usage.roundsCount)}</td>
             <td>{formatTokenCount(turn.usage.uncachedInput)}</td>
             <td>{formatTokenCount(turn.usage.cacheRead)}</td>
             <td>{formatTokenCount(turn.usage.cacheWrite)}</td>

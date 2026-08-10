@@ -90,7 +90,8 @@ export class MitmproxyLogProvider implements LogProvider {
         userMessage: "",
         assistantResponse: "",
         toolCalls: normalized.toolCalls,
-        usage: normalized.usage,
+        // Same "one HAR entry = one complete round" reasoning as readTurnDetail below.
+        usage: { ...normalized.usage, roundsCount: 1 },
         explanation: buildExchangeExplanation(normalized.usage),
       };
     });

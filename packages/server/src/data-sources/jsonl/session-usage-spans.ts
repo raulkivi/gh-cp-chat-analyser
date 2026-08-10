@@ -157,6 +157,7 @@ export function extractTurnUsages(
       output: { known: true, value: output },
       costAiCredits: aggregateAiCredits(requests),
       model,
+      roundsCount: requests.length,
     };
   });
 }

@@ -4,13 +4,14 @@ import { makeTurn } from "../test-support/turn-fixture.js";
 import { TurnsTable } from "./TurnsTable.js";
 
 describe("TurnsTable", () => {
-  it("renders the 11-column header spec in order", () => {
+  it("renders the 12-column header spec in order", () => {
     render(<TurnsTable turns={[]} selectedTurnIndex={0} onSelectTurn={() => {}} />);
 
     const headers = screen.getAllByRole("columnheader").map((cell) => cell.textContent);
     expect(headers).toEqual([
       "Turn",
       "Trigger",
+      "Rounds",
       "Uncached in",
       "Cache read",
       "Cache write",
@@ -81,6 +82,26 @@ describe("TurnsTable", () => {
     expect(screen.getByText("instructions change")).toBeInTheDocument();
     expect(screen.getByText("image change")).toBeInTheDocument();
     expect(screen.getByText("reasoning toggle")).toBeInTheDocument();
+  });
+
+  it("renders the turn's rounds count", () => {
+    const turns = [makeTurn({ usage: { ...makeTurn().usage, roundsCount: 4 } })];
+
+    render(<TurnsTable turns={turns} selectedTurnIndex={0} onSelectTurn={() => {}} />);
+
+    expect(screen.getByText("4")).toBeInTheDocument();
+  });
+
+  it("shows an em dash for rounds count when unknown", () => {
+    const turns = [
+      makeTurn({ usage: { ...makeTurn().usage, roundsCount: undefined } }),
+    ];
+
+    render(<TurnsTable turns={turns} selectedTurnIndex={0} onSelectTurn={() => {}} />);
+
+    const rows = screen.getAllByRole("row");
+    const roundsCellOf = (row: HTMLElement) => row.querySelectorAll("td")[2].textContent;
+    expect(roundsCellOf(rows[1])).toBe("—");
   });
 
   it("renders the turn's model, muted", () => {

@@ -78,6 +78,18 @@ describe("MitmproxyLogProvider", () => {
     expect(session?.model).toBe("claude-3-5-haiku-20241022");
   });
 
+  it("sets roundsCount to 1 for every turn, since each HAR entry is one complete exchange", async () => {
+    const provider = new MitmproxyLogProvider({
+      capturesDirPath: fixturesDir,
+      decoders: [anthropicDecoder, openAiDecoder],
+    });
+    const id = computeHarSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"));
+
+    const session = await provider.readSession(id);
+
+    expect(session?.turns[0].usage.roundsCount).toBe(1);
+  });
+
   it("returns null for a session id no configured .har file resolves to", async () => {
     const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
 

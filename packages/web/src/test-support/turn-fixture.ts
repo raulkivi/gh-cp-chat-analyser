@@ -16,6 +16,7 @@ export function makeTurn(overrides: Partial<Turn> = {}): Turn {
       output: { known: true, value: 20 },
       costAiCredits: { known: true, value: 0.01 },
       model: "example-model",
+      roundsCount: 3,
     },
     explanation: "explanation text",
     ...overrides,

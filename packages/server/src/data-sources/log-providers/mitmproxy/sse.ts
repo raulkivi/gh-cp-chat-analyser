@@ -1,7 +1,6 @@
 // Minimal SSE (Server-Sent Events) parsing over an already-fully-buffered
 // response body (HAR's response.content.text — mitmproxy already
-// reassembled the wire transfer, so this never touches a live stream;
-// phase-9-log-providers-implementation.md §5).
+// reassembled the wire transfer, so this never touches a live stream).
 export interface SseEvent {
   event?: string;
   data: string;

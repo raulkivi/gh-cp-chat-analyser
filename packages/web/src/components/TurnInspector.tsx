@@ -12,8 +12,7 @@ interface TurnInspectorProps {
   triggeredEvent?: TriggeredEvent;
   // Session.usageDataAvailable, already known from the GET /api/sessions/:id
   // call the UI made before this could be opened — lets the empty state
-  // pick the right message without waiting on this endpoint's own fetch
-  // (turn-inspector-plan.md §5.3/§5.7).
+  // pick the right message without waiting on this endpoint's own fetch.
   usageDataAvailable: boolean;
   onClose: () => void;
 }

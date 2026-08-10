@@ -109,8 +109,8 @@ function decodeNonStreamed(exchange: RawMitmExchange, requestModel: string): Nor
 
 // OpenAI only puts a `usage` field on the final streamed chunk, and only
 // when the request set `stream_options.include_usage: true` — otherwise no
-// chunk ever carries it (phase-9-log-providers-implementation.md §5). The
-// literal `data: [DONE]` sentinel line is not JSON and is skipped rather
+// chunk ever carries it. The literal `data: [DONE]` sentinel line is not
+// JSON and is skipped rather
 // than treated as malformed.
 function decodeStreamed(
   exchange: RawMitmExchange,

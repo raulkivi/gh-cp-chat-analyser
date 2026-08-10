@@ -628,18 +628,15 @@ to be refactored, not left in place.** A follow-up review
 (`docs/log-provider-alternatives.md`) recommended, and this was confirmed as
 the decision to build against, that `agent-traces.db` access moves into
 Phase 9's `VscodeLogProvider` adapter rather than staying a direct `app.ts`
-path or becoming its own provider id — see the Phase 9 section below and
-`docs/phase-9-log-providers-implementation.md` §8 step 2 (updated in this
-change). This phase's own exit criterion already shipped and stays met in
+path or becoming its own provider id — see the Phase 9 section below. This
+phase's own exit criterion already shipped and stays met in
 the meantime; the refactor is scoped to Phase 9, not a reopening of this
 phase.
 
 ## Phase 9 — Extensible log providers and mitmproxy ingestion
 
-**See also**: `docs/phase-9-log-providers-implementation.md` for the
-detailed contracts, module ownership, and TDD sequence, and
-`docs/log-provider-alternatives.md` for the `agent-traces.db` sourcing
-decision referenced below. Not yet started — see the "Status" note below.
+**See also**: `docs/log-provider-alternatives.md` for the `agent-traces.db`
+sourcing decision referenced below.
 
 **Goal**: make Analyze mode source-extensible without changing its session
 endpoints or shared UI, then add mitmproxy as the second provider.
@@ -684,11 +681,11 @@ VS Code reading/enrichment path exists to adapt), and Phase 8.5 (its
 `agent-traces.db` reader is what this phase's `VscodeLogProvider` step folds
 in — see the Phase 8.5 status note above).
 
-**Status (2026-08-10): done.** Built TDD-first per
-`docs/phase-9-log-providers-implementation.md`'s module-by-module sequence
-— see architecture.md §6.2.3's implementation note for the full list of
-facts/decisions, including the deliberate departure from the sub-plan's
-illustrative `ProviderSessionSummary`/`NormalizedSession` contracts in favor
+**Status (2026-08-10): done.** Built TDD-first, module by module — see
+architecture.md §6.2.3's implementation note for the full list of
+facts/decisions, including the deliberate departure from the original
+design sketch's illustrative `ProviderSessionSummary`/`NormalizedSession`
+contracts in favor
 of `LogProvider` returning the actual `Session` type directly. Summary:
 `VscodeLogProvider` (`data-sources/log-providers/vscode/`) is a refactor of
 the existing Phases 3-6/8.5 code (agent-traces.db enrichment folded in, not
@@ -705,17 +702,14 @@ persist the active provider and back `GET /api/log-providers`/
 provider `<select>` in `AppHeader`. A registry-level test with a third,
 in-memory provider proves the OCP exit criterion. Fixtures are hand-authored
 synthetic HAR files under `packages/server/fixtures/mitmproxy/` covering
-every case listed in the sub-plan's §9. **Not run in this change:** the
+every documented vendor/error case (Anthropic, OpenAI, unknown vendor,
+missing usage, malformed payload). **Not run in this change:** the
 automated test suite/`tsc` could not be executed in the sandbox this phase
 was implemented in (no `npm`/`npx` permission) — verify with
 `npm install && npm test` and `tsc --noEmit` before relying on this status
 note as proof the suite is green.
 
 ## Phase 9.5 — Turn request/response inspector
-
-**See also**: [docs/turn-inspector-plan.md](turn-inspector-plan.md) for the
-full investigation, resolved design decisions, contracts, and module-by-
-module TDD sequence.
 
 **Goal**: a per-turn analog of `SystemPromptInspector` — inspect one turn's
 actual LLM request/response round-trip(s), scoped to only the content that
@@ -725,9 +719,8 @@ turn added, with large text/image content replaced by placeholders
 - Add `readTurnDetail(sessionId, turnIndex)` to the `LogProvider` interface
   (architecture.md §6.2.1) and implement it in both `VscodeLogProvider`
   (a second, bounded, on-demand wide-attrs `main.jsonl` read, isolated to
-  one turn's span, per turn-inspector-plan.md §4/§5.4) and
-  `MitmproxyLogProvider` (the matching HAR entry's full raw request/response
-  body, one round, per §5.5).
+  one turn's span) and `MitmproxyLogProvider` (the matching HAR entry's full
+  raw request/response body, one round).
 - New domain type `TurnInspectorDetail` (`packages/domain`), deliberately
   not a field on `Turn` itself.
 - New endpoint `GET /api/sessions/:id/turns/:turnIndex`, filling in the row
@@ -737,8 +730,7 @@ turn added, with large text/image content replaced by placeholders
   reasoning shown inline, placeholders rendered as `Tag`-styled chips.
 - TDD order: domain schema → provider-neutral placeholder-detection helper →
   `LogProvider` contract-suite extension → VS Code bounded reader/builder →
-  `VscodeLogProvider`/`MitmproxyLogProvider` wiring → API route → frontend —
-  see turn-inspector-plan.md §7 for the full sequence.
+  `VscodeLogProvider`/`MitmproxyLogProvider` wiring → API route → frontend.
 
 **Exit criterion**: opening the inspector for a real multi-round Analyze-mode
 turn, on either provider, shows one Request/Response card pair per
@@ -750,8 +742,8 @@ exists in the frontend.
 **Dependencies**: Phase 9 (the `LogProvider` abstraction this phase extends
 already exists).
 
-**Status (2026-08-10): done.** Built TDD-first per turn-inspector-plan.md
-§7's module-by-module sequence — see architecture.md §6.2.4's implementation
+**Status (2026-08-10): done.** Built TDD-first, module by module — see
+architecture.md §6.2.4's implementation
 note for the full list of facts/decisions. Summary: `packages/domain/src/
 turn-inspector.ts` (`TurnInspectorDetail`/`MessageContentPart`/
 `ContentPlaceholder`); `data-sources/log-providers/build-content-parts.ts`
@@ -767,8 +759,8 @@ turns/:turnIndex` fills in the previously-undocumented route; frontend gained
 `ExplanationPanel`. 46 domain tests, 311 server tests, 235 web tests pass;
 `tsc --noEmit`/`vite build` clean.
 
-- **Real shape differed from this phase's own planning doc, discovered via
-  live verification.** `turn-inspector-plan.md` §5.4's design assumed
+- **Real shape differed from this phase's own initial design assumptions,
+  discovered via live verification.** The design initially assumed
   `llm_request.attrs.inputMessages`/`agent_response.attrs.response` were raw
   arrays. Verified against this machine's own real, unredacted `main.jsonl`
   (not just the repo's privacy-redacted `real-session-with-usage.jsonl`

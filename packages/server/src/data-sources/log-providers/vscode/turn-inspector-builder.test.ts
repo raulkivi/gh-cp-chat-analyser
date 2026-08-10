@@ -20,8 +20,8 @@ function textMessage(role: string, text: string) {
 // result content redacted to short placeholder strings for privacy, which
 // destroys the actual message-array structure this suffix-diff logic
 // depends on. These mirror the shape confirmed against this machine's own
-// real, unredacted main.jsonl (turn-inspector-plan.md §2/§3, refined during
-// implementation): `inputMessages`/`response` are JSON-*encoded strings* of
+// real, unredacted main.jsonl (refined during implementation):
+// `inputMessages`/`response` are JSON-*encoded strings* of
 // a `[{ role, parts: [{ type, content }, ...] }, ...]` array — a second
 // layer of stringification on top of the already-JSON log line — with
 // realistic content so the diff can be asserted precisely.

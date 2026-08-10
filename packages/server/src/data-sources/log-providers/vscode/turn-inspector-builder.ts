@@ -56,8 +56,8 @@ function messageToContentParts(message: unknown): MessageContentPart[] {
   return [buildContentPart(message)];
 }
 
-// Diffs by array length (turn-inspector-plan.md §3): inputMessages only
-// ever grows, so the suffix beyond prevLength is exactly what this round
+// Diffs by array length: inputMessages only ever grows, so the suffix
+// beyond prevLength is exactly what this round
 // added. A value that isn't a JSON-encoded message array (an older/
 // unrecognized shape, or — as in this repo's own redacted test fixture —
 // content deliberately blanked to a placeholder string) can't be diffed at
@@ -90,8 +90,8 @@ function buildToolCallPart(envelope: JsonlEnvelope): Round["request"]["toolCalls
   };
 }
 
-// envelopes -> TurnInspectorDetail (turn-inspector-plan.md §5.4): splits the
-// span into rounds at each llm_request/agent_response pair; tool calls
+// envelopes -> TurnInspectorDetail: splits the span into rounds at each
+// llm_request/agent_response pair; tool calls
 // between one agent_response and the next llm_request belong to the round
 // that follows, matching the log's own ordering.
 export function buildTurnInspectorDetail(

@@ -1,16 +1,15 @@
 import type { MessageContentPart } from "@gh-cp-chat-analyser/domain";
 
-// Provider-neutral placeholder detection (turn-inspector-plan.md §5.2),
-// shared by VscodeLogProvider's per-round message diffing and
-// MitmproxyLogProvider's raw-exchange text — neither `main.jsonl`'s
+// Provider-neutral placeholder detection, shared by VscodeLogProvider's
+// per-round message diffing and MitmproxyLogProvider's raw-exchange text —
+// neither `main.jsonl`'s
 // `inputMessages`/`args`/`result` nor a HAR body has a documented, stable
 // schema, so this defensively handles arbitrary shapes rather than assuming
 // one.
 export const PLACEHOLDER_THRESHOLD_CHARS = 2000;
 
-// Only tool confirmed, from a real captured fixture, to read a file by path
-// (turn-inspector-plan.md §5.2 point 2). Extend as more are confirmed rather
-// than guessing further tool names.
+// Only tool confirmed, from a real captured fixture, to read a file by path.
+// Extend as more are confirmed rather than guessing further tool names.
 const FILE_READING_TOOL_NAMES = new Set(["read_file"]);
 
 const PATH_KEYS = ["path", "filePath", "file_path", "uri"];
@@ -37,9 +36,9 @@ function byteLength(text: string): number {
   return Buffer.byteLength(text, "utf-8");
 }
 
-// Best-effort (turn-inspector-plan.md §6 decision 5) — no real captured
-// `inputMessages` payload with an image has been found on this machine to
-// confirm the shape against. Matches common chat-message content-block
+// Best-effort — no real captured `inputMessages` payload with an image has
+// been found on this machine to confirm the shape against. Matches common
+// chat-message content-block
 // conventions (a `type: "image"` block, or a raw data-URI string).
 function detectImagePlaceholder(value: unknown): MessageContentPart | null {
   if (typeof value === "string") {
@@ -82,10 +81,10 @@ function extractPath(value: unknown): string | undefined {
   return undefined;
 }
 
-// Two independent signals, in order (turn-inspector-plan.md §5.2): image
-// detection first, then size (the safety net — always applied, regardless of
-// what produced the content), then shape (a known file-reading tool's
-// path, useful even under the size threshold).
+// Two independent signals, in order: image detection first, then size (the
+// safety net — always applied, regardless of what produced the content),
+// then shape (a known file-reading tool's path, useful even under the size
+// threshold).
 export function buildContentPart(
   value: unknown,
   context: BuildContentPartContext = {},

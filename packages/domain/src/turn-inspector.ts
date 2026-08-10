@@ -5,8 +5,7 @@ import { z } from "zod";
 // session-level system prompt. Deliberately not a field on Turn itself —
 // GET /api/sessions/:id already sends every turn up front, and this content
 // can be arbitrarily large (raw prompt/tool-call payloads), so it's fetched
-// on demand via GET /api/sessions/:id/turns/:turnIndex instead
-// (turn-inspector-plan.md §5.1).
+// on demand via GET /api/sessions/:id/turns/:turnIndex instead.
 export const contentPlaceholderSchema = z.object({
   placeholder: z.literal(true),
   kind: z.enum(["file", "image"]),
@@ -42,7 +41,7 @@ const turnResponseRoundSchema = z.object({
 });
 
 // rounds: [] is a valid, non-error value — it means this turn genuinely made
-// no model request, not that data is missing (turn-inspector-plan.md §5.3).
+// no model request, not that data is missing.
 export const turnInspectorDetailSchema = z.object({
   turnIndex: z.number(),
   userMessage: z.array(messageContentPartSchema),

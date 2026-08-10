@@ -91,9 +91,9 @@ function decodeNonStreamed(exchange: RawMitmExchange, requestModel: string): Nor
 
 // Anthropic streams `message_start` (initial usage: input_tokens plus cache
 // fields) then one or more `message_delta` events whose own `usage` carries
-// the cumulative output_tokens — the last one seen is the final total
-// (phase-9-log-providers-implementation.md §5). Any unparseable `data:`
-// payload degrades the whole exchange to unavailable rather than silently
+// the cumulative output_tokens — the last one seen is the final total. Any
+// unparseable `data:` payload degrades the whole exchange to unavailable
+// rather than silently
 // using a partial total.
 function decodeStreamed(exchange: RawMitmExchange, requestModel: string): NormalizedExchange {
   const events = parseSseEvents(exchange.responseBody);

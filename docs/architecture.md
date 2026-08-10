@@ -870,11 +870,10 @@ never estimates. An exchange no registered decoder recognizes is surfaced the
 same way, tagged with an "unrecognized vendor" reason, and does not prevent
 the rest of the session from loading.
 
-**Implementation note (Phase 9, complete).** Built TDD-first per
-`docs/phase-9-log-providers-implementation.md`'s module-by-module sequence.
-Facts and decisions from this slice, including a few deliberate departures
-from that sub-plan's illustrative contracts where implementation revealed a
-simpler shape:
+**Implementation note (Phase 9, complete).** Built TDD-first, module by
+module. Facts and decisions from this slice, including a few deliberate
+departures from the original design sketch's illustrative contracts where
+implementation revealed a simpler shape:
 
 - **`LogProvider` returns the actual `Session` domain type directly**,
   rather than the sub-plan §7's separate `ProviderSessionSummary`/
@@ -987,7 +986,7 @@ turn's first round, the previous turn's last round) by array **length** —
 since the array only ever grows.
 
 **Confirmed real shape (differs from this phase's initial investigation
-notes in `docs/turn-inspector-plan.md` §5.4/§5.5).** Verified against this
+notes).** Verified against this
 machine's own real, unredacted `main.jsonl`: `llm_request.attrs.inputMessages`
 and `agent_response.attrs.response` are not raw arrays but **JSON-encoded
 strings** of a `[{ role, parts: [{ type, content? }, ...] }, ...]` array — a
@@ -1414,9 +1413,8 @@ Carried over from vision §7 plus new ones raised while designing this layer:
   the vision doc doesn't mandate automated drift-checking, but a periodic
   manual review is worth deciding on explicitly.
 - Whether one mitmproxy capture file should always equal one session (the
-  Phase 9 MVP choice — see
-  [phase-9-log-providers-implementation.md](phase-9-log-providers-implementation.md))
-  or whether entries should later be grouped into sessions by an idle-gap
+  Phase 9 MVP choice) or whether entries should later be grouped into
+  sessions by an idle-gap
   heuristic when a user keeps one long-running capture across multiple
   coding-agent runs.
 - Whether the app-owned settings file should ever hold more than the active

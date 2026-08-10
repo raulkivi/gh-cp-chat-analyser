@@ -180,7 +180,7 @@ export class VscodeLogProvider implements LogProvider {
   // from whether main.jsonl happens to have round-trip data for it. A turn
   // that exists in SQLite but has no captured round-trip (session never
   // logged, or logging started after this turn ran) is a valid, non-null
-  // TurnInspectorDetail with rounds: [] (turn-inspector-plan.md §5.3).
+  // TurnInspectorDetail with rounds: [].
   async readTurnDetail(sessionId: string, turnIndex: number): Promise<TurnInspectorDetail | null> {
     const db = this.openDb();
     if (!db) {

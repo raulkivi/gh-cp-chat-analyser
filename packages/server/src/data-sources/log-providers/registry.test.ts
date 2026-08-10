@@ -116,9 +116,9 @@ describe("LogProviderRegistry", () => {
     expect(registry.getActiveProviderId()).toBe("vscode");
   });
 
-  // OCP proof (phase-9-log-providers-implementation.md §8 step 9): a third,
-  // test-only provider needs nothing beyond constructing it and passing it
-  // into this same constructor alongside vscode/mitmproxy — no change to
+  // OCP proof: a third, test-only provider needs nothing beyond
+  // constructing it and passing it into this same constructor alongside
+  // vscode/mitmproxy — no change to
   // LogProviderRegistry, the LogProvider interface, or any other file in
   // data-sources/log-providers/ is required to add a provider.
   it("registers and serves a third, test-only provider with no other file changes", async () => {

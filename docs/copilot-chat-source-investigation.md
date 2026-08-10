@@ -2,10 +2,9 @@
 
 This document records findings from inspecting the GitHub Copilot Chat VS
 Code extension's own source (`~/src/vscode-copilot-chat` on this machine) to
-answer a question left open by
-[phase-9-log-providers-implementation.md](phase-9-log-providers-implementation.md)
-§1 finding 2 and §13's caveat: are there richer local sources of Copilot
-Chat token/cache-usage data than `main.jsonl`, and does GitHub's backend
+answer a question left open by Phase 9 planning: are there richer local
+sources of Copilot Chat token/cache-usage data than `main.jsonl`, and does
+GitHub's backend
 response carry a vendor-shaped (Anthropic/OpenAI-style) `usage` object a
 mitmproxy decoder could recognize?
 
@@ -201,8 +200,8 @@ also being the code that parses GitHub-backend responses.
 Given §0's caveat, resolving this definitively now requires either (a)
 inspecting `microsoft/vscode`'s current source (not done here — a separate,
 larger repo, out of scope for this pass), or (b) the empirical approach
-`phase-9-log-providers-implementation.md` §13 step 4 already lays out:
-capture real Copilot Chat traffic with `--allow-hosts` scoped to
+already identified for Phase 9: capture real Copilot Chat traffic with
+`--allow-hosts` scoped to
 `api.githubcopilot.com`/`api.github.com` and inspect the response bodies
 directly. That empirical step remains the most reliable way to answer this,
 regardless of what either source snapshot says.

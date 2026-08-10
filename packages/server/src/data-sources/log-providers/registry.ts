@@ -18,8 +18,8 @@ export class UnknownLogProviderIdError extends Error {
 // persisted active-provider setting, and the generic descriptors the
 // GET /api/log-providers endpoint returns. Registering a new provider is
 // exactly "construct it and pass it into this constructor" — nothing else
-// in the API/UI layer needs to change (the OCP proof in step 9 of
-// phase-9-log-providers-implementation.md §8).
+// in the API/UI layer needs to change (see the OCP proof in
+// registry.test.ts).
 export class LogProviderRegistry {
   private readonly providers: Map<string, LogProvider>;
   private activeId: string;

@@ -4,8 +4,7 @@ import { createAttrsProjector, parseEnvelopeLine, type JsonlEnvelope } from "./m
 
 // The wide-content attrs keys the narrow KNOWN_ATTRS_KEYS allow-list
 // deliberately drops (main-jsonl-reader.ts's high-severity-finding fix) —
-// only read here, on demand, for one turn's span at a time
-// (turn-inspector-plan.md §4/§5.4).
+// only read here, on demand, for one turn's span at a time.
 const WIDE_ATTRS_KEYS = [
   "content", // user_message
   "userRequest",

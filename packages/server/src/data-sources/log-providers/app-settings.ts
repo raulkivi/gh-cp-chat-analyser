@@ -7,9 +7,9 @@ interface AppSettingsFileShape {
   activeProviderId: string;
 }
 
-// The one file this app ever writes to local disk (architecture.md §11.2,
-// phase-9-log-providers-implementation.md §6). A missing file (first run)
-// or a corrupt one both degrade to the default provider id rather than
+// The one file this app ever writes to local disk (architecture.md §11.2).
+// A missing file (first run) or a corrupt one both degrade to the default
+// provider id rather than
 // crashing startup — this is app-owned config, not a load-bearing store.
 export function readActiveProviderId(settingsDir: string): string {
   const filePath = path.join(settingsDir, "settings.json");

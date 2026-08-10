@@ -5,9 +5,7 @@ Actionable conclusions from
 scoped for whoever picks up Phase 9+ `LogProvider` work. Read that document
 first for the evidence; this one is the recommendation, kept separate so
 this repo's convention of one doc per concern holds (per
-[implementation-plan.md](implementation-plan.md) and
-[phase-9-log-providers-implementation.md](phase-9-log-providers-implementation.md),
-which this extends but does not replace).
+[implementation-plan.md](implementation-plan.md)).
 
 **Update (2026-08-09, source check)**: the investigation doc's §5 confirmed
 options #1 and #4 below against the *live* `microsoft/vscode` source (not
@@ -132,8 +130,7 @@ should be Phase 9's next `LogProvider` after `vscode`, per the TDD sequence
 option #1 above lays out — starting with the `LogProvider` contract test
 harness against a fixture `agent-traces.db` (a trimmed, redacted copy of
 this machine's real capture, following the same fixture-collection
-discipline `phase-9-log-providers-implementation.md` §9/§13 step 6 already
-established for HAR fixtures).
+discipline already established for HAR fixtures).
 
 ## Decision (2026-08-10)
 
@@ -145,6 +142,4 @@ folded into `VscodeLogProvider` as an internal detail — not its own
 `mitmproxy` is Phase 9's second, and only other, registered provider,
 matching this document's #4 finding that mitmproxy stays the right tool for
 non-Copilot agents rather than being obsoleted. See
-`implementation-plan.md`'s Phase 9 section and
-`phase-9-log-providers-implementation.md` §8 step 2 for the resulting plan
-updates.
+`implementation-plan.md`'s Phase 9 section for the resulting plan updates.

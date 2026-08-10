@@ -21,23 +21,15 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
   model, data flow, API design, tech stack, and project structure.
 - [Implementation plan](docs/implementation-plan.md) — phase-by-phase build
   plan with exit criteria and dependencies.
-- [Phase 9 log-providers implementation plan](docs/phase-9-log-providers-implementation.md) —
-  critical review and build-ready design for extensible log providers and
-  mitmproxy ingestion.
 - [Agentic coding explained](docs/agentic-coding-explained.md) — reference
   document on sessions, turns, tool calls, prompt caching, and token
   accounting; the source material Learn mode's scenarios are seeded from.
-- [Code review remediation plan](docs/code-review-remediation-plan.md) —
-  phased plan to address the findings from the issue #5 code review.
 - [Copilot Chat source investigation](docs/copilot-chat-source-investigation.md) —
   findings from inspecting the Copilot Chat extension's own source for
   richer cache/token-usage log data than `main.jsonl` carries.
 - [Log provider alternatives](docs/log-provider-alternatives.md) — ranked,
   actionable recommendations for Phase 9+ `LogProvider` work that follow
   from the source investigation above.
-- [Turn inspector proposal](docs/turn-inspector-proposal.md) — design
-  proposal for a per-turn request/response inspector (issue #10), including
-  open clarification questions, not yet an implemented phase.
 
 ## Setup
 

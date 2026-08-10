@@ -33,8 +33,8 @@ function buildExchangeExplanation(usage: TurnUsage): string {
 }
 
 // Adapts a local mitmproxy HAR capture into the LogProvider contract
-// (architecture.md §6.2.3, phase-9-log-providers-implementation.md §2-§9):
-// one configured captures directory, one session per .har file in it, each
+// (architecture.md §6.2.3): one configured captures directory, one session
+// per .har file in it, each
 // HAR entry decoded through the vendor decoder registry after credential
 // redaction (har.ts/redact-headers.ts).
 export class MitmproxyLogProvider implements LogProvider {
@@ -132,8 +132,8 @@ export class MitmproxyLogProvider implements LogProvider {
   }
 
   // A HAR entry is already a complete, self-contained request/response pair
-  // (turn-inspector-plan.md §5.5) — unlike main.jsonl there's no cross-
-  // request inputMessages-growth invariant a capture is guaranteed to
+  // — unlike main.jsonl there's no cross-request inputMessages-growth
+  // invariant a capture is guaranteed to
   // follow, so this returns exactly one round with the full raw bodies as
   // text/placeholder parts, bypassing the MitmExchangeDecoder registry
   // entirely (decoders normalize usage, discarding message content, which

@@ -4,8 +4,7 @@ import type { LogProvider, LogProviderAvailability } from "./log-provider.js";
 
 // Proves the shared contract harness's own assertions are correct before
 // either concrete provider (VscodeLogProvider, MitmproxyLogProvider) exists
-// — a minimal in-memory fake stands in for "any LogProvider" here, per
-// phase-9-log-providers-implementation.md §8 step 1.
+// — a minimal in-memory fake stands in for "any LogProvider" here.
 function buildFakeSession(id: string): Session {
   return {
     id,

@@ -10,7 +10,10 @@ const TWO_ROUND_DETAIL: TurnInspectorDetail = {
     {
       request: {
         index: 0,
-        addedMessages: [{ kind: "text", text: "system: you are an agent" }],
+        addedMessages: [
+          { kind: "text", text: "system: you are an agent" },
+          { placeholder: true, kind: "file", sizeBytes: 7168 },
+        ],
         toolCalls: [
           {
             name: "read_file",
@@ -32,6 +35,51 @@ const TWO_ROUND_DETAIL: TurnInspectorDetail = {
   ],
 };
 
+const ONE_ROUND_DETAIL: TurnInspectorDetail = {
+  turnIndex: 0,
+  userMessage: [{ kind: "text", text: "What does this do?" }],
+  rounds: [
+    {
+      request: { index: 0, addedMessages: [], toolCalls: [] },
+      response: { index: 0, response: [{ kind: "text", text: "It does the thing." }] },
+    },
+  ],
+};
+
+const ENCRYPTED_REASONING_DETAIL: TurnInspectorDetail = {
+  turnIndex: 0,
+  userMessage: [],
+  rounds: [
+    {
+      request: { index: 0, addedMessages: [], toolCalls: [] },
+      response: {
+        index: 0,
+        response: [{ kind: "text", text: "Working on it." }],
+        reasoning: [{ kind: "text", text: "[encrypted]" }],
+      },
+    },
+  ],
+};
+
+const JSON_PAYLOAD_DETAIL: TurnInspectorDetail = {
+  turnIndex: 0,
+  userMessage: [],
+  rounds: [
+    {
+      request: { index: 0, addedMessages: [], toolCalls: [] },
+      response: {
+        index: 0,
+        response: [
+          {
+            kind: "text",
+            text: '{"type":"tool_call","name":"read_file","arguments":"{\\"filePath\\":\\"src/foo.ts\\"}"}',
+          },
+        ],
+      },
+    },
+  ],
+};
+
 function stubFetchJson(body: unknown, ok = true, status = 200) {
   vi.stubGlobal(
     "fetch",
@@ -45,7 +93,7 @@ describe("TurnInspector", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows a loading state, then one card pair per round-trip once the fetch resolves", async () => {
+  it("shows a loading state, then round 0's card pair once the fetch resolves", async () => {
     stubFetchJson(TWO_ROUND_DETAIL);
 
     render(
@@ -61,12 +109,42 @@ describe("TurnInspector", () => {
 
     expect(await screen.findByText("Request · round 0")).toBeInTheDocument();
     expect(screen.getByText("Response · round 0")).toBeInTheDocument();
-    expect(screen.getByText("Request · round 1")).toBeInTheDocument();
-    expect(screen.getByText("Response · round 1")).toBeInTheDocument();
+    expect(screen.queryByText("Request · round 1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Response · round 1")).not.toBeInTheDocument();
     expect(fetch).toHaveBeenCalledWith("/api/sessions/session-1/turns/3");
   });
 
-  it("shows a header with the turn index, trigger tag, session title, and back button", async () => {
+  it("switches rounds via the round selector without refetching", async () => {
+    stubFetchJson(TWO_ROUND_DETAIL);
+
+    render(
+      <TurnInspector sessionId="session-1" turnIndex={3} usageDataAvailable={true} onClose={() => {}} />,
+    );
+    await screen.findByText("Request · round 0");
+
+    expect(screen.getByText("2 rounds in this turn")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Round 1" }));
+
+    expect(screen.getByText("Request · round 1")).toBeInTheDocument();
+    expect(screen.getByText("Response · round 1")).toBeInTheDocument();
+    expect(screen.queryByText("Request · round 0")).not.toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the round selector when the turn made only one round-trip", async () => {
+    stubFetchJson(ONE_ROUND_DETAIL);
+
+    render(
+      <TurnInspector sessionId="session-1" turnIndex={0} usageDataAvailable={true} onClose={() => {}} />,
+    );
+    await screen.findByText("Request · round 0");
+
+    expect(screen.queryByText(/round in this turn/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Round 0" })).not.toBeInTheDocument();
+  });
+
+  it("shows a header with the 1-indexed turn number, trigger tag, session title, and back button", async () => {
     stubFetchJson(TWO_ROUND_DETAIL);
 
     render(
@@ -81,12 +159,13 @@ describe("TurnInspector", () => {
     );
     await screen.findByText("Request · round 0");
 
+    expect(screen.getByText("Turn 4 inspector")).toBeInTheDocument();
     expect(screen.getByText("Phase 9.5 build")).toBeInTheDocument();
     expect(screen.getByText("compaction")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /back to session/i })).toBeInTheDocument();
   });
 
-  it("renders a placeholder chip (not raw text) for a file placeholder part", async () => {
+  it("shows a Pretty/Raw format control in the header", async () => {
     stubFetchJson(TWO_ROUND_DETAIL);
 
     render(
@@ -94,8 +173,47 @@ describe("TurnInspector", () => {
     );
     await screen.findByText("Request · round 0");
 
+    expect(screen.getByRole("radio", { name: "Pretty" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Raw" })).toBeInTheDocument();
+  });
+
+  it("shows the turn's originating user message above the rounds", async () => {
+    stubFetchJson(TWO_ROUND_DETAIL);
+
+    render(
+      <TurnInspector sessionId="session-1" turnIndex={3} usageDataAvailable={true} onClose={() => {}} />,
+    );
+    await screen.findByText("Request · round 0");
+
+    expect(screen.getByText("User message")).toBeInTheDocument();
+    expect(screen.getByText("Fix the flaky test.")).toBeInTheDocument();
+  });
+
+  it("labels a tool call's args and result sub-sections", async () => {
+    stubFetchJson(TWO_ROUND_DETAIL);
+
+    render(
+      <TurnInspector sessionId="session-1" turnIndex={3} usageDataAvailable={true} onClose={() => {}} />,
+    );
+    await screen.findByText("Request · round 0");
+
+    expect(screen.getByText("Args")).toBeInTheDocument();
+    expect(screen.getByText("Result")).toBeInTheDocument();
+  });
+
+  it("renders attachment chips without emoji, falling back to size-only when there's no path", async () => {
+    stubFetchJson(TWO_ROUND_DETAIL);
+
+    const { container } = render(
+      <TurnInspector sessionId="session-1" turnIndex={3} usageDataAvailable={true} onClose={() => {}} />,
+    );
+    await screen.findByText("Request · round 0");
+
+    expect(container.textContent).not.toMatch(/🖼️|📄/);
     expect(screen.getAllByText(/src\/foo\.ts/).length).toBeGreaterThan(0);
     expect(screen.getByText(/14\.2 KB/)).toBeInTheDocument();
+    expect(screen.getByText("7.0 KB")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/undefined/);
   });
 
   it("shows reasoning inline under the response when present, with no toggle needed", async () => {
@@ -108,6 +226,36 @@ describe("TurnInspector", () => {
 
     expect(screen.getByText("Let me check the file first.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /reasoning/i })).not.toBeInTheDocument();
+  });
+
+  it("renders encrypted reasoning as a labeled state, not the literal string", async () => {
+    stubFetchJson(ENCRYPTED_REASONING_DETAIL);
+
+    const { container } = render(
+      <TurnInspector sessionId="session-1" turnIndex={0} usageDataAvailable={true} onClose={() => {}} />,
+    );
+    await screen.findByText("Request · round 0");
+
+    expect(screen.getByText("encrypted")).toBeInTheDocument();
+    expect(screen.getByText(/withheld by the provider/i)).toBeInTheDocument();
+    expect(container.querySelector("pre")?.textContent).not.toContain("[encrypted]");
+  });
+
+  it("pretty-prints JSON payloads by default, and shows the raw bytes when Raw is selected", async () => {
+    stubFetchJson(JSON_PAYLOAD_DETAIL);
+
+    const { container } = render(
+      <TurnInspector sessionId="session-1" turnIndex={0} usageDataAvailable={true} onClose={() => {}} />,
+    );
+    await screen.findByText("Request · round 0");
+
+    expect(container.textContent).toContain('"filePath": "src/foo.ts"');
+
+    fireEvent.click(screen.getByRole("radio", { name: "Raw" }));
+
+    expect(container.textContent).toContain(
+      '{"type":"tool_call","name":"read_file","arguments":"{\\"filePath\\":\\"src/foo.ts\\"}"}',
+    );
   });
 
   it("shows the actionable logging-disabled message, without fetching, when the session has no usage data at all", () => {

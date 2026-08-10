@@ -134,3 +134,17 @@ harness against a fixture `agent-traces.db` (a trimmed, redacted copy of
 this machine's real capture, following the same fixture-collection
 discipline `phase-9-log-providers-implementation.md` §9/§13 step 6 already
 established for HAR fixtures).
+
+## Decision (2026-08-10)
+
+Accepted, resolving the sequencing question this recommendation raised (was
+option #1 above a separate provider id, or folded into the existing VS Code
+path?): `agent-traces.db` enrichment is refactored out of `app.ts` and
+folded into `VscodeLogProvider` as an internal detail — not its own
+`LogProvider` id, and not left as Phase 8.5's direct `app.ts` wiring.
+`mitmproxy` is Phase 9's second, and only other, registered provider,
+matching this document's #4 finding that mitmproxy stays the right tool for
+non-Copilot agents rather than being obsoleted. See
+`implementation-plan.md`'s Phase 9 section and
+`phase-9-log-providers-implementation.md` §8 step 2 for the resulting plan
+updates.

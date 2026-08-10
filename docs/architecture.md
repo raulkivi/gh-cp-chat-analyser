@@ -140,7 +140,7 @@ outbound network calls.
 | `data-sources/sqlite` | Read-only queries against the local Copilot Chat session store (`sessions`, `turns`, `checkpoints`, `session_files`, `session_refs`) per vision §4/18.1 |
 | `data-sources/jsonl` | Streams a session's `main.jsonl`, extracts request/response spans, and pulls out token/cache usage from each event's `attrs` — defensively, per §7 below |
 | `data-sources/log-providers` | Owns the `LogProvider` registry, exposes provider descriptors, persists the active provider in app-owned local settings, and presents one provider-neutral session-reading interface to the API/services layer |
-| `data-sources/log-providers/vscode` | Adapts the existing SQLite and `main.jsonl` readers into the `LogProvider` interface; VS Code-specific paths, settings, and event extraction stay here |
+| `data-sources/log-providers/vscode` | Adapts the existing SQLite and `main.jsonl` readers into the `LogProvider` interface; VS Code-specific paths, settings, and event extraction stay here. Also owns the optional `agent-traces.db` cache-write/reasoning enrichment (Phase 8.5) — folded in here, not a separate provider id or a direct `app.ts` path (decided 2026-08-10, see `docs/log-provider-alternatives.md`) |
 | `data-sources/log-providers/mitmproxy` | Reads local mitmproxy capture files and dispatches each intercepted LLM request/response to the vendor decoder that recognizes its SDK/protocol shape |
 | `data-sources/log-providers/mitmproxy/decoders` | Independent vendor decoders (initially Anthropic and OpenAI) that convert a matched exchange into provider-neutral intermediate records; an unrecognized exchange is reported as unavailable, never guessed |
 | `data-sources/learn-scenarios` | Loads bundled scenario fixtures (seeded from [agentic-coding-explained.md](agentic-coding-explained.md)) that already conform to the domain model, so Learn mode needs no parsing/enrichment step |
@@ -776,6 +776,18 @@ internally coherent against a real capture on the development machine.
   one with a visually muted tone (reusing the existing `--color-accent-2-*`
   token pair, not a new one) rather than the same urgency as a warning that
   blocks all usage data.
+
+**Planned refactor (decided 2026-08-10, not yet implemented — tracked as
+Phase 9 sub-plan §8 step 2).** This section's `app.ts`-level wiring
+(`data-sources/agent-traces` read directly by `app.ts`, alongside
+`data-sources/sqlite`/`data-sources/jsonl`) is intentionally temporary. Per
+[log-provider-alternatives.md](log-provider-alternatives.md)'s ranked
+recommendation, once Phase 9's `VscodeLogProvider` adapter exists this
+enrichment moves inside it: `agent-traces.db` becomes an internal detail of
+the VS Code provider, not a separate `LogProvider` id and not a parallel
+direct-wired path. `mitmproxy` stays Phase 9's second, and only other,
+registered provider. This paragraph, and the module table row above, will be
+updated again once that refactor lands.
 
 #### 6.2.3 mitmproxy provider flow
 

@@ -35,6 +35,9 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
 - [Log provider alternatives](docs/log-provider-alternatives.md) — ranked,
   actionable recommendations for Phase 9+ `LogProvider` work that follow
   from the source investigation above.
+- [Turn inspector proposal](docs/turn-inspector-proposal.md) — design
+  proposal for a per-turn request/response inspector (issue #10), including
+  open clarification questions, not yet an implemented phase.
 
 ## Setup
 

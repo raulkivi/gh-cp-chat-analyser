@@ -1,4 +1,4 @@
-# Implementation Plan: GitHub Copilot Chat Session Analyser
+# Implementation Plan: GitHub Copilot Chat Session Analyzer
 
 This plan sequences [architecture.md](architecture.md) into buildable phases.
 Each phase has a goal, concrete deliverables, an exit criterion (how you know

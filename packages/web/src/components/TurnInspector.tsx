@@ -212,17 +212,17 @@ export function TurnInspector({
       setState({ status: "error" });
       return;
     }
-    let cancelled = false;
+    let canceled = false;
     setState({ status: "loading" });
     fetchTurnInspectorDetail(sessionId, turnIndex)
       .then((detail) => {
-        if (!cancelled) setState({ status: "ready", detail });
+        if (!canceled) setState({ status: "ready", detail });
       })
       .catch(() => {
-        if (!cancelled) setState({ status: "error" });
+        if (!canceled) setState({ status: "error" });
       });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [sessionId, turnIndex, usageDataAvailable]);
 

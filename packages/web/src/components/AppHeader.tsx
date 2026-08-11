@@ -38,7 +38,7 @@ export function AppHeader({
           style={{ width: 32, height: 32, flex: "none", background: "var(--color-accent-900)" }}
         />
         <div>
-          <div className="nav-brand">Session Analyser</div>
+          <div className="nav-brand">Session Analyzer</div>
           <div style={{ fontSize: 11, color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
             GitHub Copilot Chat
           </div>

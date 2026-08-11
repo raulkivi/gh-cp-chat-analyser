@@ -4,7 +4,7 @@ Hi — the `Design/` folder has a new handoff package ready for your review befo
 
 ## What this covers
 
-**Handoff: Session Analyser — UX fixes (System Prompt Inspector, Advice Export, Tool Inventory, AI Credits)**
+**Handoff: Session Analyzer — UX fixes (System Prompt Inspector, Advice Export, Tool Inventory, AI Credits)**
 
 This supersedes the earlier `design_handoff_session_analyser_ui` package for these four areas only — that package's other screens (turns table, scrubber, explanation panel, session list) are still valid except where noted below.
 

@@ -78,7 +78,10 @@ function useContainerWidth(ref: RefObject<HTMLElement | null>): number {
     if (!el || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) => {
       const measured = entry?.contentRect.width;
-      if (measured) setWidth(measured);
+      if (!measured) return;
+      // Ignore sub-pixel jitter: bailing out on a no-op change keeps a
+      // borderline measurement from re-triggering this observer forever.
+      setWidth((prev) => (Math.abs(prev - measured) < 0.5 ? prev : measured));
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -121,7 +124,12 @@ export function PromptCompositionIcicle({
     return d3Partition<PromptNode>().size([width, VISIBLE_LEVELS * ROW_HEIGHT])(hierarchyRoot);
   }, [focusNode, width]);
 
-  const labelCounts = useMemo(() => new Map<string, number>(), [focusNode]);
+  // Fresh every render, not memoized: it's a counter for duplicate sibling
+  // names within a *single* pass over partitionedRoot.descendants() below,
+  // not state meant to persist — reusing it across renders (e.g. via
+  // useMemo keyed on focusNode) would keep incrementing the same counts on
+  // every re-render, however triggered, producing runaway "(N)" suffixes.
+  const labelCounts = new Map<string, number>();
 
   function labelFor(node: HierarchyRectangularNode<PromptNode>): string {
     if (!node.parent) {
@@ -144,7 +152,10 @@ export function PromptCompositionIcicle({
   }
 
   return (
-    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+    <div
+      ref={containerRef}
+      style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", width: "100%", minWidth: 0 }}
+    >
       <nav aria-label="Composition breadcrumb" style={{ display: "flex", flexWrap: "wrap", gap: 4, fontSize: 12 }}>
         {path.map((node, index) => {
           const label =

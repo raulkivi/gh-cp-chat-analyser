@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stretching a fixed 640px coordinate system to fit via CSS, so its labels
   render at their true size (no longer oversized in a wide container) while
   the diagram still fills all available horizontal space.
+- Fixed a resize-measurement feedback loop that made the icicle diagram
+  flicker and its duplicate-name labels (e.g. "Instructions (2)") run away
+  into nonsense counts like "(5702)" — the counter is now reset on every
+  render instead of accumulating across them, and the diagram's own
+  container can no longer shrink-wrap around the element it measures.
 
 ## [0.4.0] - 2026-08-10
 ### Added

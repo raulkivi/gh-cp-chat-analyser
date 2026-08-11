@@ -127,6 +127,29 @@ describe("PromptCompositionIcicle", () => {
     expect(svg.getAttribute("width")).toBe("640");
   });
 
+  it("keeps the wrapping container at 100% width so it can't shrink-wrap around the diagram it measures", () => {
+    renderIcicle(SAMPLE_TEXT);
+
+    const svg = screen.getByRole("img", { name: /prompt composition icicle diagram/i });
+
+    expect(svg.parentElement).toHaveStyle({ width: "100%" });
+  });
+
+  it("keeps duplicate-name counters stable across re-renders with the same focus", () => {
+    const text = "<foo>a</foo><foo>b</foo><foo>c</foo>";
+    const { root, malformed } = parseSystemPrompt(text);
+    const colors = assignIcicleColors(root);
+    const props = { root, text, malformed, colors, selectedId: null, onSelect: () => {} };
+
+    const { rerender } = render(<PromptCompositionIcicle {...props} />);
+    rerender(<PromptCompositionIcicle {...props} />);
+    rerender(<PromptCompositionIcicle {...props} />);
+
+    expect(screen.getByText("Foo")).toBeInTheDocument();
+    expect(screen.getByText("Foo (2)")).toBeInTheDocument();
+    expect(screen.getByText("Foo (3)")).toBeInTheDocument();
+  });
+
   it("truncates a label that doesn't fit its rect, ending in an ellipsis", () => {
     const LONG_TAG = "extremelyLongDescriptiveSectionName";
     const text = Array.from({ length: 14 }, (_, i) => `<${LONG_TAG}${i}>content</${LONG_TAG}${i}>`).join("");

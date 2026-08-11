@@ -1,10 +1,13 @@
-# GitHub Copilot Chat Session Analyzer
+# GitHub Copilot Chat Cost & Token Usage Analyzer
 
-A local app that visualizes coding-agent sessions — turns, tool calls, cache
-behavior, and token/AI Credits accounting — to help you learn how agentic
-coding tools spend tokens and AI Credits, and to analyze your own real
-coding-agent logs, from VS Code Copilot Chat sessions or local mitmproxy
-captures of LLM-provider traffic.
+A local app that helps you optimize the cost of agentic coding with GitHub
+Copilot Chat. It explains how Copilot Chat's prompt caching, token
+accounting, and tool calls actually work under the hood, then gives you the
+same turn-by-turn breakdown for your own real sessions — from VS Code
+Copilot Chat sessions or local mitmproxy captures of LLM-provider traffic —
+so you can see exactly what's driving your token usage and AI Credits
+spend. Export a session's metadata (never chat message text) to get
+cost-optimization analysis and advice from an AI chat of your choice.
 
 ![App landing page, showing the Learn mode scenario list](docs/images/landing-page.png)
 

@@ -1,4 +1,4 @@
-# Vision: GitHub Copilot Chat Session Analyzer
+# Vision: GitHub Copilot Chat Cost & Token Usage Analyzer
 
 ## 1. Problem
 

@@ -91,33 +91,43 @@ export function PromptCompositionIcicle({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
       <nav aria-label="Composition breadcrumb" style={{ display: "flex", flexWrap: "wrap", gap: 4, fontSize: 12 }}>
-        {path.map((node, index) => (
-          <span key={node.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            {index > 0 && (
-              <span aria-hidden="true" className="text-muted">
-                ›
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setFocusId(node.id)}
-              disabled={node.id === focusId}
-              className="btn-link"
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                font: "inherit",
-                fontSize: 12,
-                cursor: node.id === focusId ? "default" : "pointer",
-                color: node.id === focusId ? "var(--color-text)" : "var(--color-accent)",
-                fontWeight: node.id === focusId ? 600 : 400,
-              }}
-            >
-              {index === 0 ? "Full prompt" : labelForNode(node, path[index - 1], malformed, text, new Map()).label}
-            </button>
-          </span>
-        ))}
+        {path.map((node, index) => {
+          const label =
+            index === 0 ? "Full prompt" : labelForNode(node, path[index - 1], malformed, text, new Map()).label;
+          const isCurrent = node.id === focusId;
+          return (
+            <span key={node.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              {index > 0 && (
+                <span aria-hidden="true" className="text-muted">
+                  ›
+                </span>
+              )}
+              {isCurrent ? (
+                <span aria-current="location" style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text)" }}>
+                  {label}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setFocusId(node.id)}
+                  className="btn-link"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    font: "inherit",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    color: "var(--color-accent)",
+                    fontWeight: 400,
+                  }}
+                >
+                  {label}
+                </button>
+              )}
+            </span>
+          );
+        })}
       </nav>
 
       <svg

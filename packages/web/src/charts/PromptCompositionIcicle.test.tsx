@@ -30,9 +30,9 @@ describe("PromptCompositionIcicle", () => {
   it("renders one rect per top-level section plus the root row", () => {
     renderIcicle(SAMPLE_TEXT);
 
-    expect(screen.getByTestId(/icicle-node-root\.0/)).toBeInTheDocument();
-    expect(screen.getByTestId(/icicle-node-root\.1/)).toBeInTheDocument();
-    expect(screen.getByTestId(/icicle-node-root\.2/)).toBeInTheDocument();
+    expect(screen.getByTestId(/^icicle-node-root\.0$/)).toBeInTheDocument();
+    expect(screen.getByTestId(/^icicle-node-root\.1$/)).toBeInTheDocument();
+    expect(screen.getByTestId(/^icicle-node-root\.2$/)).toBeInTheDocument();
   });
 
   it("labels a wide-enough rect with the same label the nav menu would use", () => {

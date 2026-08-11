@@ -3,12 +3,23 @@
   "shape": "package",
   "pkg": "@gh-cp-chat-analyser/web",
   "globalName": "GhCpChatAnalyserUI",
-  "srcDir": "src/components/ui",
+  "entry": "packages/web/ds-sync-entry.ts",
+  "srcDir": "src",
   "cssEntry": "src/theme.css",
   "readmeHeader": ".design-sync/conventions.md",
+  "componentSrcMap": {
+    "Blueprint": "src/components/ui/Blueprint.tsx",
+    "SegmentedControl": "src/components/ui/SegmentedControl.tsx",
+    "Tag": "src/components/ui/Tag.tsx",
+    "PromptCompositionIcicle": "src/charts/PromptCompositionIcicle.tsx"
+  },
+  "docsMap": {
+    "PromptCompositionIcicle": "../../.design-sync/docs/PromptCompositionIcicle.md"
+  },
   "dtsPropsFor": {
     "Blueprint": "className?: string;\n  children?: React.ReactNode;\n  style?: React.CSSProperties;\n  onClick?: React.MouseEventHandler<HTMLDivElement>;",
     "SegmentedControl": "name: string;\n  options: readonly { value: string; label: string }[];\n  value: string;\n  onChange: (value: string) => void;\n  className?: string;",
-    "Tag": "variant: \"accent\" | \"accent-2\" | \"neutral\" | \"outline\";\n  className?: string;\n  children?: React.ReactNode;"
+    "Tag": "variant: \"accent\" | \"accent-2\" | \"neutral\" | \"outline\";\n  className?: string;\n  children?: React.ReactNode;",
+    "PromptCompositionIcicle": "root: { id: string; tagName: string | null; attrs: Record<string, string>; depth: number; start: number; contentStart: number; contentEnd: number; end: number; children: unknown[] };\n  text: string;\n  malformed: boolean;\n  colors: Map<string, string>;\n  selectedId: string | null;\n  onSelect: (node: any) => void;"
   }
 }

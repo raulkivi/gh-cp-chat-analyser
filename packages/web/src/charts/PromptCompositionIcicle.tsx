@@ -42,6 +42,14 @@ function selfSpan(node: PromptNode): number {
   return Math.max(0, own - childrenSpan);
 }
 
+/**
+ * Zoomable icicle diagram of a parsed system prompt's tag structure. Not
+ * self-contained — `root`/`malformed` come from `parseSystemPrompt(text)`
+ * and `colors` from `assignIcicleColors(root)`; build those first, then
+ * pass their output straight through as props. Click a rect to zoom into
+ * it (breadcrumb trail shows the way back out) and to call `onSelect` when
+ * the node is within the shared selection depth cap.
+ */
 export function PromptCompositionIcicle({
   root,
   text,

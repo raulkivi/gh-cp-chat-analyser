@@ -13,12 +13,23 @@ const VISIBLE_LEVELS = 4;
 const MIN_LABEL_WIDTH = 28;
 const MIN_STATS_WIDTH = 50;
 const MIN_STATS_HEIGHT = 20;
+const LABEL_PADDING = 8; // 4px left inset + 4px breathing room on the right
+const AVG_CHAR_WIDTH_RATIO = 0.55; // typical sans-serif average glyph width, as a fraction of font size
 
 // Share of the *current* focus, not the whole prompt — so the percentage
 // re-normalizes to 100% of whatever's visible as the user zooms in, instead
 // of shrinking toward 0% the deeper they go.
 function formatShare(value: number, total: number): string {
   return `${total > 0 ? Math.round((value / total) * 100) : 0}%`;
+}
+
+// SVG text doesn't wrap or clip itself, so an oversized label would spill
+// out of its rect — estimate how many characters fit (no real text
+// measurement available outside a browser canvas) and hard-cut the rest.
+function truncateLabel(label: string, maxWidth: number, fontSize: number): string {
+  const maxChars = Math.max(Math.floor(maxWidth / (fontSize * AVG_CHAR_WIDTH_RATIO)), 1);
+  if (label.length <= maxChars) return label;
+  return maxChars === 1 ? "…" : `${label.slice(0, maxChars - 1)}…`;
 }
 
 interface PromptCompositionIcicleProps {
@@ -164,6 +175,7 @@ export function PromptCompositionIcicle({
           const isSelected = node.data.id === selectedId;
           const value = node.value ?? 0;
           const showStats = w >= MIN_STATS_WIDTH && h >= MIN_STATS_HEIGHT;
+          const displayLabel = truncateLabel(label, Math.max(w - LABEL_PADDING, 0), 11);
           return (
             <g
               key={node.data.id}
@@ -187,10 +199,11 @@ export function PromptCompositionIcicle({
                   y={showStats ? h / 2 - 6 : h / 2}
                   dominantBaseline="middle"
                   fontSize={11}
+                  fontWeight={600}
                   fill="var(--color-text)"
                   style={{ pointerEvents: "none" }}
                 >
-                  {label}
+                  {displayLabel}
                 </text>
               )}
               {showStats && (
@@ -199,6 +212,7 @@ export function PromptCompositionIcicle({
                   y={h / 2 + 8}
                   dominantBaseline="middle"
                   fontSize={9}
+                  fontWeight={400}
                   className="text-muted"
                   style={{ pointerEvents: "none" }}
                 >

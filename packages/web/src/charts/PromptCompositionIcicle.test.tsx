@@ -93,6 +93,31 @@ describe("PromptCompositionIcicle", () => {
     expect(within(group).getByText(/^\d+ chars · \d+%$/)).toBeInTheDocument();
   });
 
+  it("truncates a label that doesn't fit its rect, ending in an ellipsis", () => {
+    const LONG_TAG = "extremelyLongDescriptiveSectionName";
+    const text = Array.from({ length: 14 }, (_, i) => `<${LONG_TAG}${i}>content</${LONG_TAG}${i}>`).join("");
+    const { root } = renderIcicle(text);
+    const firstSection = root.children[0];
+
+    const group = screen.getByTestId(`icicle-node-${firstSection.id}`);
+    const label = within(group).getByText(/…$/);
+
+    expect(label.textContent).not.toBe("Extremely Long Descriptive Section Name0");
+    expect(label.textContent!.length).toBeLessThan("Extremely Long Descriptive Section Name0".length);
+  });
+
+  it("gives the main label bold weight and the stats line normal weight", () => {
+    const { root } = renderIcicle(SAMPLE_TEXT);
+    const securityRequirements = root.children[1];
+    const group = screen.getByTestId(`icicle-node-${securityRequirements.id}`);
+
+    const mainLabel = within(group).getByText("Security Requirements");
+    const stats = within(group).getByText(/^\d+ chars · \d+%$/);
+
+    expect(mainLabel.getAttribute("font-weight")).toBe("600");
+    expect(stats.getAttribute("font-weight")).toBe("400");
+  });
+
   it("highlights the currently selected node with a distinct stroke", () => {
     const { root } = parseSystemPrompt(SAMPLE_TEXT);
     const colors = assignIcicleColors(root);

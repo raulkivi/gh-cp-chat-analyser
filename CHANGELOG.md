@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing Pretty/Raw toggle.
 - Icicle diagram rects wide/tall enough now show a second line with the
   section's size in characters and its share of the current zoomed-in view
-  as a percentage.
+  as a percentage, in normal weight below the bold section name; a name
+  that doesn't fit its rect's width is truncated with an ellipsis instead
+  of overflowing.
 
 ### Fixed
 - Switched to American English spelling ("Analyzer", "canceled", "unlabeled")

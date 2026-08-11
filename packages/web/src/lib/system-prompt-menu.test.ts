@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { parseSystemPrompt } from "./system-prompt-parser.js";
-import { assignTextColors, buildMenu, CATEGORICAL_PALETTE, NEUTRAL_COLOR } from "./system-prompt-menu.js";
+import {
+  assignIcicleColors,
+  assignTextColors,
+  buildMenu,
+  CATEGORICAL_PALETTE,
+  NEUTRAL_COLOR,
+} from "./system-prompt-menu.js";
 
 describe("buildMenu labels", () => {
   it("labels a repeated container's child using its own <name> content", () => {
@@ -165,5 +171,44 @@ describe("assignTextColors", () => {
     const colors = assignTextColors(root);
 
     expect(colors.get(root.children[0].id)).not.toBe(CATEGORICAL_PALETTE[0]);
+  });
+});
+
+describe("assignIcicleColors", () => {
+  it("assigns a color to nodes deeper than the menu's depth-3 cap", () => {
+    const text = "<skills><skill><name><nested>x</nested></name></skill></skills>";
+    const { root } = parseSystemPrompt(text);
+
+    const colors = assignIcicleColors(root);
+
+    const skills = root.children[0];
+    const skill = skills.children[0];
+    const name = skill.children[0];
+    const nested = name.children[0];
+    expect(nested.depth).toBe(4);
+    expect(colors.get(nested.id)).toBeDefined();
+  });
+
+  it("reuses the depth-3 tint for depth 4+ instead of continuing to lighten toward white", () => {
+    const text = "<skills><skill><name><nested>x</nested></name></skill></skills>";
+    const { root } = parseSystemPrompt(text);
+
+    const colors = assignIcicleColors(root);
+
+    const skills = root.children[0];
+    const skill = skills.children[0];
+    const name = skill.children[0];
+    const nested = name.children[0];
+    expect(colors.get(nested.id)).toBe(colors.get(name.id));
+  });
+
+  it("keeps the same hue family as the shallower ancestor sharing its tag name", () => {
+    const text = "<skills><skill><name>graphify</name></skill></skills>";
+    const { root } = parseSystemPrompt(text);
+
+    const colors = assignIcicleColors(root);
+
+    const skills = root.children[0];
+    expect(colors.get(skills.id)).toBe(CATEGORICAL_PALETTE[0]);
   });
 });

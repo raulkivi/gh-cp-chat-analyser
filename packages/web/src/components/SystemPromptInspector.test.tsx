@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SystemPromptInspector } from "./SystemPromptInspector.js";
 
@@ -116,6 +116,23 @@ describe("SystemPromptInspector", () => {
     // shorthand-first — checking the shorthand is the only way to pin the
     // fix (a single declaration, indent baked into its last value).
     expect(depth2Item.style.padding).toBe("4px var(--space-2) 4px 22px");
+  });
+
+  it("switches to the Icicle format, showing the composition chart wired to the same selection model", async () => {
+    stubFetchText(SAMPLE_TEXT);
+    render(<SystemPromptInspector sessionId="session-1" onClose={() => {}} />);
+    await screen.findByRole("button", { name: /security requirements/i });
+
+    fireEvent.click(screen.getByRole("radio", { name: "Icicle" }));
+
+    expect(screen.getByRole("radio", { name: "Icicle" })).toBeChecked();
+    const diagram = screen.getByRole("img", { name: /prompt composition icicle diagram/i });
+    expect(diagram).toBeInTheDocument();
+
+    fireEvent.click(within(diagram).getByText("Security Requirements"));
+
+    expect(screen.getByRole("button", { name: /security requirements/i })).toBeInTheDocument();
+    expect(screen.getByText(/owasp top 10/i)).toBeInTheDocument();
   });
 
   it("calls onClose when the close/back control is activated", async () => {

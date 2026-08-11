@@ -163,7 +163,7 @@ export function PromptCompositionIcicle({
         aria-label="Prompt composition icicle diagram"
         width="100%"
         viewBox={`0 0 ${WIDTH} ${VISIBLE_LEVELS * ROW_HEIGHT}`}
-        style={{ display: "block" }}
+        style={{ display: "block", maxWidth: WIDTH }}
       >
         {partitionedRoot.descendants().map((node) => {
           const w = node.x1 - node.x0;

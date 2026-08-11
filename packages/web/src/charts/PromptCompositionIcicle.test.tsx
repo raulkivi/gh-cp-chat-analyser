@@ -93,6 +93,14 @@ describe("PromptCompositionIcicle", () => {
     expect(within(group).getByText(/^\d+ chars · \d+%$/)).toBeInTheDocument();
   });
 
+  it("caps the diagram's rendered width so labels don't scale up in a wide container", () => {
+    renderIcicle(SAMPLE_TEXT);
+
+    const svg = screen.getByRole("img", { name: /prompt composition icicle diagram/i });
+
+    expect(svg).toHaveStyle({ maxWidth: "640px" });
+  });
+
   it("truncates a label that doesn't fit its rect, ending in an ellipsis", () => {
     const LONG_TAG = "extremelyLongDescriptiveSectionName";
     const text = Array.from({ length: 14 }, (_, i) => `<${LONG_TAG}${i}>content</${LONG_TAG}${i}>`).join("");

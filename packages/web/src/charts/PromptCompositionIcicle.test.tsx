@@ -35,7 +35,7 @@ describe("PromptCompositionIcicle", () => {
     expect(screen.getByTestId(/^icicle-node-root\.2$/)).toBeInTheDocument();
   });
 
-  it("labels a wide-enough rect with the same label the nav menu would use", () => {
+  it("labels each section with the same label the nav menu would use", () => {
     renderIcicle(SAMPLE_TEXT);
 
     expect(screen.getByText("Security Requirements")).toBeInTheDocument();
@@ -93,46 +93,28 @@ describe("PromptCompositionIcicle", () => {
     expect(within(group).getByText(/^\d+ chars · \d+%$/)).toBeInTheDocument();
   });
 
-  it("fills the width its container measures, instead of a fixed design width", () => {
-    const originalResizeObserver = globalThis.ResizeObserver;
-    class StubResizeObserver {
-      constructor(private callback: ResizeObserverCallback) {}
-      observe(target: Element) {
-        this.callback(
-          [{ target, contentRect: { width: 1200 } } as ResizeObserverEntry],
-          this as unknown as ResizeObserver,
-        );
-      }
-      unobserve() {}
-      disconnect() {}
-    }
-    globalThis.ResizeObserver = StubResizeObserver as unknown as typeof ResizeObserver;
+  it("fills its row with flex-grow proportional to size, instead of a JS-measured pixel width", () => {
+    const text = "<a>short</a><b>a much much longer piece of content here than the other one</b>";
+    const { root } = renderIcicle(text);
+    const [a, b] = root.children;
 
-    try {
-      renderIcicle(SAMPLE_TEXT);
-      const svg = screen.getByRole("img", { name: /prompt composition icicle diagram/i });
+    const aItem = screen.getByTestId(`icicle-node-${a.id}`);
+    const bItem = screen.getByTestId(`icicle-node-${b.id}`);
 
-      expect(svg.getAttribute("width")).toBe("1200");
-      expect(svg.getAttribute("viewBox")).toBe("0 0 1200 112");
-    } finally {
-      globalThis.ResizeObserver = originalResizeObserver;
-    }
+    const aGrow = Number(aItem.style.flexGrow);
+    const bGrow = Number(bItem.style.flexGrow);
+
+    expect(aGrow).toBeGreaterThan(0);
+    expect(bGrow).toBeGreaterThan(aGrow);
   });
 
-  it("falls back to a fixed width when it can't measure its container (e.g. no ResizeObserver)", () => {
+  it("makes each row a flex container filling 100% of the diagram's width", () => {
     renderIcicle(SAMPLE_TEXT);
 
-    const svg = screen.getByRole("img", { name: /prompt composition icicle diagram/i });
+    const diagram = screen.getByRole("img", { name: /prompt composition icicle diagram/i });
+    const row = diagram.firstElementChild;
 
-    expect(svg.getAttribute("width")).toBe("640");
-  });
-
-  it("keeps the wrapping container at 100% width so it can't shrink-wrap around the diagram it measures", () => {
-    renderIcicle(SAMPLE_TEXT);
-
-    const svg = screen.getByRole("img", { name: /prompt composition icicle diagram/i });
-
-    expect(svg.parentElement).toHaveStyle({ width: "100%" });
+    expect(row).toHaveStyle({ display: "flex", width: "100%" });
   });
 
   it("keeps duplicate-name counters stable across re-renders with the same focus", () => {
@@ -150,17 +132,14 @@ describe("PromptCompositionIcicle", () => {
     expect(screen.getByText("Foo (3)")).toBeInTheDocument();
   });
 
-  it("truncates a label that doesn't fit its rect, ending in an ellipsis", () => {
-    const LONG_TAG = "extremelyLongDescriptiveSectionName";
-    const text = Array.from({ length: 14 }, (_, i) => `<${LONG_TAG}${i}>content</${LONG_TAG}${i}>`).join("");
-    const { root } = renderIcicle(text);
-    const firstSection = root.children[0];
+  it("relies on the shared .truncate CSS class instead of hard-cutting label text in JS", () => {
+    const { root } = renderIcicle(SAMPLE_TEXT);
+    const securityRequirements = root.children[1];
+    const group = screen.getByTestId(`icicle-node-${securityRequirements.id}`);
 
-    const group = screen.getByTestId(`icicle-node-${firstSection.id}`);
-    const label = within(group).getByText(/…$/);
+    const label = within(group).getByText("Security Requirements");
 
-    expect(label.textContent).not.toBe("Extremely Long Descriptive Section Name0");
-    expect(label.textContent!.length).toBeLessThan("Extremely Long Descriptive Section Name0".length);
+    expect(label.className).toContain("truncate");
   });
 
   it("gives the main label bold weight and the stats line normal weight", () => {
@@ -171,11 +150,11 @@ describe("PromptCompositionIcicle", () => {
     const mainLabel = within(group).getByText("Security Requirements");
     const stats = within(group).getByText(/^\d+ chars · \d+%$/);
 
-    expect(mainLabel.getAttribute("font-weight")).toBe("600");
-    expect(stats.getAttribute("font-weight")).toBe("400");
+    expect(mainLabel).toHaveStyle({ fontWeight: "600" });
+    expect(stats).toHaveStyle({ fontWeight: "400" });
   });
 
-  it("highlights the currently selected node with a distinct stroke", () => {
+  it("highlights the currently selected node with a distinct border", () => {
     const { root } = parseSystemPrompt(SAMPLE_TEXT);
     const colors = assignIcicleColors(root);
     const securityRequirements = root.children[1];
@@ -191,7 +170,7 @@ describe("PromptCompositionIcicle", () => {
       />,
     );
 
-    const rect = screen.getByTestId(`icicle-node-${securityRequirements.id}`).querySelector("rect");
-    expect(rect?.getAttribute("stroke-width")).toBe("2");
+    const item = screen.getByTestId(`icicle-node-${securityRequirements.id}`);
+    expect(item).toHaveStyle({ borderWidth: "2px", borderColor: "var(--color-text)" });
   });
 });

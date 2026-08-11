@@ -7,28 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Zoomable icicle diagram for the system-prompt inspector: a d3-hierarchy
-  rectangular partition of the parsed prompt tree with click-to-zoom into
-  subparts and a breadcrumb trail back out, available alongside the
-  existing Pretty/Raw toggle.
-- Icicle diagram rects wide/tall enough now show a second line with the
-  section's size in characters and its share of the current zoomed-in view
-  as a percentage, in normal weight below the bold section name; a name
-  that doesn't fit its rect's width is truncated with an ellipsis instead
-  of overflowing.
+- Zoomable icicle diagram for the system-prompt inspector: flexbox bars
+  (one row per visible depth level, each bar sized proportionally to its
+  section's character count) with click-to-zoom into subparts and a
+  breadcrumb trail back out, available alongside the existing Pretty/Raw
+  toggle. Each bar shows a bold section name and, in smaller text below,
+  its character count and share of the current zoomed-in view as a
+  percentage; a name too long for its bar is clipped with an ellipsis.
+  Built with plain CSS so it fills all available width and its text
+  always renders at true size, with no JavaScript-driven layout
+  measurement.
 
 ### Fixed
 - Switched to American English spelling ("Analyzer", "canceled", "unlabeled")
   throughout app UI text and documentation.
-- The icicle diagram now measures its container's actual width instead of
-  stretching a fixed 640px coordinate system to fit via CSS, so its labels
-  render at their true size (no longer oversized in a wide container) while
-  the diagram still fills all available horizontal space.
-- Fixed a resize-measurement feedback loop that made the icicle diagram
-  flicker and its duplicate-name labels (e.g. "Instructions (2)") run away
-  into nonsense counts like "(5702)" — the counter is now reset on every
-  render instead of accumulating across them, and the diagram's own
-  container can no longer shrink-wrap around the element it measures.
 
 ## [0.4.0] - 2026-08-10
 ### Added

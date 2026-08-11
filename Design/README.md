@@ -56,7 +56,7 @@ Punctuation must stay at ~62% (not lower) — structural punctuation carries mea
 1. **Emoji** — 🖼️/📄 in attachment chips. The design system rules out emoji; use plain outline tags with a `path · size` label (or size alone).
 2. **`Turn {turnIndex} inspector` is 0-indexed** while the Explanation panel and scrubber are 1-indexed for the same turn. Note the *rounds* genuinely are 0-indexed in the capture format — keep those as-is; only the turn number needs `+ 1`.
 3. **Unbounded `<pre>` in a `1fr 1fr` grid** — see scroll caps above.
-4. **Args and result render as two unlabelled identical `<pre>` blocks** — no way to tell which is which.
+4. **Args and result render as two unlabeled identical `<pre>` blocks** — no way to tell which is which.
 5. **No round navigation** — endless vertical stack.
 6. **No user message** — the turn's originating question isn't shown.
 

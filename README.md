@@ -1,4 +1,4 @@
-# GitHub Copilot Chat Session Analyser
+# GitHub Copilot Chat Session Analyzer
 
 A local app that visualizes coding-agent sessions — turns, tool calls, cache
 behavior, and token/AI Credits accounting — to help you learn how agentic

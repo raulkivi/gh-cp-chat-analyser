@@ -8,7 +8,7 @@ describe("AppHeader", () => {
       <AppHeader mode="learn" onModeChange={vi.fn()} hasConfigWarnings={false} onConfigClick={vi.fn()} />,
     );
 
-    expect(screen.getByText("Session Analyser")).toBeInTheDocument();
+    expect(screen.getByText("Session Analyzer")).toBeInTheDocument();
     expect(screen.getByText("GitHub Copilot Chat")).toBeInTheDocument();
   });
 

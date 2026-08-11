@@ -75,15 +75,15 @@ export function SystemPromptInspector({ sessionId, sessionTitle, model, onClose 
   const [format, setFormat] = useState<PromptFormat>("pretty");
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     setState({ status: "loading" });
     setSelectedId(null);
     fetchSystemPromptText(sessionId)
       .then((text) => {
-        if (!cancelled) setState({ status: "ready", text });
+        if (!canceled) setState({ status: "ready", text });
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!canceled) {
           setState({
             status: "error",
             message:
@@ -92,7 +92,7 @@ export function SystemPromptInspector({ sessionId, sessionTitle, model, onClose 
         }
       });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [sessionId]);
 

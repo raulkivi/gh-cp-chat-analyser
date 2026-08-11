@@ -1,4 +1,4 @@
-# Architecture: GitHub Copilot Chat Session Analyser
+# Architecture: GitHub Copilot Chat Session Analyzer
 
 ## 1. Purpose & scope
 
@@ -1073,7 +1073,7 @@ This check runs **once at server startup** — so a CLI user sees the warning
 in the terminal immediately, before ever opening the browser — and again on
 **every `GET /api/config/status` call**, so the frontend banner reflects
 current state even if the user fixes settings and reloads VS Code without
-restarting the analyser's own server. It never blocks startup or any other
+restarting the analyzer's own server. It never blocks startup or any other
 endpoint: this is guidance, not a hard failure, applying constraint 6's
 "explicit, not fabricated" philosophy to the app's own health rather than
 to token data.

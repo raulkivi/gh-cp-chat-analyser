@@ -1,10 +1,14 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { RefObject } from "react";
 import type { HierarchyRectangularNode } from "d3-hierarchy";
 import { hierarchy as d3Hierarchy, partition as d3Partition } from "d3-hierarchy";
 import { labelForNode, MAX_MENU_DEPTH, NEUTRAL_COLOR } from "../lib/system-prompt-menu.js";
 import type { PromptNode } from "../lib/system-prompt-parser.js";
 
-const WIDTH = 640;
+// Used until the container's real width is measured (or when it can't be —
+// no ResizeObserver, as in tests): same as the diagram's old fixed design
+// width, so the very first paint looks the same as it always has.
+const FALLBACK_WIDTH = 640;
 const ROW_HEIGHT = 28;
 // One row for the focused node itself plus up to 3 descendant levels —
 // beyond that a row gets too thin to read, so deeper content stays folded
@@ -62,6 +66,27 @@ function selfSpan(node: PromptNode): number {
   return Math.max(0, own - childrenSpan);
 }
 
+// The diagram's own coordinate width tracks its container's actual pixel
+// width (rather than a fixed viewBox stretched to fit via CSS) so it fills
+// all available horizontal space while every SVG user-unit — including
+// label font sizes — stays exactly 1px, never scaled up or down.
+function useContainerWidth(ref: RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(FALLBACK_WIDTH);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      const measured = entry?.contentRect.width;
+      if (measured) setWidth(measured);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return width;
+}
+
 /**
  * Zoomable icicle diagram of a parsed system prompt's tag structure. Not
  * self-contained — `root`/`malformed` come from `parseSystemPrompt(text)`
@@ -79,6 +104,8 @@ export function PromptCompositionIcicle({
   onSelect,
 }: PromptCompositionIcicleProps) {
   const [focusId, setFocusId] = useState(root.id);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const width = useContainerWidth(containerRef);
 
   const path = useMemo(() => findPath(root, focusId) ?? [root], [root, focusId]);
   const focusNode = path[path.length - 1];
@@ -91,8 +118,8 @@ export function PromptCompositionIcicle({
       const cutoff = node.depth - focusNode.depth >= VISIBLE_LEVELS - 1 && node.children.length > 0;
       return cutoff ? node.end - node.start : selfSpan(node);
     });
-    return d3Partition<PromptNode>().size([WIDTH, VISIBLE_LEVELS * ROW_HEIGHT])(hierarchyRoot);
-  }, [focusNode]);
+    return d3Partition<PromptNode>().size([width, VISIBLE_LEVELS * ROW_HEIGHT])(hierarchyRoot);
+  }, [focusNode, width]);
 
   const labelCounts = useMemo(() => new Map<string, number>(), [focusNode]);
 
@@ -117,7 +144,7 @@ export function PromptCompositionIcicle({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
       <nav aria-label="Composition breadcrumb" style={{ display: "flex", flexWrap: "wrap", gap: 4, fontSize: 12 }}>
         {path.map((node, index) => {
           const label =
@@ -161,9 +188,10 @@ export function PromptCompositionIcicle({
       <svg
         role="img"
         aria-label="Prompt composition icicle diagram"
-        width="100%"
-        viewBox={`0 0 ${WIDTH} ${VISIBLE_LEVELS * ROW_HEIGHT}`}
-        style={{ display: "block", maxWidth: WIDTH }}
+        width={width}
+        height={VISIBLE_LEVELS * ROW_HEIGHT}
+        viewBox={`0 0 ${width} ${VISIBLE_LEVELS * ROW_HEIGHT}`}
+        style={{ display: "block" }}
       >
         {partitionedRoot.descendants().map((node) => {
           const w = node.x1 - node.x0;

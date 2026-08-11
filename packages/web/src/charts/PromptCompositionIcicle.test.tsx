@@ -93,12 +93,38 @@ describe("PromptCompositionIcicle", () => {
     expect(within(group).getByText(/^\d+ chars · \d+%$/)).toBeInTheDocument();
   });
 
-  it("caps the diagram's rendered width so labels don't scale up in a wide container", () => {
+  it("fills the width its container measures, instead of a fixed design width", () => {
+    const originalResizeObserver = globalThis.ResizeObserver;
+    class StubResizeObserver {
+      constructor(private callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.callback(
+          [{ target, contentRect: { width: 1200 } } as ResizeObserverEntry],
+          this as unknown as ResizeObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = StubResizeObserver as unknown as typeof ResizeObserver;
+
+    try {
+      renderIcicle(SAMPLE_TEXT);
+      const svg = screen.getByRole("img", { name: /prompt composition icicle diagram/i });
+
+      expect(svg.getAttribute("width")).toBe("1200");
+      expect(svg.getAttribute("viewBox")).toBe("0 0 1200 112");
+    } finally {
+      globalThis.ResizeObserver = originalResizeObserver;
+    }
+  });
+
+  it("falls back to a fixed width when it can't measure its container (e.g. no ResizeObserver)", () => {
     renderIcicle(SAMPLE_TEXT);
 
     const svg = screen.getByRole("img", { name: /prompt composition icicle diagram/i });
 
-    expect(svg).toHaveStyle({ maxWidth: "640px" });
+    expect(svg.getAttribute("width")).toBe("640");
   });
 
   it("truncates a label that doesn't fit its rect, ending in an ellipsis", () => {

@@ -20,9 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Switched to American English spelling ("Analyzer", "canceled", "unlabeled")
   throughout app UI text and documentation.
-- Capped the icicle diagram's rendered width at its 640px design size, so
-  its labels no longer scale up (and look oversized relative to the rest of
-  the UI) when placed in a wider container.
+- The icicle diagram now measures its container's actual width instead of
+  stretching a fixed 640px coordinate system to fit via CSS, so its labels
+  render at their true size (no longer oversized in a wide container) while
+  the diagram still fills all available horizontal space.
 
 ## [0.4.0] - 2026-08-10
 ### Added

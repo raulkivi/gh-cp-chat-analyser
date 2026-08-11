@@ -1,6 +1,6 @@
 # User Guide
 
-A walkthrough of the Session Analyzer's two modes — **Learn** (guided,
+A walkthrough of the Cost & Token Usage Analyzer's two modes — **Learn** (guided,
 bundled example sessions) and **Analyze** (your own real GitHub Copilot
 Chat sessions) — with screenshots of every major feature. For install
 steps, see the [README](../README.md); for the app's design/architecture,

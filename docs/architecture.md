@@ -1,4 +1,4 @@
-# Architecture: GitHub Copilot Chat Session Analyzer
+# Architecture: GitHub Copilot Chat Cost & Token Usage Analyzer
 
 ## 1. Purpose & scope
 

@@ -11,6 +11,15 @@ const ROW_HEIGHT = 28;
 // into its ancestor's rect until the user zooms again.
 const VISIBLE_LEVELS = 4;
 const MIN_LABEL_WIDTH = 28;
+const MIN_STATS_WIDTH = 50;
+const MIN_STATS_HEIGHT = 20;
+
+// Share of the *current* focus, not the whole prompt — so the percentage
+// re-normalizes to 100% of whatever's visible as the user zooms in, instead
+// of shrinking toward 0% the deeper they go.
+function formatShare(value: number, total: number): string {
+  return `${total > 0 ? Math.round((value / total) * 100) : 0}%`;
+}
 
 interface PromptCompositionIcicleProps {
   root: PromptNode;
@@ -153,6 +162,8 @@ export function PromptCompositionIcicle({
           const fill = colors.get(node.data.id) ?? NEUTRAL_COLOR;
           const label = labelFor(node);
           const isSelected = node.data.id === selectedId;
+          const value = node.value ?? 0;
+          const showStats = w >= MIN_STATS_WIDTH && h >= MIN_STATS_HEIGHT;
           return (
             <g
               key={node.data.id}
@@ -161,7 +172,7 @@ export function PromptCompositionIcicle({
               onClick={() => handleClick(node.data, isFocusRow)}
               style={{ cursor: "pointer", transition: "transform 200ms ease" }}
             >
-              <title>{`${label} — ${node.value ?? 0} chars${isFocusRow ? " (focused — click to zoom out)" : ""}`}</title>
+              <title>{`${label} — ${value} chars${isFocusRow ? " (focused — click to zoom out)" : ""}`}</title>
               <rect
                 width={Math.max(w - 1, 0)}
                 height={Math.max(h - 1, 0)}
@@ -173,13 +184,25 @@ export function PromptCompositionIcicle({
               {w >= MIN_LABEL_WIDTH && (
                 <text
                   x={4}
-                  y={h / 2}
+                  y={showStats ? h / 2 - 6 : h / 2}
                   dominantBaseline="middle"
                   fontSize={11}
                   fill="var(--color-text)"
                   style={{ pointerEvents: "none" }}
                 >
                   {label}
+                </text>
+              )}
+              {showStats && (
+                <text
+                  x={4}
+                  y={h / 2 + 8}
+                  dominantBaseline="middle"
+                  fontSize={9}
+                  className="text-muted"
+                  style={{ pointerEvents: "none" }}
+                >
+                  {`${value} chars · ${formatShare(value, partitionedRoot.value ?? 0)}`}
                 </text>
               )}
             </g>

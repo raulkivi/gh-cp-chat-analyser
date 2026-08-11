@@ -84,6 +84,15 @@ describe("PromptCompositionIcicle", () => {
     expect(onSelect).toHaveBeenCalledWith(securityRequirements);
   });
 
+  it("shows each rect's size in characters and share of the current view", () => {
+    const { root } = renderIcicle(SAMPLE_TEXT);
+    const securityRequirements = root.children[1];
+
+    const group = screen.getByTestId(`icicle-node-${securityRequirements.id}`);
+
+    expect(within(group).getByText(/^\d+ chars · \d+%$/)).toBeInTheDocument();
+  });
+
   it("highlights the currently selected node with a distinct stroke", () => {
     const { root } = parseSystemPrompt(SAMPLE_TEXT);
     const colors = assignIcicleColors(root);

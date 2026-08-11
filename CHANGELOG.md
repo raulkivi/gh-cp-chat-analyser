@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rectangular partition of the parsed prompt tree with click-to-zoom into
   subparts and a breadcrumb trail back out, available alongside the
   existing Pretty/Raw toggle.
+- Icicle diagram rects wide/tall enough now show a second line with the
+  section's size in characters and its share of the current zoomed-in view
+  as a percentage.
 
 ### Fixed
 - Switched to American English spelling ("Analyzer", "canceled", "unlabeled")

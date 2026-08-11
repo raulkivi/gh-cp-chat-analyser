@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { fetchSystemPromptText } from "../api-client/sessions.js";
+import { PromptCompositionIcicle } from "../charts/PromptCompositionIcicle.js";
 import { describeTag } from "../lib/system-prompt-descriptions.js";
-import { assignTextColors, buildMenu } from "../lib/system-prompt-menu.js";
+import { assignIcicleColors, assignTextColors, buildMenu } from "../lib/system-prompt-menu.js";
 import type { MenuEntry } from "../lib/system-prompt-menu.js";
 import { parseSystemPrompt } from "../lib/system-prompt-parser.js";
+import type { PromptNode } from "../lib/system-prompt-parser.js";
 import { buildPrettyTextSegments } from "../lib/system-prompt-pretty.js";
 import { buildTextSegments } from "../lib/system-prompt-text.js";
 import type { TextSegment } from "../lib/system-prompt-text.js";
@@ -24,11 +26,12 @@ type LoadState =
   | { status: "error"; message: string }
   | { status: "ready"; text: string };
 
-type PromptFormat = "pretty" | "raw";
+type PromptFormat = "pretty" | "raw" | "icicle";
 
 const FORMAT_OPTIONS = [
   { value: "pretty", label: "Pretty" },
   { value: "raw", label: "Raw" },
+  { value: "icicle", label: "Icicle" },
 ] as const;
 
 // Structure nav indent: ~14px per depth (roughly 1 character advance in the
@@ -105,18 +108,20 @@ export function SystemPromptInspector({ sessionId, sessionTitle, model, onClose 
     [parsed, state],
   );
   const segments = useMemo(() => {
-    if (!parsed || state.status !== "ready") return [];
+    if (!parsed || state.status !== "ready" || format === "icicle") return [];
     const colors = assignTextColors(parsed.root);
     return format === "pretty"
       ? buildPrettyTextSegments(parsed.root, state.text, colors)
       : buildTextSegments(parsed.root, state.text, colors);
   }, [parsed, state, format]);
 
+  const icicleColors = useMemo(() => (parsed ? assignIcicleColors(parsed.root) : new Map()), [parsed]);
+
   const selectedEntry: MenuEntry | undefined = menu.find((entry) => entry.node.id === selectedId);
 
-  function selectEntry(entry: MenuEntry): void {
-    setSelectedId(entry.node.id);
-    document.getElementById(nodeDomId(entry.node.id))?.scrollIntoView({ behavior: "smooth", block: "start" });
+  function selectNode(node: PromptNode): void {
+    setSelectedId(node.id);
+    document.getElementById(nodeDomId(node.id))?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
@@ -157,7 +162,7 @@ export function SystemPromptInspector({ sessionId, sessionTitle, model, onClose 
                 <button
                   key={entry.node.id}
                   type="button"
-                  onClick={() => selectEntry(entry)}
+                  onClick={() => selectNode(entry.node)}
                   title={entry.fullPath}
                   style={{
                     display: "flex",
@@ -194,21 +199,32 @@ export function SystemPromptInspector({ sessionId, sessionTitle, model, onClose 
                 marginBottom: "var(--space-2)",
               }}
             >
-              <div className="card-kicker">Raw text</div>
+              <div className="card-kicker">{format === "icicle" ? "Composition" : "Raw text"}</div>
               <SegmentedControl name="promptFormat" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
             </div>
-            <pre
-              style={{
-                margin: 0,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontFamily: "monospace",
-                fontSize: 12,
-                lineHeight: 1.6,
-              }}
-            >
-              {renderSegments(segments, selectedId)}
-            </pre>
+            {format === "icicle" ? (
+              <PromptCompositionIcicle
+                root={parsed.root}
+                text={state.text}
+                malformed={parsed.malformed}
+                colors={icicleColors}
+                selectedId={selectedId}
+                onSelect={selectNode}
+              />
+            ) : (
+              <pre
+                style={{
+                  margin: 0,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  fontFamily: "monospace",
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                }}
+              >
+                {renderSegments(segments, selectedId)}
+              </pre>
+            )}
           </Blueprint>
 
           <Blueprint style={{ padding: "var(--space-3)", maxHeight: "70vh", overflow: "auto" }}>

@@ -44,6 +44,47 @@ function findChild(node: PromptNode, tagName: string): PromptNode | undefined {
   return node.children.find((child) => child.tagName === tagName);
 }
 
+export interface NodeLabel {
+  label: string;
+  fullPath?: string;
+}
+
+// Shared by buildMenu and the composition icicle chart, so a node's label
+// (and the "(2)"-style disambiguation of repeated sibling tag names) reads
+// identically wherever it's shown. `labelCounts` is caller-owned so each
+// walk (menu vs. chart) gets its own independent count.
+export function labelForNode(
+  node: PromptNode,
+  parent: PromptNode,
+  malformed: boolean,
+  text: string,
+  labelCounts: Map<string, number>,
+): NodeLabel {
+  if (node.tagName === null) {
+    if (malformed) return { label: "Full system prompt (unparsed)" };
+    if (parent.children[0] === node) return { label: "Preamble" };
+    if (parent.children[parent.children.length - 1] === node) return { label: "Trailing content" };
+    return { label: "Untagged text" };
+  }
+
+  const nameChild = findChild(node, "name");
+  if (nameChild) return { label: text.slice(nameChild.contentStart, nameChild.contentEnd).trim() };
+
+  if (node.attrs.filePath) {
+    const segments = node.attrs.filePath.split("/");
+    return { label: segments[segments.length - 1] || node.attrs.filePath, fullPath: node.attrs.filePath };
+  }
+
+  const fileChild = findChild(node, "file");
+  if (fileChild) return { label: text.slice(fileChild.contentStart, fileChild.contentEnd).trim() };
+
+  const key = `${parent.id}|${node.tagName}`;
+  const count = (labelCounts.get(key) ?? 0) + 1;
+  labelCounts.set(key, count);
+  const base = formatTagName(node.tagName);
+  return { label: count > 1 ? `${base} (${count})` : base };
+}
+
 interface HueAssignment {
   hue: string;
   tagged: boolean;
@@ -56,7 +97,7 @@ interface HueAssignment {
 // schemes below — the nav swatch dots and the raw/pretty text backgrounds —
 // so a given tag family reads as the same hue everywhere, just tinted
 // differently for each use.
-function assignHues(root: PromptNode): Map<string, HueAssignment> {
+function assignHues(root: PromptNode, maxDepth: number): Map<string, HueAssignment> {
   const hues = new Map<string, HueAssignment>();
   const hueByTagName = new Map<string, string>();
   let nextHueIndex = 0;
@@ -73,7 +114,7 @@ function assignHues(root: PromptNode): Map<string, HueAssignment> {
 
   function walk(node: PromptNode, depth1Hue: string | null): void {
     for (const child of node.children) {
-      if (child.depth > MAX_MENU_DEPTH) continue;
+      if (child.depth > maxDepth) continue;
       const hue = child.depth === 1 ? hueForDepth1(child) : (depth1Hue ?? NEUTRAL_COLOR);
       hues.set(child.id, { hue, tagged: child.tagName !== null });
       walk(child, child.depth === 1 ? hue : depth1Hue);
@@ -87,19 +128,33 @@ function assignHues(root: PromptNode): Map<string, HueAssignment> {
 // progressively lightened via color-mix so nesting reads as "same family,
 // more specific," not as an unrelated color. These swatches are small,
 // standalone chips — full saturation is legible at that size.
+function tintForDepth(hue: string, depth: number): string {
+  if (depth <= 1 || hue === NEUTRAL_COLOR) return hue;
+  const mixPercent = depth === 2 ? 62 : 38;
+  return `color-mix(in srgb, ${hue} ${mixPercent}%, white)`;
+}
+
 export function assignColors(root: PromptNode): Map<string, string> {
-  const hues = assignHues(root);
+  const hues = assignHues(root, MAX_MENU_DEPTH);
   const colors = new Map<string, string>();
-
-  function tint(hue: string, depth: number): string {
-    if (depth <= 1 || hue === NEUTRAL_COLOR) return hue;
-    const mixPercent = depth === 2 ? 62 : 38;
-    return `color-mix(in srgb, ${hue} ${mixPercent}%, white)`;
-  }
-
   for (const [id, node] of allNodesById(root)) {
     const assignment = hues.get(id);
-    if (assignment) colors.set(id, tint(assignment.hue, node.depth));
+    if (assignment) colors.set(id, tintForDepth(assignment.hue, node.depth));
+  }
+  return colors;
+}
+
+// Same hue-family assignment as assignColors, but unbounded in depth — the
+// composition icicle chart zooms past the menu's depth-3 cap, so it needs a
+// color for every node, not just the ones the flat nav list shows. Depth 3's
+// tint (38%) is reused for depth 4+ rather than continuing to lighten toward
+// white, so a family stays legible arbitrarily deep instead of washing out.
+export function assignIcicleColors(root: PromptNode): Map<string, string> {
+  const hues = assignHues(root, Infinity);
+  const colors = new Map<string, string>();
+  for (const [id, node] of allNodesById(root)) {
+    const assignment = hues.get(id);
+    if (assignment) colors.set(id, tintForDepth(assignment.hue, Math.min(node.depth, MAX_MENU_DEPTH)));
   }
   return colors;
 }
@@ -110,7 +165,7 @@ export function assignColors(root: PromptNode): Map<string, string> {
 // treatment, just distinguishing tagged blocks (16%) from untagged
 // preamble/trailing free text (12%).
 export function assignTextColors(root: PromptNode): Map<string, string> {
-  const hues = assignHues(root);
+  const hues = assignHues(root, MAX_MENU_DEPTH);
   const colors = new Map<string, string>();
   for (const [id, { hue, tagged }] of hues) {
     colors.set(id, `color-mix(in srgb, ${hue} ${tagged ? 16 : 12}%, white)`);
@@ -130,36 +185,10 @@ export function buildMenu(root: PromptNode, malformed: boolean, text: string): M
   const entries: MenuEntry[] = [];
   const labelCounts = new Map<string, number>();
 
-  function labelFor(node: PromptNode, parent: PromptNode): { label: string; fullPath?: string } {
-    if (node.tagName === null) {
-      if (malformed) return { label: "Full system prompt (unparsed)" };
-      if (parent.children[0] === node) return { label: "Preamble" };
-      if (parent.children[parent.children.length - 1] === node) return { label: "Trailing content" };
-      return { label: "Untagged text" };
-    }
-
-    const nameChild = findChild(node, "name");
-    if (nameChild) return { label: text.slice(nameChild.contentStart, nameChild.contentEnd).trim() };
-
-    if (node.attrs.filePath) {
-      const segments = node.attrs.filePath.split("/");
-      return { label: segments[segments.length - 1] || node.attrs.filePath, fullPath: node.attrs.filePath };
-    }
-
-    const fileChild = findChild(node, "file");
-    if (fileChild) return { label: text.slice(fileChild.contentStart, fileChild.contentEnd).trim() };
-
-    const key = `${parent.id}|${node.tagName}`;
-    const count = (labelCounts.get(key) ?? 0) + 1;
-    labelCounts.set(key, count);
-    const base = formatTagName(node.tagName);
-    return { label: count > 1 ? `${base} (${count})` : base };
-  }
-
   function walk(node: PromptNode): void {
     for (const child of node.children) {
       if (child.depth > MAX_MENU_DEPTH) continue;
-      const { label, fullPath } = labelFor(child, node);
+      const { label, fullPath } = labelForNode(child, node, malformed, text, labelCounts);
       entries.push({ node: child, label, fullPath, color: colors.get(child.id) ?? NEUTRAL_COLOR });
       walk(child);
     }

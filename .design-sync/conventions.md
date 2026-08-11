@@ -1,10 +1,12 @@
 ## Setup
 
-No provider or wrapper is required — none of the 3 synced components read from React context. Just import from the bundle global and render.
+No provider or wrapper is required — none of the components read from React context. Just import from the bundle global and render.
 
 ```jsx
 const { Blueprint, SegmentedControl, Tag } = window.GhCpChatAnalyserUI;
 ```
+
+One component, `PromptCompositionIcicle` (in the `charts` group), is **not** a drop-in-and-render primitive like the three above — it needs its `root`/`malformed`/`colors` props *built* first from two helper functions shipped alongside it on the same bundle global (`parseSystemPrompt`, `assignIcicleColors`). Read `components/charts/PromptCompositionIcicle/PromptCompositionIcicle.prompt.md` before using it — the pattern doesn't generalize from the other three.
 
 ## Styling idiom: global CSS classes + CSS custom-property tokens
 
@@ -21,7 +23,7 @@ This is a **global-class** design system, not CSS-in-JS or CSS Modules — every
 | Radius | `--radius-sm`, `--radius-md`, `--radius-lg` — **note:** the DS's own component classes (`.card`, `.btn`, `.input`, `.tag`, `.seg`, `.dialog`) override these back to `border-radius: 0` — the brand look is square/hairline, not rounded. Don't fight this by hand-setting radius on these classes. |
 | Shadow | `--shadow-sm`, `--shadow-md`, `--shadow-lg` — defined for parity but unused by the shipped classes (the aesthetic stays flat/hairline-bordered, not elevated) |
 
-**Component classes actually backing the 3 synced components:**
+**Component classes actually backing the 3 UI primitives** (`PromptCompositionIcicle` doesn't use these — it fills its rects from the `colors` map its own helper computes, not from tag-family CSS classes):
 - `Blueprint` → `.blueprint` (hairline-bordered frame with 4 corner "+" registration marks via nested `<i class="corner tl|tr|bl|br">`, rendered automatically — don't pass your own corner markup)
 - `SegmentedControl` → `.seg` (pill-shaped radio group container) / `.seg-opt` (each option label; the checked one gets the accent fill automatically via `:has(input:checked)`)
 - `Tag` → `.tag` + one of `.tag-accent` / `.tag-accent-2` / `.tag-neutral` / `.tag-outline` (from the required `variant` prop)
@@ -31,8 +33,8 @@ This is a **global-class** design system, not CSS-in-JS or CSS Modules — every
 ## Where the truth lives
 
 - `styles.css` (root) — `@import`s `_ds_bundle.css`, the full compiled stylesheet (tokens + every class above). Read this before styling anything; it's the only source of truth for the class vocabulary and token values.
-- `components/general/<Name>/<Name>.prompt.md` — per-component API + usage note.
-- `components/general/<Name>/<Name>.d.ts` — prop contracts. Note: `SegmentedControl` is generic (`<T extends string>`) in its real source; the synced contract is simplified to `string` for `value`/`onChange` — still correct for any string-valued option set, just not compile-time-narrowed to a literal union.
+- `components/<group>/<Name>/<Name>.prompt.md` — per-component API + usage note (`<group>` is `general` for the 3 UI primitives, `charts` for `PromptCompositionIcicle`).
+- `components/<group>/<Name>/<Name>.d.ts` — prop contracts. Note: `SegmentedControl` is generic (`<T extends string>`) in its real source; the synced contract is simplified to `string` for `value`/`onChange` — still correct for any string-valued option set, just not compile-time-narrowed to a literal union.
 
 ## Example composition
 

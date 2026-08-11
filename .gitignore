@@ -26,6 +26,13 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# design-sync (see .design-sync/config.json) — staged scripts, build output, machine state
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+
 # Local dev/sandbox artifacts (not project files)
 .mcp.json
 .ripgreprc

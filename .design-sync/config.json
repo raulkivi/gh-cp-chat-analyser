@@ -1,0 +1,14 @@
+{
+  "projectId": "cada26a4-e1c4-4b9f-a3dd-4a7fa5e325ea",
+  "shape": "package",
+  "pkg": "@gh-cp-chat-analyser/web",
+  "globalName": "GhCpChatAnalyserUI",
+  "srcDir": "src/components/ui",
+  "cssEntry": "src/theme.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "dtsPropsFor": {
+    "Blueprint": "className?: string;\n  children?: React.ReactNode;\n  style?: React.CSSProperties;\n  onClick?: React.MouseEventHandler<HTMLDivElement>;",
+    "SegmentedControl": "name: string;\n  options: readonly { value: string; label: string }[];\n  value: string;\n  onChange: (value: string) => void;\n  className?: string;",
+    "Tag": "variant: \"accent\" | \"accent-2\" | \"neutral\" | \"outline\";\n  className?: string;\n  children?: React.ReactNode;"
+  }
+}

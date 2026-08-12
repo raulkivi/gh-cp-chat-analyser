@@ -57,6 +57,14 @@ scope to that host instead if you've set one):
 mitmweb --no-web-open-browser --allow-hosts '^api\.anthropic\.com$'
 ```
 
+Claude Code also talks to a couple of non-LLM hosts as part of normal
+operation — `console.anthropic.com` (OAuth login/token refresh) and
+`statsig.anthropic.com` plus `sentry.io` (feature flags and error
+telemetry). None of these carry the request/response exchanges the app's
+decoder cares about, so leave them out of `--allow-hosts` for a capture
+aimed at this app; include them only if you're debugging Claude Code's own
+network behavior rather than producing a HAR for this project.
+
 For any other direct-API agent, use that vendor's host the same way, e.g.
 `--allow-hosts '^api\.openai\.com$'`. Not sure of the exact host(s) a given
 tool uses, or want to catch auxiliary endpoints (telemetry, auth) alongside

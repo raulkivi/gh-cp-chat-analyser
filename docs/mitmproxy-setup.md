@@ -46,7 +46,7 @@ specifically, `copilot-chat-source-investigation.md` §4 identifies
 GitHub's backend actually forwards):
 
 ```sh
-mitmweb --no-web-open-browser --allow-hosts '^api\.githubcopilot\.com$|^api\.github\.com$'
+mitmweb --no-web-open-browser --allow-hosts '^api\.githubcopilot\.com(:\d+)?$|^api\.github\.com(:\d+)?$'
 ```
 
 For **Claude Code** specifically, its LLM traffic goes to `api.anthropic.com`
@@ -54,8 +54,19 @@ For **Claude Code** specifically, its LLM traffic goes to `api.anthropic.com`
 scope to that host instead if you've set one):
 
 ```sh
-mitmweb --no-web-open-browser --allow-hosts '^api\.anthropic\.com$'
+mitmweb --no-web-open-browser --allow-hosts '^api\.anthropic\.com(:\d+)?$'
 ```
+
+**Anchor gotcha:** `--allow-hosts` matches against `host:port`, not the bare
+hostname — a pattern anchored with a trailing `$` (like the once-recommended
+`^api\.anthropic\.com$`) never matches anything, because the string being
+tested always has a `:443` (or other port) suffix. mitmproxy MITMs the
+connection just fine in that case (TLS decrypts, the client gets a real
+response) but silently never builds an HTTPFlow for it — so nothing shows up
+in the flow list, in `GET /flows`, or in a `hardump` HAR export, with no
+error anywhere. Always include `(:\d+)?` before a trailing `$`, or drop the
+trailing anchor entirely (accepting the minor risk of a longer hostname
+matching as a prefix).
 
 Claude Code also talks to a couple of non-LLM hosts as part of normal
 operation — `console.anthropic.com` (OAuth login/token refresh) and
@@ -66,7 +77,7 @@ aimed at this app; include them only if you're debugging Claude Code's own
 network behavior rather than producing a HAR for this project.
 
 For any other direct-API agent, use that vendor's host the same way, e.g.
-`--allow-hosts '^api\.openai\.com$'`. Not sure of the exact host(s) a given
+`--allow-hosts '^api\.openai\.com(:\d+)?$'`. Not sure of the exact host(s) a given
 tool uses, or want to catch auxiliary endpoints (telemetry, auth) alongside
 the main one? Run once with `--allow-hosts` omitted (intercepts everything),
 generate a bit of traffic, and read the actual hostnames off mitmweb's flow
@@ -171,17 +182,21 @@ or `~d api.githubcopilot.com` in mitmweb's filter box.
 
 ## 5. Export as HAR
 
-The most reliable way to get a HAR file out of mitmproxy is the `har_dump`
-addon script bundled with mitmproxy's examples
-(https://github.com/mitmproxy/mitmproxy/blob/main/examples/contrib/har_dump.py):
+HAR export (`hardump`) is a built-in mitmproxy option as of the versions
+this project has tested against — no separate addon script needed (the
+`har_dump.py` example script some older guides reference is deprecated
+upstream; it's been folded into mitmproxy core as `addons/savehar.py`):
 
 ```sh
-mitmdump -s har_dump.py --set hardump=./capture.har
+mitmdump --allow-hosts '^api\.anthropic\.com(:\d+)?$' --set hardump=./capture.har
 ```
 
 Run your capture session through `mitmdump` with that flag instead of (or
 in addition to) `mitmweb`, then stop it (Ctrl-C) once you have the
-exchanges you want — `hardump` writes the file on exit.
+exchanges you want — `hardump` writes the file on exit. If you were using
+`mitmweb` for the earlier steps, stop it first and start `mitmdump` instead
+for this step; `mitmweb`'s browser-based flow list doesn't have an
+in-browser bulk HAR export by default.
 
 ## 6. Stop mitmproxy and undo the routing
 

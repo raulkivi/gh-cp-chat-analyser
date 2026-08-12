@@ -912,7 +912,10 @@ implementation revealed a simpler shape:
   *select*, per the requirements), so a fixed, documented directory the user
   drops HAR exports into avoids inventing a second app-settings value ahead
   of need (§13 still tracks whether the settings file should ever grow
-  beyond `activeProviderId`). One `.har` file = one session (§3), id = a
+  beyond `activeProviderId`). See
+  [mitmproxy-setup.md](mitmproxy-setup.md) for how to actually install
+  mitmproxy, trust its CA, capture traffic, and produce that HAR file. One
+  `.har` file = one session (§3), id = a
   hash of the file's path + mtime.
 - `MitmExchangeDecoder.recognizes()` works from `RawMitmExchange`'s headers/
   body alone — there is no request URL in the redacted-exchange shape

@@ -36,6 +36,9 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
 - [Log provider alternatives](docs/log-provider-alternatives.md) — ranked,
   actionable recommendations for Phase 9+ `LogProvider` work that follow
   from the source investigation above.
+- [mitmproxy setup](docs/mitmproxy-setup.md) — how to install mitmproxy,
+  trust its CA, capture LLM-provider traffic, and export it as a `.har`
+  file the app's `mitmproxy` provider can read.
 
 ## Setup
 

@@ -51,18 +51,19 @@ function buildLoggingDisabledWarning(settingsPath: string): ConfigWarning {
 function buildRetentionTooLowWarning(
   settingsPath: string,
   currentValue: number,
+  threshold: number,
 ): ConfigWarning {
   return {
     code: "retention-too-low",
     severity: "required",
     settingId: MAX_RETAINED_SESSION_LOGS_SETTING_ID,
     currentValue,
-    recommendedValue: MIN_RETAINED_SESSION_LOGS,
+    recommendedValue: threshold,
     message:
       `Only the last ${currentValue} sessions' logs are retained on disk, which limits ` +
-      `how much history Analyze mode can show. At least ${MIN_RETAINED_SESSION_LOGS} is recommended.`,
+      `how much history Analyze mode can show. At least ${threshold} is recommended.`,
     helpSteps: [
-      `Open ${settingsPath} and add "${MAX_RETAINED_SESSION_LOGS_SETTING_ID}": ${MIN_RETAINED_SESSION_LOGS}`,
+      `Open ${settingsPath} and add "${MAX_RETAINED_SESSION_LOGS_SETTING_ID}": ${threshold}`,
       "Reload the VS Code window for the change to take effect.",
     ],
   };
@@ -93,6 +94,7 @@ export interface CheckConfigOptions {
   platform?: NodeJS.Platform;
   homeDir?: string;
   now?: () => string;
+  minRetainedSessionLogsThreshold?: number;
 }
 
 export function checkConfig(options: CheckConfigOptions = {}): ConfigStatus {
@@ -102,6 +104,8 @@ export function checkConfig(options: CheckConfigOptions = {}): ConfigStatus {
       : resolveVscodeSettingsPath(options);
   const settings = readVscodeSettings(settingsPath);
   const now = options.now ?? (() => new Date().toISOString());
+  const minRetainedSessionLogsThreshold =
+    options.minRetainedSessionLogsThreshold ?? MIN_RETAINED_SESSION_LOGS;
 
   const warnings: ConfigWarning[] = [];
   if (!settingsPath) {
@@ -112,8 +116,14 @@ export function checkConfig(options: CheckConfigOptions = {}): ConfigStatus {
     }
     const effectiveMaxRetained =
       settings.maxRetainedSessionLogs ?? DEFAULT_RETAINED_SESSION_LOGS;
-    if (effectiveMaxRetained < MIN_RETAINED_SESSION_LOGS) {
-      warnings.push(buildRetentionTooLowWarning(settingsPath, effectiveMaxRetained));
+    if (effectiveMaxRetained < minRetainedSessionLogsThreshold) {
+      warnings.push(
+        buildRetentionTooLowWarning(
+          settingsPath,
+          effectiveMaxRetained,
+          minRetainedSessionLogsThreshold,
+        ),
+      );
     }
     if (!settings.agentTracesEnabled) {
       warnings.push(buildAgentTracesUnavailableWarning(settingsPath));
@@ -125,6 +135,7 @@ export function checkConfig(options: CheckConfigOptions = {}): ConfigStatus {
     vscodeUserSettingsPath: settingsPath,
     loggingEnabled: settings.loggingEnabled,
     maxRetainedSessionLogs: settings.maxRetainedSessionLogs,
+    minRetainedSessionLogsThreshold,
     warnings,
   };
 }

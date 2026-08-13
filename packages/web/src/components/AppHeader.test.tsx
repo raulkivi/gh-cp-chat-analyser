@@ -117,4 +117,73 @@ describe("AppHeader", () => {
 
     expect(onProviderChange).toHaveBeenCalledWith("mitmproxy");
   });
+
+  it("does not render a retention-threshold control when the new props aren't supplied", () => {
+    render(
+      <AppHeader mode="learn" onModeChange={vi.fn()} hasConfigWarnings={false} onConfigClick={vi.fn()} />,
+    );
+
+    expect(screen.queryByLabelText("Retention threshold")).not.toBeInTheDocument();
+  });
+
+  it("renders the retention-threshold control in Learn mode", () => {
+    render(
+      <AppHeader
+        mode="learn"
+        onModeChange={vi.fn()}
+        hasConfigWarnings={false}
+        onConfigClick={vi.fn()}
+        minRetainedSessionLogsThreshold={200}
+        onRetentionThresholdChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Retention threshold")).toHaveValue(200);
+  });
+
+  it("renders the retention-threshold control regardless of hasConfigWarnings", () => {
+    const { rerender } = render(
+      <AppHeader
+        mode="analyze"
+        onModeChange={vi.fn()}
+        hasConfigWarnings={true}
+        onConfigClick={vi.fn()}
+        minRetainedSessionLogsThreshold={200}
+        onRetentionThresholdChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Retention threshold")).toBeInTheDocument();
+
+    rerender(
+      <AppHeader
+        mode="analyze"
+        onModeChange={vi.fn()}
+        hasConfigWarnings={false}
+        onConfigClick={vi.fn()}
+        minRetainedSessionLogsThreshold={200}
+        onRetentionThresholdChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Retention threshold")).toBeInTheDocument();
+  });
+
+  it("calls onRetentionThresholdChange with the new numeric value on blur", () => {
+    const onRetentionThresholdChange = vi.fn();
+    render(
+      <AppHeader
+        mode="learn"
+        onModeChange={vi.fn()}
+        hasConfigWarnings={false}
+        onConfigClick={vi.fn()}
+        minRetainedSessionLogsThreshold={200}
+        onRetentionThresholdChange={onRetentionThresholdChange}
+      />,
+    );
+
+    const input = screen.getByLabelText("Retention threshold");
+    fireEvent.change(input, { target: { value: "300" } });
+    fireEvent.blur(input);
+
+    expect(onRetentionThresholdChange).toHaveBeenCalledWith(300);
+  });
 });

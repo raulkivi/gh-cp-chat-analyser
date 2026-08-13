@@ -264,6 +264,48 @@ startup console warning in `server.ts`. Decisions/facts from this slice:
   `helpSteps` — the exit criterion's "default retention" case, observed
   directly rather than only via fixtures.
 
+**Status (2026-08-13) update: the 200-session retention minimum is now
+user-configurable, revisiting this phase rather than opening a new one**
+(resolves the architecture §13 open question this phase originally left
+open). `ConfigStatus` gained a required `minRetainedSessionLogsThreshold:
+number` field — the effective threshold in force (persisted override, or
+`config-check`'s own `200` default when nothing was ever written).
+Decisions/facts from this slice:
+
+- Persistence: `data-sources/log-providers/app-settings.ts` (already storing
+  `activeProviderId`) gained `readMinRetainedSessionLogsThreshold`/
+  `writeMinRetainedSessionLogsThreshold`, same shape as the existing
+  `activeProviderId` reader/writer (missing/corrupt file → `undefined`,
+  never throws). Both writers now go through a shared private
+  read-merge-write helper — the prior `writeActiveProviderId` overwrote the
+  whole file, which would have silently dropped the other key once a second
+  one existed; this was fixed as part of this change, not left for later.
+- `config-check.ts` keeps sole ownership of the `200` default
+  (`MIN_RETAINED_SESSION_LOGS`); `CheckConfigOptions` gained an optional
+  `minRetainedSessionLogsThreshold` that `checkConfig` falls back from,
+  threaded into both `buildRetentionTooLowWarning`'s `recommendedValue` and
+  the returned `ConfigStatus` unconditionally.
+- Routes: `GET /api/config/status` now reads the persisted threshold and
+  passes it into `checkConfig`; new `PUT /api/config/retention-threshold`
+  (body `{ value: number }`, positive-integer validated in the route
+  handler, 400 otherwise) writes it and returns the fresh `ConfigStatus` —
+  one response updates both the header control and the warning banner.
+- Frontend: `AppHeader` gained optional `minRetainedSessionLogsThreshold`/
+  `onRetentionThresholdChange` props rendering a labeled numeric `<input>`
+  immediately before the Config button/tag, unconditionally (not gated by
+  mode or by `hasConfigWarnings`) whenever both props are supplied —
+  commit-on-blur (`defaultValue` + `onBlur`), not per-keystroke, to avoid a
+  `PUT` per digit typed. `App.tsx` holds the value in a local `useState`
+  (page-chrome tier, alongside `showConfigBanner`, not `session-store`),
+  sets it from the existing `fetchConfigStatus()` effect, and updates both
+  it and `configWarnings` from the `PUT` response.
+- Verified end-to-end against a running server (isolated app-settings dir):
+  `GET /api/config/status` defaults to `200`; `PUT
+  /api/config/retention-threshold {value:300}` returns `300` immediately and
+  the on-disk `settings.json` holds only `{minRetainedSessionLogsThreshold:
+  300}` (no spurious `activeProviderId`, confirming the merge fix); a fresh
+  server process restarted against the same dir still reads back `300`.
+
 ## Phase 6 — Analyze-mode-only extras
 
 **Goal**: the remaining vision §3.2 features that go beyond the shared

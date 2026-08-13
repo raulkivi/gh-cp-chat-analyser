@@ -152,4 +152,96 @@ describe("checkConfig", () => {
       expect.objectContaining({ code: "settings-not-found" }),
     ]);
   });
+
+  it("falls back to 200 when no threshold is injected", () => {
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+        "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+        "github.copilot.chat.otel.dbSpanExporter.enabled": true,
+      }),
+    );
+
+    const status = checkConfig({ settingsPath, now: NOW });
+
+    expect(status.minRetainedSessionLogsThreshold).toBe(200);
+  });
+
+  it("warns retention-too-low against a custom threshold above the current value", () => {
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+        "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+        "github.copilot.chat.otel.dbSpanExporter.enabled": true,
+      }),
+    );
+
+    const status = checkConfig({
+      settingsPath,
+      now: NOW,
+      minRetainedSessionLogsThreshold: 300,
+    });
+
+    expect(status.minRetainedSessionLogsThreshold).toBe(300);
+    expect(status.warnings).toEqual([
+      expect.objectContaining({
+        code: "retention-too-low",
+        currentValue: 200,
+        recommendedValue: 300,
+      }),
+    ]);
+  });
+
+  it("does not warn retention-too-low when the current value meets a custom threshold", () => {
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+        "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+        "github.copilot.chat.otel.dbSpanExporter.enabled": true,
+      }),
+    );
+
+    const status = checkConfig({
+      settingsPath,
+      now: NOW,
+      minRetainedSessionLogsThreshold: 100,
+    });
+
+    expect(status.minRetainedSessionLogsThreshold).toBe(100);
+    expect(status.warnings).toEqual([]);
+  });
+
+  it("includes minRetainedSessionLogsThreshold in the zero-warnings case", () => {
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+        "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+        "github.copilot.chat.otel.dbSpanExporter.enabled": true,
+      }),
+    );
+
+    const status = checkConfig({
+      settingsPath,
+      now: NOW,
+      minRetainedSessionLogsThreshold: 200,
+    });
+
+    expect(() => configStatusSchema.parse(status)).not.toThrow();
+    expect(status.minRetainedSessionLogsThreshold).toBe(200);
+  });
+
+  it("includes minRetainedSessionLogsThreshold in the settings-not-found branch", () => {
+    const status = checkConfig({
+      settingsPath: null,
+      now: NOW,
+      minRetainedSessionLogsThreshold: 300,
+    });
+
+    expect(() => configStatusSchema.parse(status)).not.toThrow();
+    expect(status.minRetainedSessionLogsThreshold).toBe(300);
+  });
 });

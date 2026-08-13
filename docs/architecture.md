@@ -325,6 +325,7 @@ interface ConfigStatus {
   vscodeUserSettingsPath: string | null; // null if no install/user-data-dir found
   loggingEnabled: boolean;
   maxRetainedSessionLogs: number | null; // null ⇒ VS Code default (50) applies
+  minRetainedSessionLogsThreshold: number; // effective threshold in force: persisted override, or 200 default
   warnings: ConfigWarning[];
 }
 ```
@@ -1159,9 +1160,11 @@ small retry/tolerance window rather than treating that as missing data.
 
 ## 8. API design
 
-A minimal, read-only REST surface. No mutation endpoints exist — the app
-never writes to the SQLite store or the log files (vision §6 non-goal:
-read-only viewer).
+A minimal REST surface, almost entirely read-only — the app never writes to
+the SQLite store or the log files (vision §6 non-goal: read-only viewer).
+The two `PUT` endpoints below are the exceptions: both write only to the
+app's own `settings.json` (§11.2), never to VS Code's or the log/SQLite
+sources themselves.
 
 | Method & path | Returns |
 |---|---|
@@ -1173,7 +1176,8 @@ read-only viewer).
 | `GET /api/sessions/:id` | Full enriched `Session` from the active provider (mode=`analyze`), including `usageDataAvailable` |
 | `GET /api/sessions/:id/system-prompt` | Raw `text/plain` of the session's captured base system prompt (Phase 6 addendum); 404 if no system-prompt artifact was captured |
 | `GET /api/sessions/:id/turns/:turnIndex` | `TurnInspectorDetail` — one turn's actual LLM request/response round-trip(s), scoped to only the content that turn added (Phase 9.5, §6.2.4); used for on-demand deep dives, avoiding sending every turn's full detail up front. 404 if the session or turn index doesn't exist; 400 for a non-numeric/negative `turnIndex` |
-| `GET /api/config/status` | `ConfigStatus` — current prerequisite-setting check results and any `warnings[]` (§6.3) |
+| `GET /api/config/status` | `ConfigStatus` — current prerequisite-setting check results and any `warnings[]` (§6.3), including the effective `minRetainedSessionLogsThreshold` |
+| `PUT /api/config/retention-threshold` | Sets the persisted `minRetainedSessionLogsThreshold` override (body: `{ value: number }`, must be a positive integer, else 400); returns the fresh `ConfigStatus` so the caller can update both the header control and the warning banner from one response |
 
 The server binds to `localhost` only (see §11.2).
 
@@ -1411,9 +1415,6 @@ Carried over from vision §7 plus new ones raised while designing this layer:
   fall back to Stable, no per-workspace matching), not the deeper
   auto-detect-by-workspace or explicit-configuration approaches; still open
   for macOS/Windows and for multi-profile setups on any platform.
-- Whether the 200-session retention minimum (constraint 10) should stay a
-  hard-coded constant in `config-check`, or become an app-level
-  configurable threshold.
 - Whether large sessions need per-turn lazy loading (§11.1) or whole-session
   payloads stay acceptable in practice.
 - Express vs. Fastify for the server (functionally interchangeable here;
@@ -1426,9 +1427,24 @@ Carried over from vision §7 plus new ones raised while designing this layer:
   [agentic-coding-explained.md](agentic-coding-explained.md) as it evolves —
   the vision doc doesn't mandate automated drift-checking, but a periodic
   manual review is worth deciding on explicitly.
-- Whether the app-owned settings file should ever hold more than the active
-  provider id (e.g. per-provider capture paths) once a provider needs
-  user-supplied configuration beyond a single path.
+
+**Resolved:** whether the app-owned settings file should ever hold more than
+the active provider id — yes. It now also holds
+`minRetainedSessionLogsThreshold` (below), read-merge-write through a shared
+private helper in `app-settings.ts` so neither key clobbers the other on
+write.
+
+**Resolved:** whether the 200-session retention minimum (constraint 10)
+should stay a hard-coded constant in `config-check`, or become an app-level
+configurable threshold — configurable. `ConfigStatus` gained a required
+`minRetainedSessionLogsThreshold: number` field (§5): the persisted override
+from `settings.json` if one was ever written, else `config-check`'s own
+`200` default. It's surfaced as an always-visible numeric input in
+`AppHeader`, next to the Config button/tag, in both Learn and Analyze mode
+regardless of whether a `retention-too-low` warning is currently showing
+(commit-on-blur, not per-keystroke), backed by `GET /api/config/status`
+(now including the field) and the new `PUT /api/config/retention-threshold`
+(§8).
 
 **Resolved:** whether one mitmproxy capture file should always equal one
 session — no. A file is now split into one or more sessions by an idle-gap

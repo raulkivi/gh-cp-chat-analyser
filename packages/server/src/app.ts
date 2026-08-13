@@ -19,6 +19,10 @@ import { resolveAgentTracesDbPath } from "./data-sources/agent-traces/agent-trac
 import { resolveVscodeSettingsPath } from "./data-sources/vscode-settings/vscode-settings-path.js";
 import { resolveSystemPromptText } from "./services/session-enricher/analyze-mode-extras.js";
 import { checkConfig } from "./services/config-check/config-check.js";
+import {
+  readMinRetainedSessionLogsThreshold,
+  writeMinRetainedSessionLogsThreshold,
+} from "./data-sources/log-providers/app-settings.js";
 import { VscodeLogProvider } from "./data-sources/log-providers/vscode/vscode-log-provider.js";
 import { MitmproxyLogProvider } from "./data-sources/log-providers/mitmproxy/mitmproxy-log-provider.js";
 import { defaultMitmExchangeDecoders } from "./data-sources/log-providers/mitmproxy/decoders/default-decoders.js";
@@ -97,7 +101,27 @@ export function createApp(options: CreateAppOptions = {}): Express {
   });
 
   app.get("/api/config/status", (_req, res) => {
-    res.json(checkConfig({ settingsPath: resolvedVscodeSettingsPath }));
+    res.json(
+      checkConfig({
+        settingsPath: resolvedVscodeSettingsPath,
+        minRetainedSessionLogsThreshold: readMinRetainedSessionLogsThreshold(resolvedAppSettingsDir),
+      }),
+    );
+  });
+
+  app.put("/api/config/retention-threshold", (req, res) => {
+    const { value } = (req.body ?? {}) as { value?: unknown };
+    if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+      res.status(400).json({ error: "Request body must include a positive integer \"value\"." });
+      return;
+    }
+    writeMinRetainedSessionLogsThreshold(resolvedAppSettingsDir, value);
+    res.json(
+      checkConfig({
+        settingsPath: resolvedVscodeSettingsPath,
+        minRetainedSessionLogsThreshold: readMinRetainedSessionLogsThreshold(resolvedAppSettingsDir),
+      }),
+    );
   });
 
   app.get("/api/learn/scenarios", (_req, res) => {

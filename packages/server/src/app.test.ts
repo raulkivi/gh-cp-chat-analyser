@@ -862,6 +862,71 @@ describe("GET /api/config/status", () => {
   });
 });
 
+describe("PUT /api/config/retention-threshold", () => {
+  let dir: string;
+  let appSettingsDir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "app-test-retention-threshold-"));
+    appSettingsDir = path.join(dir, "app-settings");
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function buildApp(overrides: Parameters<typeof createApp>[0] = {}) {
+    return createApp({ vscodeSettingsPath: null, appSettingsDir, ...overrides });
+  }
+
+  it("GET /api/config/status defaults to 200 on a fresh settings dir", async () => {
+    const app = buildApp();
+
+    const response = await request(app).get("/api/config/status");
+
+    expect(response.status).toBe(200);
+    expect(() => configStatusSchema.parse(response.body)).not.toThrow();
+    expect(response.body.minRetainedSessionLogsThreshold).toBe(200);
+  });
+
+  it("PUT with a valid value returns the updated ConfigStatus", async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .put("/api/config/retention-threshold")
+      .send({ value: 300 });
+
+    expect(response.status).toBe(200);
+    expect(() => configStatusSchema.parse(response.body)).not.toThrow();
+    expect(response.body.minRetainedSessionLogsThreshold).toBe(300);
+  });
+
+  it("persists across a fresh createApp instance with the same appSettingsDir", async () => {
+    const app1 = buildApp();
+    await request(app1).put("/api/config/retention-threshold").send({ value: 300 });
+
+    const app2 = buildApp();
+    const response = await request(app2).get("/api/config/status");
+
+    expect(response.body.minRetainedSessionLogsThreshold).toBe(300);
+  });
+
+  it.each([
+    ["missing value", {}],
+    ["non-number value", { value: "300" }],
+    ["zero value", { value: 0 }],
+    ["negative value", { value: -5 }],
+    ["non-integer value", { value: 1.5 }],
+  ])("rejects %s with a 4xx", async (_label, body) => {
+    const app = buildApp();
+
+    const response = await request(app).put("/api/config/retention-threshold").send(body);
+
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
+  });
+});
+
 describe("GET /api/log-providers and PUT /api/log-providers/active", () => {
   let dir: string;
   let dbPath: string;

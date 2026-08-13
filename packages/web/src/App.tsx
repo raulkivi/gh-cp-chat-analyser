@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ConfigWarning, LogProviderDescriptor, Session } from "@gh-cp-chat-analyser/domain";
-import { fetchConfigStatus } from "./api-client/config-status.js";
+import { fetchConfigStatus, updateRetentionThreshold } from "./api-client/config-status.js";
 import { fetchLearnScenarios } from "./api-client/learn-scenarios.js";
 import { fetchLogProviderStatus, setActiveLogProvider } from "./api-client/log-providers.js";
 import { fetchSession, fetchSessions } from "./api-client/sessions.js";
@@ -51,6 +51,7 @@ export function App() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [configWarnings, setConfigWarnings] = useState<ConfigWarning[]>([]);
+  const [retentionThreshold, setRetentionThreshold] = useState<number | undefined>(undefined);
   const [showConfigBanner, setShowConfigBanner] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [adviceSelection, setAdviceSelection] = useState<Set<string>>(new Set());
@@ -114,7 +115,10 @@ export function App() {
 
   useEffect(() => {
     fetchConfigStatus()
-      .then((status) => setConfigWarnings(status.warnings))
+      .then((status) => {
+        setConfigWarnings(status.warnings);
+        setRetentionThreshold(status.minRetainedSessionLogsThreshold);
+      })
       .catch((error: Error) => setFetchError(error.message));
   }, []);
 
@@ -142,6 +146,15 @@ export function App() {
       .then((status) => {
         setProviders(status.providers);
         setActiveProviderId(status.activeProviderId);
+      })
+      .catch((error: Error) => setFetchError(error.message));
+  }
+
+  function handleRetentionThresholdChange(value: number): void {
+    updateRetentionThreshold(value)
+      .then((status) => {
+        setConfigWarnings(status.warnings);
+        setRetentionThreshold(status.minRetainedSessionLogsThreshold);
       })
       .catch((error: Error) => setFetchError(error.message));
   }
@@ -200,6 +213,8 @@ export function App() {
         providers={providers}
         activeProviderId={activeProviderId}
         onProviderChange={handleProviderChange}
+        minRetainedSessionLogsThreshold={retentionThreshold}
+        onRetentionThresholdChange={handleRetentionThresholdChange}
       />
       <p className="text-muted" style={{ fontSize: 11, margin: "var(--space-2) var(--space-4) 0" }}>
         {health ? `status: ${health.status} · v${health.version}` : "Checking server…"}

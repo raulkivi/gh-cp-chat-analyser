@@ -105,6 +105,7 @@ const cleanConfigStatus = {
   vscodeUserSettingsPath: "/home/user/.config/Code/User/settings.json",
   loggingEnabled: true,
   maxRetainedSessionLogs: 200,
+  minRetainedSessionLogsThreshold: 200,
   warnings: [],
 };
 
@@ -151,6 +152,25 @@ function fakeFetch(url: string, init?: { method?: string; body?: string }) {
     return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: "boom" }) });
   }
   if (url === "/api/config/status") {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(configStatus) });
+  }
+  if (url === "/api/config/retention-threshold") {
+    const { value } = JSON.parse(init?.body ?? "{}") as { value: number };
+    const warnings =
+      value > (configStatus.maxRetainedSessionLogs ?? 0)
+        ? [
+            {
+              code: "retention-too-low" as const,
+              severity: "required" as const,
+              settingId: "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs",
+              currentValue: configStatus.maxRetainedSessionLogs,
+              recommendedValue: value,
+              message: `Only the last ${configStatus.maxRetainedSessionLogs} sessions' logs are retained on disk.`,
+              helpSteps: [`Set maxRetainedSessionLogs to ${value} in settings.json`],
+            },
+          ]
+        : [];
+    configStatus = { ...configStatus, minRetainedSessionLogsThreshold: value, warnings };
     return Promise.resolve({ ok: true, json: () => Promise.resolve(configStatus) });
   }
   return Promise.reject(new Error(`Unhandled fetch url in test: ${url}`));
@@ -399,6 +419,36 @@ describe("App", () => {
 
     expect(
       await screen.findByText("Only the last 50 sessions' logs are retained on disk."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the fetched retention threshold in the header on load", async () => {
+    configStatus = { ...cleanConfigStatus, minRetainedSessionLogsThreshold: 300 };
+    render(<App />);
+
+    expect(await screen.findByLabelText("Retention threshold")).toHaveValue(300);
+  });
+
+  it("changing the retention threshold triggers the PUT and updates the header and warning state", async () => {
+    configStatus = { ...cleanConfigStatus, maxRetainedSessionLogs: 250, warnings: [] };
+    render(<App />);
+
+    const input = await screen.findByLabelText("Retention threshold");
+    expect(input).toHaveValue(200);
+    expect(screen.queryByText(/sessions' logs are retained on disk/)).not.toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "300" } });
+    fireEvent.blur(input);
+
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/config/retention-threshold",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ value: 300 }) }),
+      ),
+    );
+    expect(await screen.findByLabelText("Retention threshold")).toHaveValue(300);
+    expect(
+      await screen.findByText("Only the last 250 sessions' logs are retained on disk."),
     ).toBeInTheDocument();
   });
 

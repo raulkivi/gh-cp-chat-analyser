@@ -20,6 +20,12 @@ interface AppHeaderProps {
   providers?: LogProviderDescriptor[];
   activeProviderId?: string;
   onProviderChange?: (id: string) => void;
+  // Always-visible retention-threshold control (docs/plans/retention-
+  // threshold-configurable.md) — unlike the provider select above, this is
+  // not mode- or warning-gated. Optional so callers/tests that don't care
+  // can omit them entirely.
+  minRetainedSessionLogsThreshold?: number;
+  onRetentionThresholdChange?: (value: number) => void;
 }
 
 export function AppHeader({
@@ -30,6 +36,8 @@ export function AppHeader({
   providers = [],
   activeProviderId,
   onProviderChange,
+  minRetainedSessionLogsThreshold,
+  onRetentionThresholdChange,
 }: AppHeaderProps) {
   return (
     <header className="nav">
@@ -63,6 +71,27 @@ export function AppHeader({
               </option>
             ))}
           </select>
+        </label>
+      )}
+      {minRetainedSessionLogsThreshold !== undefined && onRetentionThresholdChange && (
+        <label style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", marginLeft: "var(--space-2)" }}>
+          <span className="text-muted" style={{ fontSize: 11 }}>
+            Retention
+          </span>
+          <input
+            aria-label="Retention threshold"
+            className="input"
+            type="number"
+            min={1}
+            step={1}
+            defaultValue={minRetainedSessionLogsThreshold}
+            onBlur={(event) => {
+              const value = Number(event.target.value);
+              if (Number.isInteger(value) && value > 0) {
+                onRetentionThresholdChange(value);
+              }
+            }}
+          />
         </label>
       )}
       {hasConfigWarnings ? (

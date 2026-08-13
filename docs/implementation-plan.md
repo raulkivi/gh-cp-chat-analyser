@@ -97,6 +97,23 @@ the scrubber updates both panels in sync, matching vision §3.1/§3.3.
 
 **Dependencies**: Phase 1.
 
+**Status: done, grown well beyond the initial 4-6.** The bundled set now
+has **18** scenarios in `packages/server/fixtures/learn-scenarios/`, each
+mapped to its own worked-example doc under
+`docs/scenarios/`: cache basics, a subagent's own session, context
+compaction, a model switch, an MCP tool change, `/clear`, `/rewind`, session
+forking (plus a multi-branch variant), cache TTL expiry (plus a smoke-break
+and a 1-hour-breakpoint variant), an instructions-file edit, a silent
+`.instructions.md` pull-in, inline-vs-subagent exploration bloat, a
+cascading model-switch-then-TTL-lapse, an image attachment invalidating the
+cache, toggling extended thinking/reasoning budget, and a subagent on a
+cheaper model — see [README.md](../README.md#using-the-app) for the
+user-facing list. This addresses vision.md §7's open question on which
+additional advanced scenarios to build; keeping the set in sync with
+[agentic-coding-explained.md](agentic-coding-explained.md) as that doc
+evolves remains open (still no automated drift-checking, per that same
+open question).
+
 ## Phase 3 — Analyze mode: structural data only (SQLite, no usage numbers yet)
 
 **Goal**: real sessions rendering in the same shared layout as Learn mode,

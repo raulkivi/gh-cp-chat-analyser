@@ -4,10 +4,11 @@ import type { Session, TokenCount, Turn, TurnInspectorDetail, TurnUsage } from "
 import { unavailableTokenCount } from "@gh-cp-chat-analyser/domain";
 import type { LogProvider, LogProviderAvailability } from "../log-provider.js";
 import { buildContentPart } from "../build-content-parts.js";
-import { harEntryToRawExchange, readHarFile } from "./har.js";
+import { harEntryToRawExchange, readHarFile, type HarEntry } from "./har.js";
 import { decodeExchange } from "./decoders/registry.js";
 import type { MitmExchangeDecoder } from "./decoders/decoder.js";
-import { computeHarSessionId } from "./session-id.js";
+import { computeHarSessionId, computeSegmentSessionId, parseSegmentSessionId } from "./session-id.js";
+import { DEFAULT_IDLE_GAP_THRESHOLD_MS, splitEntriesByIdleGap } from "./split-entries-by-idle-gap.js";
 
 const PROVIDER_ID = "mitmproxy";
 const NO_AI_CREDITS_REASON =
@@ -16,6 +17,7 @@ const NO_AI_CREDITS_REASON =
 export interface MitmproxyLogProviderOptions {
   capturesDirPath: string | null;
   decoders?: MitmExchangeDecoder[];
+  idleGapThresholdMs?: number;
 }
 
 function reasonOf(tokenCount: TokenCount): string {
@@ -33,15 +35,20 @@ function buildExchangeExplanation(usage: TurnUsage): string {
 }
 
 // Adapts a local mitmproxy HAR capture into the LogProvider contract
-// (architecture.md §6.2.3): one configured captures directory, one session
-// per .har file in it, each
-// HAR entry decoded through the vendor decoder registry after credential
-// redaction (har.ts/redact-headers.ts).
+// (architecture.md §6.2.3): one configured captures directory, one or more
+// sessions per .har file in it (split by an idle-gap heuristic — §13,
+// resolved — when a long-running capture spans multiple coding-agent
+// runs), each HAR entry decoded through the vendor decoder registry after
+// credential redaction (har.ts/redact-headers.ts).
 export class MitmproxyLogProvider implements LogProvider {
   readonly id = PROVIDER_ID;
   readonly label = "mitmproxy (HAR capture)";
 
   constructor(private readonly options: MitmproxyLogProviderOptions) {}
+
+  private get idleGapThresholdMs(): number {
+    return this.options.idleGapThresholdMs ?? DEFAULT_IDLE_GAP_THRESHOLD_MS;
+  }
 
   private listHarFiles(): string[] {
     const dir = this.options.capturesDirPath;
@@ -77,12 +84,30 @@ export class MitmproxyLogProvider implements LogProvider {
     return { available: true };
   }
 
-  private buildSessionFromFile(filePath: string): Session {
-    const id = computeHarSessionId(filePath);
+  // A file's entries are split into one or more idle-gap segments (recomputed
+  // fresh on every call rather than cached, matching this class's existing
+  // no-caching posture — a capture file still being written to should be
+  // re-read, not served stale), each becoming its own Session.
+  private buildSessionsFromFile(filePath: string): Session[] {
     const har = readHarFile(filePath);
     const decoders = this.options.decoders ?? [];
+    const segments = splitEntriesByIdleGap(har.log.entries, this.idleGapThresholdMs);
 
-    const turns: Turn[] = har.log.entries.map((entry, index) => {
+    return segments.map((entries, segmentIndex) =>
+      this.buildSessionFromSegment(filePath, entries, segmentIndex, segments.length, decoders),
+    );
+  }
+
+  private buildSessionFromSegment(
+    filePath: string,
+    entries: HarEntry[],
+    segmentIndex: number,
+    segmentCount: number,
+    decoders: MitmExchangeDecoder[],
+  ): Session {
+    const id = computeSegmentSessionId(filePath, segmentIndex);
+
+    const turns: Turn[] = entries.map((entry, index) => {
       const exchange = harEntryToRawExchange(entry);
       const normalized = decodeExchange(exchange, decoders);
       return {
@@ -101,13 +126,15 @@ export class MitmproxyLogProvider implements LogProvider {
       knownUsageTurns.length > 0
         ? knownUsageTurns[knownUsageTurns.length - 1].usage.model
         : "unknown";
-    const startedAt = har.log.entries[0]?.startedDateTime;
+    const startedAt = entries[0]?.startedDateTime;
+    const baseName = path.basename(filePath);
+    const title = segmentCount > 1 ? `${baseName} (session ${segmentIndex + 1} of ${segmentCount})` : baseName;
 
     return {
       id,
       mode: "analyze",
       providerId: PROVIDER_ID,
-      title: path.basename(filePath),
+      title,
       model,
       turns,
       turnCount: turns.length,
@@ -118,18 +145,25 @@ export class MitmproxyLogProvider implements LogProvider {
   }
 
   async listSessions(): Promise<Session[]> {
-    return this.listHarFiles().map((file) => ({
-      ...this.buildSessionFromFile(file),
-      turns: [],
-    }));
+    return this.listHarFiles().flatMap((file) =>
+      this.buildSessionsFromFile(file).map((session) => ({ ...session, turns: [] })),
+    );
+  }
+
+  private findFileByHash(fileHash: string): string | null {
+    return this.listHarFiles().find((candidate) => computeHarSessionId(candidate) === fileHash) ?? null;
   }
 
   async readSession(sessionId: string): Promise<Session | null> {
-    const file = this.listHarFiles().find((candidate) => computeHarSessionId(candidate) === sessionId);
+    const parsed = parseSegmentSessionId(sessionId);
+    if (!parsed) {
+      return null;
+    }
+    const file = this.findFileByHash(parsed.fileHash);
     if (!file) {
       return null;
     }
-    return this.buildSessionFromFile(file);
+    return this.buildSessionsFromFile(file)[parsed.segmentIndex] ?? null;
   }
 
   // A HAR entry is already a complete, self-contained request/response pair
@@ -140,13 +174,23 @@ export class MitmproxyLogProvider implements LogProvider {
   // entirely (decoders normalize usage, discarding message content, which
   // is exactly what this feature needs back).
   async readTurnDetail(sessionId: string, turnIndex: number): Promise<TurnInspectorDetail | null> {
-    const file = this.listHarFiles().find((candidate) => computeHarSessionId(candidate) === sessionId);
+    const parsed = parseSegmentSessionId(sessionId);
+    if (!parsed) {
+      return null;
+    }
+    const file = this.findFileByHash(parsed.fileHash);
     if (!file) {
       return null;
     }
 
     const har = readHarFile(file);
-    const entry = har.log.entries[turnIndex];
+    const segments = splitEntriesByIdleGap(har.log.entries, this.idleGapThresholdMs);
+    const segmentEntries = segments[parsed.segmentIndex];
+    if (!segmentEntries) {
+      return null;
+    }
+    // turnIndex is segment-relative, not whole-file-relative.
+    const entry = segmentEntries[turnIndex];
     if (!entry) {
       return null;
     }

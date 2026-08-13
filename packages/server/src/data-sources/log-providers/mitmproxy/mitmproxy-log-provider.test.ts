@@ -6,7 +6,7 @@ import { anthropicDecoder } from "./decoders/anthropic.js";
 import { openAiDecoder } from "./decoders/openai.js";
 import { UNRECOGNIZED_VENDOR_REASON } from "./decoders/registry.js";
 import { MitmproxyLogProvider } from "./mitmproxy-log-provider.js";
-import { computeHarSessionId } from "./session-id.js";
+import { computeSegmentSessionId } from "./session-id.js";
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -39,12 +39,12 @@ describe("MitmproxyLogProvider", () => {
     await expect(provider.checkAvailability()).resolves.toEqual({ available: true });
   });
 
-  it("lists one session per .har file, none from unrelated files in the directory", async () => {
+  it("lists one session per .har file when no entry gap exceeds the idle-gap threshold, none from unrelated files in the directory", async () => {
     const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
 
     const sessions = await provider.listSessions();
 
-    expect(sessions.length).toBeGreaterThanOrEqual(7);
+    expect(sessions.length).toBeGreaterThanOrEqual(9);
     for (const session of sessions) {
       expect(session.providerId).toBe("mitmproxy");
       expect(session.turns).toEqual([]);
@@ -53,7 +53,7 @@ describe("MitmproxyLogProvider", () => {
 
   it("with zero decoders registered, every exchange comes back unavailable (unrecognized vendor)", async () => {
     const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir, decoders: [] });
-    const id = computeHarSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"));
+    const id = computeSegmentSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"), 0);
 
     const session = await provider.readSession(id);
 
@@ -69,7 +69,7 @@ describe("MitmproxyLogProvider", () => {
       capturesDirPath: fixturesDir,
       decoders: [anthropicDecoder, openAiDecoder],
     });
-    const id = computeHarSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"));
+    const id = computeSegmentSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"), 0);
 
     const session = await provider.readSession(id);
 
@@ -83,7 +83,7 @@ describe("MitmproxyLogProvider", () => {
       capturesDirPath: fixturesDir,
       decoders: [anthropicDecoder, openAiDecoder],
     });
-    const id = computeHarSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"));
+    const id = computeSegmentSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"), 0);
 
     const session = await provider.readSession(id);
 
@@ -97,7 +97,7 @@ describe("MitmproxyLogProvider", () => {
   });
 
   describe("readTurnDetail", () => {
-    const id = computeHarSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"));
+    const id = computeSegmentSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"), 0);
 
     it("returns exactly one round with the full raw request/response body as text parts", async () => {
       const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
@@ -125,6 +125,81 @@ describe("MitmproxyLogProvider", () => {
       await expect(provider.readTurnDetail(id, 999)).resolves.toBeNull();
     });
   });
+
+  describe("idle-gap splitting", () => {
+    const idleGapFile = path.join(fixturesDir, "idle-gap-split.har");
+
+    it("splits one .har file into multiple sessions when a consecutive-entry gap exceeds the idle-gap threshold", async () => {
+      const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
+
+      const sessions = await provider.listSessions();
+      const split = sessions.filter((session) => session.title.startsWith("idle-gap-split.har"));
+
+      expect(split).toHaveLength(2);
+      expect(split.map((session) => session.title)).toEqual([
+        "idle-gap-split.har (session 1 of 2)",
+        "idle-gap-split.har (session 2 of 2)",
+      ]);
+    });
+
+    it("a file with no gap exceeding the threshold keeps the bare filename as its title", async () => {
+      const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
+
+      const sessions = await provider.listSessions();
+      const session = sessions.find((s) => s.title === "anthropic-non-streamed.har");
+
+      expect(session).toBeDefined();
+    });
+
+    it("readSession returns the first segment's 2 turns for segment 0 of the split file", async () => {
+      const provider = new MitmproxyLogProvider({
+        capturesDirPath: fixturesDir,
+        decoders: [anthropicDecoder, openAiDecoder],
+      });
+
+      const session = await provider.readSession(computeSegmentSessionId(idleGapFile, 0));
+
+      expect(session?.turns).toHaveLength(2);
+      expect(session?.turns[0].index).toBe(0);
+      expect(session?.turns[1].index).toBe(1);
+    });
+
+    it("each split segment's turn indices restart at 0", async () => {
+      const provider = new MitmproxyLogProvider({
+        capturesDirPath: fixturesDir,
+        decoders: [anthropicDecoder, openAiDecoder],
+      });
+
+      const session = await provider.readSession(computeSegmentSessionId(idleGapFile, 1));
+
+      expect(session?.turns).toHaveLength(1);
+      expect(session?.turns[0].index).toBe(0);
+    });
+
+    it("readSession returns null for a segment index beyond the file's actual segment count", async () => {
+      const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
+
+      await expect(provider.readSession(computeSegmentSessionId(idleGapFile, 5))).resolves.toBeNull();
+    });
+
+    it("readTurnDetail indexes turnIndex relative to the segment, not the whole file", async () => {
+      const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir });
+
+      const detail = await provider.readTurnDetail(computeSegmentSessionId(idleGapFile, 1), 0);
+
+      expect(detail).not.toBeNull();
+      expect(detail!.rounds[0].request.addedMessages[0]).toEqual({ kind: "text", text: expect.stringContaining("turn 3") });
+    });
+
+    it("idleGapThresholdMs can be overridden to split on a smaller gap", async () => {
+      const provider = new MitmproxyLogProvider({ capturesDirPath: fixturesDir, idleGapThresholdMs: 60_000 });
+
+      const sessions = await provider.listSessions();
+      const split = sessions.filter((session) => session.title.startsWith("idle-gap-split.har"));
+
+      expect(split).toHaveLength(3);
+    });
+  });
 });
 
 describeLogProviderContract("MitmproxyLogProvider", {
@@ -133,7 +208,7 @@ describeLogProviderContract("MitmproxyLogProvider", {
       capturesDirPath: fixturesDir,
       decoders: [anthropicDecoder, openAiDecoder],
     }),
-  knownSessionId: computeHarSessionId(path.join(fixturesDir, "anthropic-non-streamed.har")),
+  knownSessionId: computeSegmentSessionId(path.join(fixturesDir, "anthropic-non-streamed.har"), 0),
   unknownSessionId: "does-not-exist",
   buildUnavailableProvider: () => new MitmproxyLogProvider({ capturesDirPath: null }),
   turnIndexWithRoundTrip: 0,

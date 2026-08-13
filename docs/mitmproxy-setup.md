@@ -210,8 +210,11 @@ extension (Copilot Chat included) keeps routing through the dead proxy.
 
 ## 7. Drop the file where the app looks for it
 
-The app watches a fixed directory (no in-app path setting) — one `.har`
-file becomes one session:
+The app watches a fixed directory (no in-app path setting). Each `.har`
+file becomes one or more sessions: if you captured multiple separate
+coding-agent runs into one long-running `mitmdump` capture, the app
+automatically splits them at any gap of more than 30 minutes between two
+captured exchanges.
 
 ```sh
 mkdir -p ~/.config/gh-cp-chat-analyser/mitmproxy-captures
@@ -233,7 +236,11 @@ curl -X PUT http://127.0.0.1:3001/api/log-providers/active \
 ```
 
 Each `.har` file in the captures directory shows up as one session in
-Analyze mode. An exchange whose vendor shape isn't recognized by any
-registered decoder is reported as unavailable rather than guessed
+Analyze mode, or several if the app detected an idle gap of more than 30
+minutes between exchanges within it (e.g. you left `mitmdump` running
+across more than one coding-agent run) — split sessions are titled
+`<filename> (session i of N)` to tell them apart. An exchange whose vendor
+shape isn't recognized by any registered decoder is reported as unavailable
+rather than guessed
 (architecture.md's decoder-registry contract) — expected for any vendor
 without a matching decoder yet.

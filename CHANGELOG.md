@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- mitmproxy provider: a single `.har` capture is now split into multiple
+  Analyze-mode sessions when a gap of more than 30 minutes separates two
+  captured exchanges, so one long-running capture spanning several
+  coding-agent runs no longer shows up as one mixed-together session.
+  Split sessions are titled `<filename> (session i of N)`.
 - Zoomable icicle diagram for the system-prompt inspector: flexbox bars
   (one row per visible depth level, each bar sized proportionally to its
   section's character count) with click-to-zoom into subparts and a

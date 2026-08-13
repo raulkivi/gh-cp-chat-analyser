@@ -915,8 +915,18 @@ implementation revealed a simpler shape:
   beyond `activeProviderId`). See
   [mitmproxy-setup.md](mitmproxy-setup.md) for how to actually install
   mitmproxy, trust its CA, capture traffic, and produce that HAR file. One
-  `.har` file = one session (§3), id = a
-  hash of the file's path + mtime.
+  `.har` file is split into one or more sessions by an idle-gap heuristic
+  (§13, resolved): a gap between two consecutive HAR entries'
+  `startedDateTime` greater than a threshold (default 30 minutes,
+  `MitmproxyLogProviderOptions.idleGapThresholdMs`) starts a new session —
+  `split-entries-by-idle-gap.ts`. A session's id is
+  `<computeHarSessionId(filePath)>-<segmentIndex>` (`session-id.ts`) — the
+  file-hash part is still the same stat-based path+mtime hash as before, so
+  a re-exported/overwritten file at the same path still gets fresh ids
+  rather than reusing stale content. A file whose entries never have a gap
+  over the threshold still produces exactly one session, titled with the
+  bare filename unchanged; N>1 sessions are titled `<filename> (session i
+  of N)`.
 - `MitmExchangeDecoder.recognizes()` works from `RawMitmExchange`'s headers/
   body alone — there is no request URL in the redacted-exchange shape
   (deliberately: mitmproxy hosts vary and the decoder boundary shouldn't
@@ -1416,14 +1426,20 @@ Carried over from vision §7 plus new ones raised while designing this layer:
   [agentic-coding-explained.md](agentic-coding-explained.md) as it evolves —
   the vision doc doesn't mandate automated drift-checking, but a periodic
   manual review is worth deciding on explicitly.
-- Whether one mitmproxy capture file should always equal one session (the
-  Phase 9 MVP choice) or whether entries should later be grouped into
-  sessions by an idle-gap
-  heuristic when a user keeps one long-running capture across multiple
-  coding-agent runs.
 - Whether the app-owned settings file should ever hold more than the active
   provider id (e.g. per-provider capture paths) once a provider needs
   user-supplied configuration beyond a single path.
+
+**Resolved:** whether one mitmproxy capture file should always equal one
+session — no. A file is now split into one or more sessions by an idle-gap
+heuristic: a gap between consecutive HAR entries greater than 30 minutes
+(default, configurable via `MitmproxyLogProviderOptions.idleGapThresholdMs`)
+starts a new session (`split-entries-by-idle-gap.ts`). 30 minutes was
+chosen as comfortably above the ~5-minute in-session pauses this app's own
+Learn-mode cache-TTL scenarios already treat as normal, while still
+separating genuinely distinct, manually-started captures. See §6.2.3's
+mitmproxy capture configuration convention note above for the resulting id
+scheme and title convention.
 
 **Raised by the Phase 8 design handoff, resolved in the v2 handoff
 (`Design/GitHub chat analyser design 2.zip`) and implemented as designed**

@@ -14,8 +14,8 @@ happened inline in parent turn 2 instead...").
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Vision | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content — identical to Scenario 1, turn 1 | 4500 | 0 | 4500 | 950 | 0 | 0 | 300 | 250 | **6000** | **0.0411 AI Credits** |
-| 2 | **Investigates the bug inline** instead of spawning a subagent: the full ~7090-token search-and-read trajectory is written directly into the parent's own cache | 7090 | 4500 | 11590 | 300 | 700 | 0 | 200 | 180 | **13970** | **0.0573 AI Credits** |
-| 3 | Implements the fix; cache read is now 11590, nearly double Scenario 1's 5980 at the same point | 1080 | 11590 | 12670 | 150 | 0 | 400 | 250 | 280 | **14350** | **0.0232 AI Credits** |
+| 2 | **Investigates the bug inline** instead of spawning a subagent: the full ~7090-token search-and-read trajectory is written directly into the parent's own cache | 7090 | 4500 | 11590 | 300 | 700 | 0 | 200 | 180 | **12970** | **0.0573 AI Credits** |
+| 3 | Implements the fix; cache read is now 11590, nearly double Scenario 1's 5980 at the same point | 1080 | 11590 | 12670 | 150 | 0 | 400 | 250 | 280 | **13750** | **0.0232 AI Credits** |
 | 4 | Runs the (verbose) test suite; every turn from here on carries the extra ~5610 tokens turn 2 added | 2350 | 12670 | 15020 | 100 | 0 | 1800 | 150 | 300 | **17370** | **0.0373 AI Credits** |
 | 5 | Final "thanks" message, no new tool calls | 180 | 15020 | 15200 | 60 | 0 | 0 | 30 | 90 | **15380** | **0.0105 AI Credits** |
 

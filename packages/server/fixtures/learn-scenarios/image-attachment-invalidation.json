@@ -40,7 +40,7 @@
         "vision": { "known": true, "value": 0 },
         "reasoning": { "known": true, "value": 120 },
         "output": { "known": true, "value": 180 },
-        "costAiCredits": { "known": true, "value": 0.0115 },
+        "costAiCredits": { "known": true, "value": 0.011 },
         "model": "example-model"
       },
       "explanation": "Normal turn; reads/extends the cache built by turn 1."

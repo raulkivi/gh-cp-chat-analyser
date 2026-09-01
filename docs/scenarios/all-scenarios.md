@@ -633,9 +633,9 @@ practice it's total invalidation every time, not just a partial one.
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
-| 3 | **`copilot-instructions.md` is edited mid-session**: the change sits at byte 0 of the prefix, so nothing before it can match either — a full cache miss, not a partial one | 4700 | 0 | 4700 | 4150 | 0 | 200 | 220 | **9070** | **0.0562 AI Credits** |
-| 4 | Normal turn on the post-edit baseline; cache rebuilds under the updated instructions | 600 | 4700 | 5300 | 130 | 300 | 140 | 170 | **6070** | **0.0129 AI Credits** |
-| 5 | Normal turn; no further disruption | 220 | 5300 | 5520 | 70 | 0 | 60 | 90 | **5520** | **0.0066 AI Credits** |
+| 3 | **`copilot-instructions.md` is edited mid-session**: the change sits at byte 0 of the prefix, so nothing before it can match either — a full cache miss, not a partial one | 4700 | 0 | 4700 | 4150 | 0 | 200 | 220 | **9270** | **0.0562 AI Credits** |
+| 4 | Normal turn on the post-edit baseline; cache rebuilds under the updated instructions | 600 | 4700 | 5300 | 130 | 300 | 140 | 170 | **6040** | **0.0129 AI Credits** |
+| 5 | Normal turn; no further disruption | 220 | 5300 | 5520 | 70 | 0 | 60 | 90 | **5740** | **0.0066 AI Credits** |
 
 ```mermaid
 sequenceDiagram
@@ -687,8 +687,8 @@ the request itself was a recognized event.
 | 1 | Normal turn; writes static prefix + own content. No `.sql` files touched yet, so the path-scoped SQL instructions aren't loaded | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache. Still no `.sql` files touched | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
 | 3 | **First `.sql` file touched this session**: silently pulls in a path-scoped `applyTo: **/*.sql` instructions block grouped near the top of the prompt — invalidating everything cached after that position, with no visible trigger tag | 4700 | 0 | 4700 | 4200 | 150 | 210 | 200 | **9460** | **0.0573 AI Credits** |
-| 4 | Normal turn under the newly-included SQL instructions block | 650 | 4700 | 5350 | 140 | 200 | 130 | 160 | **6080** | **0.0125 AI Credits** |
-| 5 | Normal turn; no further disruption | 230 | 5350 | 5580 | 70 | 0 | 70 | 100 | **5580** | **0.0070 AI Credits** |
+| 4 | Normal turn under the newly-included SQL instructions block | 650 | 4700 | 5350 | 140 | 200 | 130 | 160 | **5980** | **0.0125 AI Credits** |
+| 5 | Normal turn; no further disruption | 230 | 5350 | 5580 | 70 | 0 | 70 | 100 | **5820** | **0.0070 AI Credits** |
 
 Turn 3's cost (**0.0573 AI Credits**, ~5x turn 2) is mechanically identical to
 [Scenario 10](#scenario-10)'s deliberate instructions edit — same
@@ -720,8 +720,8 @@ happened inline in parent turn 2 instead...").
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Vision | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Explores repo (`read_file`/`grep_search`); writes static prefix + own content — identical to Scenario 1, turn 1 | 4500 | 0 | 4500 | 950 | 0 | 0 | 300 | 250 | **6000** | **0.0411 AI Credits** |
-| 2 | **Investigates the bug inline** instead of spawning a subagent: the full ~7090-token search-and-read trajectory is written directly into the parent's own cache | 7090 | 4500 | 11590 | 300 | 700 | 0 | 200 | 180 | **13970** | **0.0573 AI Credits** |
-| 3 | Implements the fix; cache read is now 11590, nearly double Scenario 1's 5980 at the same point | 1080 | 11590 | 12670 | 150 | 0 | 400 | 250 | 280 | **14350** | **0.0232 AI Credits** |
+| 2 | **Investigates the bug inline** instead of spawning a subagent: the full ~7090-token search-and-read trajectory is written directly into the parent's own cache | 7090 | 4500 | 11590 | 300 | 700 | 0 | 200 | 180 | **12970** | **0.0573 AI Credits** |
+| 3 | Implements the fix; cache read is now 11590, nearly double Scenario 1's 5980 at the same point | 1080 | 11590 | 12670 | 150 | 0 | 400 | 250 | 280 | **13750** | **0.0232 AI Credits** |
 | 4 | Runs the (verbose) test suite; every turn from here on carries the extra ~5610 tokens turn 2 added | 2350 | 12670 | 15020 | 100 | 0 | 1800 | 150 | 300 | **17370** | **0.0373 AI Credits** |
 | 5 | Final "thanks" message, no new tool calls | 180 | 15020 | 15200 | 60 | 0 | 0 | 30 | 90 | **15380** | **0.0105 AI Credits** |
 
@@ -769,14 +769,14 @@ same 5+ minute smoke break between turns 7 and 8 — but this session pays the
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content (2x cache-write rate) | 3000 | 0 | 3000 | 400 | 0 | 200 | **3600** | **0.0425 AI Credits** |
 | 2 | Normal turn; reads/extends the cache | 500 | 3000 | 3500 | 150 | 0 | 150 | **3800** | **0.0108 AI Credits** |
-| 3 | Explores code with a couple of tool calls | 450 | 3500 | 3950 | 140 | 300 | 180 | **4570** | **0.0116 AI Credits** |
+| 3 | Explores code with a couple of tool calls | 450 | 3500 | 3950 | 140 | 300 | 180 | **4570** | **0.0122 AI Credits** |
 | 4 | Applies an edit, runs a quick check | 600 | 3950 | 4550 | 130 | 500 | 200 | **5380** | **0.0156 AI Credits** |
 | 5 | Normal follow-up turn | 400 | 4550 | 4950 | 120 | 0 | 160 | **5230** | **0.0103 AI Credits** |
 | 6 | Normal follow-up turn | 380 | 4950 | 5330 | 110 | 0 | 150 | **5590** | **0.0100 AI Credits** |
 | 7 | Normal follow-up turn — cache is healthy (5750 tokens) | 420 | 5330 | 5750 | 130 | 0 | 170 | **6050** | **0.0111 AI Credits** |
 | *(user steps away — smoke break, >5 minutes idle)* | | | | | | | | | |
 | 8 | **No cache miss**: the 1-hour breakpoint bought on turn 1 comfortably outlasts the break — this turn behaves like any normal turn | 430 | 5750 | 6180 | 130 | 0 | 170 | **6480** | **0.0115 AI Credits** |
-| 9 | Normal turn; cache keeps growing uninterrupted | 430 | 6180 | 6610 | 120 | 0 | 150 | **6900** | **0.0113 AI Credits** |
+| 9 | Normal turn; cache keeps growing uninterrupted | 430 | 6180 | 6610 | 120 | 0 | 150 | **6880** | **0.0113 AI Credits** |
 | 10 | Normal turn | 300 | 6610 | 6910 | 90 | 0 | 120 | **7120** | **0.0093 AI Credits** |
 
 ```mermaid
@@ -872,7 +872,7 @@ there, independent of how many vision tokens the image itself costs.
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Vision | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; writes static prefix + own content. No image yet | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
-| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 0 | 120 | 180 | **4700** | **0.0115 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 0 | 120 | 180 | **4600** | **0.0110 AI Credits** |
 | 3 | **First screenshot attached**: invalidates the prefix at the point of insertion, on top of its own 700 vision tokens | 4700 | 0 | 4700 | 4200 | 700 | 180 | 190 | **9970** | **0.0594 AI Credits** |
 | 4 | Normal turn; the image is now baked into the cache like any other content | 220 | 4700 | 4920 | 70 | 0 | 60 | 90 | **5140** | **0.0063 AI Credits** |
 | 5 | **Second screenshot attached, later in the session**: the same invalidation happens again — per-occurrence, not one-time | 5300 | 0 | 5300 | 5000 | 650 | 160 | 170 | **11280** | **0.0663 AI Credits** |
@@ -911,9 +911,9 @@ turned on, used, and turned back off within a single session.
 | Turn | What happens | Cache write | Cache read | Cache size after | Uncached input | Tool | Reasoning | Output text | **Turn total** | **Turn AI Credits** |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | Normal turn; extended thinking off, reasoning at baseline | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
-| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 0 | 120 | 180 | **4700** | **0.0110 AI Credits** |
+| 2 | Normal turn; reads/extends the cache | 600 | 3500 | 4100 | 200 | 0 | 120 | 180 | **4600** | **0.0110 AI Credits** |
 | 3 | **Extended thinking turned on**: the thinking-budget parameter changes the request shape, invalidating the cache; reasoning tokens jump sharply | 4650 | 0 | 4650 | 4150 | 0 | 900 | 250 | **9950** | **0.0671 AI Credits** |
-| 4 | Normal turn under the new (elevated) reasoning budget | 700 | 4650 | 5350 | 130 | 200 | 400 | 220 | **6200** | **0.0177 AI Credits** |
+| 4 | Normal turn under the new (elevated) reasoning budget | 700 | 4650 | 5350 | 130 | 200 | 400 | 220 | **6300** | **0.0177 AI Credits** |
 | 5 | **Extended thinking turned back off**: the same invalidation happens again, in the other direction | 5800 | 0 | 5800 | 5420 | 0 | 100 | 120 | **11440** | **0.0667 AI Credits** |
 
 ```mermaid
@@ -957,7 +957,7 @@ everything that branch had already added — for a fresh pair of sub-branches.
 | 2 | Normal turn, still on the trunk | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
 | 3 | **First fork**: Branch A (Redis) and Branch B (in-memory LRU, not detailed here) both start from this 4620-token prefix | 520 | 4100 | 4620 | 220 | 0 | 140 | 160 | **5140** | **0.0109 AI Credits** |
 | A · 4 | Branch A implements the Redis-based strategy, reading the shared trunk as a cache hit | 1000 | 4620 | 5620 | 150 | 500 | 160 | 190 | **6620** | **0.0171 AI Credits** |
-| A · 5 | **Second fork, nested inside Branch A**: Branch A.1 (write-through) and A.2 (write-back, not detailed here) both start from this 6100-token prefix — the original trunk *plus* Branch A's own work | 480 | 5620 | 6100 | 140 | 0 | 130 | 150 | **6480** | **0.0107 AI Credits** |
+| A · 5 | **Second fork, nested inside Branch A**: Branch A.1 (write-through) and A.2 (write-back, not detailed here) both start from this 6100-token prefix — the original trunk *plus* Branch A's own work | 480 | 5620 | 6100 | 140 | 0 | 130 | 150 | **6520** | **0.0107 AI Credits** |
 | A.1 · 6 | Branch A.1 implements the write-through variant, reading the full nested trunk as a cache hit | 350 | 6100 | 6450 | 90 | 300 | 100 | 140 | **7080** | **0.0108 AI Credits** |
 
 ```mermaid

@@ -24,8 +24,8 @@ the request itself was a recognized event.
 | 1 | Normal turn; writes static prefix + own content. No `.sql` files touched yet, so the path-scoped SQL instructions aren't loaded | 3500 | 0 | 3500 | 500 | 0 | 150 | 150 | **4300** | **0.0289 AI Credits** |
 | 2 | Normal turn; reads/extends the cache. Still no `.sql` files touched | 600 | 3500 | 4100 | 200 | 100 | 120 | 180 | **4700** | **0.0115 AI Credits** |
 | 3 | **First `.sql` file touched this session**: silently pulls in a path-scoped `applyTo: **/*.sql` instructions block grouped near the top of the prompt — invalidating everything cached after that position, with no visible trigger tag | 4700 | 0 | 4700 | 4200 | 150 | 210 | 200 | **9460** | **0.0573 AI Credits** |
-| 4 | Normal turn under the newly-included SQL instructions block | 650 | 4700 | 5350 | 140 | 200 | 130 | 160 | **6080** | **0.0125 AI Credits** |
-| 5 | Normal turn; no further disruption | 230 | 5350 | 5580 | 70 | 0 | 70 | 100 | **5580** | **0.0070 AI Credits** |
+| 4 | Normal turn under the newly-included SQL instructions block | 650 | 4700 | 5350 | 140 | 200 | 130 | 160 | **5980** | **0.0125 AI Credits** |
+| 5 | Normal turn; no further disruption | 230 | 5350 | 5580 | 70 | 0 | 70 | 100 | **5820** | **0.0070 AI Credits** |
 
 Turn 3's cost (**0.0573 AI Credits**, ~5x turn 2) is mechanically identical to
 [Scenario 10](10-instructions-edit.md)'s deliberate instructions edit — same

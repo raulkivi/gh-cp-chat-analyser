@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Switched to American English spelling ("Analyzer", "canceled", "unlabeled")
   throughout app UI text and documentation.
+- Corrected several Learn-mode arithmetic errors found in a fact-check of the
+  scenario docs: wrong per-turn token totals in Scenarios 10-13, 15-17
+  (`docs/scenarios/`), a wrong AI Credits figure in Scenario 13, and a
+  missing-diagram mislabel for Scenarios 8, 12, 15, 17 in the scenario index.
+  Two of the AI Credits errors were baked into the served fixtures
+  (`image-attachment-invalidation.json` turn 2, `cache-ttl-1-hour-breakpoint.json`
+  turn 3), so Learn mode now shows the corrected values for those turns.
 
 ## [0.4.0] - 2026-08-10
 ### Added

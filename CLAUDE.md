@@ -42,7 +42,7 @@ content here.
   `packages/web` (Vite + React, styled with the "Industry" design system
   ported from `Design/` into `theme.css` — header with mode switch and an
   Analyze-mode provider select, a searchable session list showing each
-  session's total AI Credits, a 12-column turns table (incl. a running
+  session's total AI Credits, a 13-column turns table (incl. a running
   cumulative AI Credits total per row; AI Credits figures are rounded to 2
   decimal places throughout), a tabbed Explanation/System-prompt/Tools right
   column, a dismissible structured config-warning banner (required vs.

@@ -121,7 +121,7 @@ only reads local files.
 
 ### Choosing a log provider
 
-Analyze mode reads from one of two local sources, picked via the **Source**
+Analyze mode reads from one of three local sources, picked via the **Source**
 dropdown that appears in the header once you're in Analyze mode. The same
 header area also holds the **Retention** field described below:
 
@@ -136,6 +136,14 @@ header area also holds the **Retention** field described below:
   single capture is automatically split into separate sessions wherever
   there's a 30+ minute idle gap between requests, so unrelated runs left
   recording in the background don't get mixed into one session.
+- **pi coding agent** — reads session logs written by the [pi coding
+  agent](https://pi.dev) directly from `~/.pi/agent/sessions/`, no capture
+  step needed. Because a pi session can branch (fork/rewind to try a
+  different approach mid-session), a session file with unmerged branches
+  shows up as multiple sessions, titled `<name> (branch i of N)` — one per
+  branch tip. Tool-call, vision, and reasoning token breakdowns, plus AI
+  Credits (a GitHub Copilot-specific billing unit pi has no equivalent of),
+  are not yet available for pi sessions.
 
 Switching the source clears the currently-selected session and reloads the
 session list from the newly active provider. A provider shows

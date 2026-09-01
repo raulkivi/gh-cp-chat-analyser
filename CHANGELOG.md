@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- New Analyze-mode log provider, `pi-agent`, reading the
+  [pi coding agent](https://pi.dev)'s native JSONL session format directly
+  (`~/.pi/agent/sessions/`) — selectable alongside `vscode`/`mitmproxy` via
+  the existing provider select, with no API or frontend changes required.
+  Since a pi session is a branchable tree (fork/rewind), a session file with
+  unmerged branches now lists one session per branch tip, titled
+  `<name> (branch i of N)`, the same "one file, many sessions" pattern
+  already used for mitmproxy's idle-gap splitting. `tool`/`vision`/`reasoning`
+  token breakdowns and `costAiCredits` are marked unavailable for pi sessions
+  pending confirmation against a real captured session (no fabricated
+  numbers, per the app's usual policy).
 - mitmproxy provider: a single `.har` capture is now split into multiple
   Analyze-mode sessions when a gap of more than 30 minutes separates two
   captured exchanges, so one long-running capture spanning several

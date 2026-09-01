@@ -4,10 +4,11 @@ A local app that helps you optimize the cost of agentic coding with GitHub
 Copilot Chat. It explains how Copilot Chat's prompt caching, token
 accounting, and tool calls actually work under the hood, then gives you the
 same turn-by-turn breakdown for your own real sessions — from VS Code
-Copilot Chat sessions or local mitmproxy captures of LLM-provider traffic —
-so you can see exactly what's driving your token usage and AI Credits
-spend. Export a session's metadata (never chat message text) to get
-cost-optimization analysis and advice from an AI chat of your choice.
+Copilot Chat sessions, local mitmproxy captures of LLM-provider traffic, or
+[pi coding agent](https://pi.dev) session logs — so you can see exactly
+what's driving your token usage and AI Credits spend. Export a session's
+metadata (never chat message text) to get cost-optimization analysis and
+advice from an AI chat of your choice.
 
 ![App landing page, showing the Learn mode scenario list](docs/images/landing-page.png)
 
@@ -145,9 +146,12 @@ session turn by turn:
 
   ![Learn mode with a scenario selected: turns table, AI Credits sparkline, timeline scrubber, and the explanation panel](docs/images/learn-scenario.png)
 
-- **Analyze mode** — pick one of your own real Copilot Chat sessions to see
-  the same breakdown for what actually happened, plus (once debug logging
-  is enabled, above) a system-prompt breakdown, the full tool inventory
+- **Analyze mode** — pick one of your own real sessions (VS Code Copilot
+  Chat, a mitmproxy capture, or a pi coding agent session — see the **Source**
+  dropdown in the [User Guide](docs/UserGuide.md#choosing-a-log-provider)) to
+  see the same breakdown for what actually happened, plus (for VS Code
+  Copilot Chat sessions, once debug logging is enabled, above) a
+  system-prompt breakdown, the full tool inventory
   cross-referenced against which tools were actually invoked, and per-turn
   tool-call/file detail — behind a tabbed right-column panel that's
   Analyze-mode-only:

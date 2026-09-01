@@ -844,6 +844,61 @@ turns/:turnIndex` fills in the previously-undocumented route; frontend gained
   path-based chip even under the size threshold), and both reasoning cases
   (`"[encrypted]"` and real reasoning text) rendered inline.
 
+## Phase 9.6 — `pi` coding-agent log provider
+
+**Goal**: add a third `LogProvider`, reading the
+[pi coding agent](https://pi.dev)'s own JSONL session logs directly
+(architecture.md §6.2.5), with no changes to the session API contract or
+shared frontend components — the same OCP exit criterion Phase 9 proved.
+
+- `platform/pi-agent-paths`: resolve `~/.pi/agent/sessions` and enumerate its
+  `*.jsonl` files.
+- `data-sources/pi-agent`: a defensive line-by-line JSONL reader
+  (`pi-jsonl-reader.ts`); tree reconstruction over pi's fork/rewind-capable
+  entry graph (`session-tree.ts`); turn grouping by user message
+  (`turn-grouper.ts`, mirroring `groupEnvelopesByUserMessage`); usage/tool
+  extraction from pi's already-normalized per-message `usage` object
+  (`usage-extractor.ts`); a stable file+leaf session id scheme
+  (`session-id.ts`); `readTurnDetail` construction with no VS-Code-style
+  diffing needed since pi's entries are already incremental
+  (`turn-inspector-builder.ts`); and the `PiAgentLogProvider` class itself
+  wiring all of the above to the `LogProvider` contract.
+- Since `Session.turns` is a flat array and pi sessions are a branchable tree
+  (constraint 12 forbids changing that contract), one `Session` is produced
+  per leaf branch — the same "one file → N sessions" precedent as
+  mitmproxy's idle-gap split.
+- Register the new provider in `app.ts`'s explicit provider array alongside
+  `vscodeProvider`/`mitmproxyProvider`.
+- TDD order: path resolution → raw parsing → tree reconstruction → turn
+  grouping → usage extraction → turn-inspector builder → the provider class
+  against `describeLogProviderContract` → `app.ts` wiring → the existing
+  `app.test.ts` provider-list assertion updated for a third provider.
+
+**Exit criterion**: listing and selecting the `pi-agent` provider works
+through the unchanged `/api/sessions` API and existing frontend components;
+`describeLogProviderContract` passes for `PiAgentLogProvider` exactly as it
+does for the other two providers.
+
+**Dependencies**: Phase 9 (the `LogProvider` abstraction/registry this phase
+extends), Phase 9.5 (`readTurnDetail` is a required interface method).
+
+**Status (2026-09-01): built from pi's published docs schema, TDD-first —
+verification against a real captured pi session is still outstanding.**
+Every module above is implemented and covered by contract/unit tests against
+hand-authored fixtures (`packages/server/fixtures/pi-agent/`) derived from
+`https://pi.dev/docs/latest/session-format`, not yet a real capture — this
+repo's usual practice (§7, §11.4) is to pin extractors against real,
+redacted data before considering them final, and that step remains open for
+this provider. Consequently `tool`, `vision`, and `reasoning` token counts
+and `costAiCredits` ship permanently `{ known: false }` (see architecture.md
+§6.2.5's "Provisional pending a real captured session" note for the full
+list of what's confirmed vs. assumed). 61 new server tests pass; the
+existing `app.test.ts` provider-list assertion was updated for a third
+registered provider; full server suite (414 tests) and `tsc --noEmit` are
+clean. Once a real capture is available, revisit `usage-extractor.ts` and
+`turn-inspector-builder.ts`'s field-name assumptions and update this status
+note and architecture.md §6.2.5 accordingly.
+
 ## Phase 10 — VS Code extension packaging (future, out of MVP scope)
 
 Not part of the initial build (vision §5 "future path"); tracked here only
@@ -876,6 +931,7 @@ flowchart LR
     P6 --> P9
     P85 --> P9
     P9 --> P95["Phase 9.5<br/>Turn inspector"]
+    P95 --> P96["Phase 9.6<br/>pi-agent provider"]
     P95 --> P10["Phase 10<br/>VS Code extension (future)"]
     P5 --> P10
 ```

@@ -69,12 +69,16 @@ before deviating from this document:
     they verify, never retrofitted after the fact (§11.4). Every module
     boundary in §4/§10 is drawn along SOLID lines, not by convenience
     (§11.5).
-12. **Analyze ingestion is provider-extensible.** VS Code local logs and
-  mitmproxy captures are both supported log providers. A provider converts
-  its source into the normalized domain model through a provider-local
-  decoder pipeline; adding one must not change the session API contract or
-  frontend components. mitmproxy decoders are vendor-specific (at least
-  Anthropic and OpenAI) because their SDK wire formats differ.
+12. **Analyze ingestion is provider-extensible.** VS Code local logs,
+  mitmproxy captures, and the [pi coding agent](https://pi.dev)'s own JSONL
+  session logs are all supported log providers. A provider converts its
+  source into the normalized domain model through a provider-local decoder
+  pipeline; adding one must not change the session API contract or frontend
+  components. mitmproxy decoders are vendor-specific (at least Anthropic and
+  OpenAI) because their SDK wire formats differ. Unlike the other two, pi
+  already normalizes its own token usage per message, so its provider reads
+  and interprets that native format directly rather than decoding a raw
+  vendor wire protocol.
 
 ## 3. High-level system overview
 
@@ -91,6 +95,7 @@ flowchart TB
         Registry{"Log-provider registry<br/>(active provider selection)"}
         VscodeProvider["VS Code provider<br/>(SQLite + main.jsonl adapter)"]
         MitmProvider["mitmproxy provider<br/>+ vendor decoder registry"]
+        PiAgentProvider["pi-agent provider<br/>(native JSONL, branch-aware)"]
         ScenarioAdapter["Learn scenario adapter<br/>(bundled fixtures)"]
         SettingsAdapter["VS Code settings adapter<br/>(reads settings.json)"]
         ConfigCheck["Config-check service<br/>(runs at startup + on demand)"]
@@ -101,6 +106,7 @@ flowchart TB
         DB[("Local Copilot Chat<br/>SQLite session store")]
         Logs[("debug-logs/&lt;session-id&gt;/<br/>main.jsonl")]
         Capture[("mitmproxy capture<br/>(user-configured path)")]
+        PiSessions[("~/.pi/agent/sessions/<br/>*.jsonl")]
         Fixtures[("Bundled Learn-mode<br/>scenario files")]
         Settings[("VS Code user<br/>settings.json")]
         AppConfig[("App-owned local settings file")]
@@ -112,12 +118,14 @@ flowchart TB
     Registry --> VscodeProvider --> DB
     VscodeProvider --> Logs
     Registry --> MitmProvider --> Capture
+    Registry --> PiAgentProvider --> PiSessions
     Domain --> ScenarioAdapter --> Fixtures
     Registry --> AppSettings --> AppConfig
     API --> ConfigCheck --> SettingsAdapter --> Settings
     ConfigCheck -.->|warnings| Banner
     VscodeProvider --> Domain
     MitmProvider --> Domain
+    PiAgentProvider --> Domain
 ```
 
 The browser never talks to SQLite, mitmproxy captures, or the filesystem
@@ -143,6 +151,7 @@ outbound network calls.
 | `data-sources/log-providers/vscode` | Adapts the existing SQLite and `main.jsonl` readers into the `LogProvider` interface; VS Code-specific paths, settings, and event extraction stay here. Also owns the optional `agent-traces.db` cache-write/reasoning enrichment (Phase 8.5) — folded in here, not a separate provider id or a direct `app.ts` path (decided 2026-08-10, see `docs/log-provider-alternatives.md`) — and `turn-inspector-builder.ts` (Phase 9.5), which turns one turn's isolated envelopes into a `TurnInspectorDetail` (§6.2.4) |
 | `data-sources/log-providers/mitmproxy` | Reads local mitmproxy capture files and dispatches each intercepted LLM request/response to the vendor decoder that recognizes its SDK/protocol shape |
 | `data-sources/log-providers/mitmproxy/decoders` | Independent vendor decoders (initially Anthropic and OpenAI) that convert a matched exchange into provider-neutral intermediate records; an unrecognized exchange is reported as unavailable, never guessed |
+| `data-sources/pi-agent` | Reads the [pi coding agent](https://pi.dev)'s own JSONL session format (`~/.pi/agent/sessions/`) directly — no OS-level store dependency. Reconstructs pi's branchable entry tree, groups a branch into turns, and extracts usage already normalized per message by pi itself (no vendor wire-protocol decoding needed, unlike mitmproxy) |
 | `data-sources/learn-scenarios` | Loads bundled scenario fixtures (seeded from [agentic-coding-explained.md](agentic-coding-explained.md)) that already conform to the domain model, so Learn mode needs no parsing/enrichment step |
 | `services/session-enricher` | Converts a selected provider's normalized structural/usage records into `Session`/`Turn` values; it does not know whether they originated in VS Code, mitmproxy, Anthropic, or OpenAI |
 | `platform/vscode-paths` | Resolves the active VS Code variant's user-data directory across OSes (Linux/macOS/Windows, Stable/Insiders) so `sqlite`, `jsonl`, and `vscode-settings` all locate the right files without duplicating detection logic |
@@ -1045,6 +1054,70 @@ be opened) — rather than needing a second signal from this endpoint: `false`
 the fetch; `true` but `rounds: []` ⇒ "This turn made no request to the
 model."
 
+#### 6.2.5 pi-agent provider flow
+
+A third `LogProvider`, `PiAgentLogProvider`
+(`data-sources/pi-agent/pi-agent-log-provider.ts`), reads the
+[pi coding agent](https://pi.dev)'s own JSONL session format
+(`https://pi.dev/docs/latest/session-format`) directly:
+`~/.pi/agent/sessions/--<cwd-with-slashes-as-dashes>--/<timestamp>_<uuid>.jsonl`,
+one file per session. Unlike the VS Code and mitmproxy providers, pi already
+normalizes token usage per message (`AssistantMessage.usage`:
+`input`/`output`/`cacheRead`/`cacheWrite`), so there is no vendor wire-format
+decoding to do — the raw JSONL line already is the normalized event.
+
+**pi sessions are a branchable tree, not a linear history.** Every entry
+(besides the header) carries `id`/`parentId`, because fork/rewind operations
+create siblings sharing an ancestor. Since `Session.turns` is a flat array
+(§5) and constraint 12 forbids changing that contract, `PiAgentLogProvider`
+produces **one `Session` per leaf branch** — the same "one file → N
+sessions" precedent already set by the mitmproxy provider's idle-gap split
+(§6.2.3). `session-tree.ts`'s `findLeafEntryIds`/`walkBranch` do the tree
+reconstruction; a file with no forks still yields exactly one session. A
+multi-leaf file's sessions are titled `<name> (branch i of N)`, and a leaf's
+id is `<file hash>__branch__<leaf entry id>` (`session-id.ts`) — a
+`__branch__` separator rather than mitmproxy's numeric `-<segmentIndex>`
+suffix, since pi's own leaf ids are typically uuids that already contain
+hyphens.
+
+**Turn boundaries and usage** follow the same "group by user message"
+pattern already used for VS Code's `main.jsonl` (`turn-grouper.ts`'s
+`groupBranchEntriesByUserMessage`, mirroring `groupEnvelopesByUserMessage`).
+`usage-extractor.ts` sums every `AssistantMessage.usage` in a turn's span
+into `uncachedInput`/`output`/`cacheRead`/`cacheWrite` — a turn can contain
+several round-trips when the agent loops through tool calls before
+answering, same reasoning as the VS Code provider's per-turn `llm_request`
+summing.
+
+**Provisional pending a real captured session (constraint 5/§11.4's
+verify-against-real-data discipline).** This provider was built from pi's
+published docs schema; the project's usual practice of pinning extractors
+against a real, redacted capture is still outstanding for this provider.
+Until then:
+
+- `tool`, `vision`, and `reasoning` token counts stay permanently
+  `{ known: false }` — no confirmed field separates them from
+  `output`/`input` in the documented `usage` shape (`ToolResultMessage.usage`
+  exists but its shape is unconfirmed).
+- `costAiCredits` (both per-turn and session-level) is permanently
+  `{ known: false }`, the same precedent as the mitmproxy provider's
+  non-Copilot vendors (§6.2.3) — AI Credits is a Copilot-specific billing
+  unit with no defined conversion for pi's own USD cost.
+- `readTurnDetail` (`turn-inspector-builder.ts`) needs no VS-Code-style
+  array-length diffing across rounds — pi's JSONL entries are already
+  incremental (each is only its own new content) — but the exact content-
+  block field names it assumes (`text`/`content` on text/thinking blocks,
+  `id`/`name`/`args` on `toolCall` blocks) are inferred from pi's docs, not
+  yet confirmed against a real capture.
+- Fork vs. rewind disambiguation is approximate: a turn immediately
+  following a tree branch point (an entry claimed as `parentId` by more than
+  one other entry) is always tagged `triggeredEvent: "fork"`; a real
+  `branch_summary` entry's more specific intent isn't yet distinguished.
+
+No `systemPrompt`/`toolInventory` is populated (both Analyze-mode-only
+optional fields) — pi has no equivalent captured artifact, the same choice
+already made for the mitmproxy provider.
+
 ### 6.3 Startup configuration check
 
 ```mermaid
@@ -1216,6 +1289,7 @@ gh-cp-chat-analyser/
             vscode/
             mitmproxy/
               decoders/
+          pi-agent/
           sqlite/
           jsonl/
           learn-scenarios/
@@ -1225,8 +1299,9 @@ gh-cp-chat-analyser/
           config-check/
         platform/
           vscode-paths/
+          pi-agent-paths/
         api/
-      fixtures/        # bundled Learn-mode scenario files + jsonl test fixtures (§7)
+      fixtures/        # bundled Learn-mode scenario files + jsonl/mitmproxy/pi-agent test fixtures
     web/
       src/
         components/
@@ -1423,6 +1498,12 @@ Carried over from vision §7 plus new ones raised while designing this layer:
   fixtures with computed fields (author ergonomics vs. easy schema
   validation) — leaning JSON validated by the `domain` zod schema so
   non-engineers could in principle contribute scenarios later.
+- Whether pi's `usage` object ever exposes reasoning or vision/image tokens
+  separately from `output`/`input`, and the exact shape of
+  `ToolResultMessage.usage` — the pi-agent provider (§6.2.5) currently ships
+  all three permanently `{ known: false }` pending a real captured session to
+  verify against, the same discipline every other extractor in this app was
+  built under (§7, §11.4).
 - How aggressively to keep seeded Learn scenarios in sync with
   [agentic-coding-explained.md](agentic-coding-explained.md) as it evolves —
   the vision doc doesn't mandate automated drift-checking, but a periodic

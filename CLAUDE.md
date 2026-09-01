@@ -25,7 +25,8 @@ content here.
   met.
 - Commit all changes to git as soon as a phase's exit criterion is met,
   before starting the next phase.
-- Repo status: Phases 0-9.5 complete — npm workspaces with `packages/domain`
+- Repo status: Phases 0-9.5 complete, Phase 9.6 built pending real-data
+  verification (see below) — npm workspaces with `packages/domain`
   (zod schemas + types for every architecture.md §5 shape, including
   `Session.category`/`startedAt`/`providerId`, `ConfigWarning.severity`,
   `LogProviderDescriptor`/`LogProviderStatus`, and `TurnInspectorDetail`),
@@ -36,7 +37,12 @@ content here.
   plus optional cache-write/reasoning tokens from `agent-traces.db`, and
   Analyze-mode-only system-prompt breakdown/tool-inventory detail) and
   `MitmproxyLogProvider` (local HAR captures, redacted, decoded through an
-  Anthropic/OpenAI vendor-decoder registry); `GET /api/log-providers` and
+  Anthropic/OpenAI vendor-decoder registry), and `PiAgentLogProvider` (reads
+  the pi coding agent's own JSONL session format directly, one branch-tree
+  leaf per `Session`; built from pi's published docs schema — `tool`/
+  `vision`/`reasoning`/`costAiCredits` stay unavailable pending verification
+  against a real captured session, see architecture.md §6.2.5);
+  `GET /api/log-providers` and
   `PUT /api/log-providers/active` select the source; a startup config check
   reads `settings.json` and exposes `GET /api/config/status`),
   `packages/web` (Vite + React, styled with the "Industry" design system

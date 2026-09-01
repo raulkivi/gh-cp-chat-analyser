@@ -27,7 +27,9 @@ import { VscodeLogProvider } from "./data-sources/log-providers/vscode/vscode-lo
 import { MitmproxyLogProvider } from "./data-sources/log-providers/mitmproxy/mitmproxy-log-provider.js";
 import { defaultMitmExchangeDecoders } from "./data-sources/log-providers/mitmproxy/decoders/default-decoders.js";
 import { resolveMitmproxyCapturesDir } from "./data-sources/log-providers/mitmproxy/resolve-mitmproxy-captures-dir.js";
+import { PiAgentLogProvider } from "./data-sources/pi-agent/pi-agent-log-provider.js";
 import { resolveAppSettingsDir } from "./platform/app-settings-dir/resolve-app-settings-dir.js";
+import { resolvePiAgentSessionsDir } from "./platform/pi-agent-paths/resolve-pi-agent-sessions-dir.js";
 import { LogProviderRegistry, UnknownLogProviderIdError } from "./data-sources/log-providers/registry.js";
 import type { LogProvider } from "./data-sources/log-providers/log-provider.js";
 
@@ -44,7 +46,8 @@ export interface CreateAppOptions {
   agentTracesDbPath?: string | null;
   appSettingsDir?: string;
   mitmproxyCapturesDirPath?: string | null;
-  // Additional providers registered alongside vscode/mitmproxy — exists so
+  piAgentSessionsDirPath?: string | null;
+  // Additional providers registered alongside vscode/mitmproxy/pi-agent — exists so
   // tests can prove the registry is open/closed (phase-9-log-providers-
   // implementation.md §8 step 9) without any other file needing to change.
   additionalLogProviders?: LogProvider[];
@@ -69,6 +72,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
     options.mitmproxyCapturesDirPath !== undefined
       ? options.mitmproxyCapturesDirPath
       : resolveMitmproxyCapturesDir(resolvedAppSettingsDir);
+  const resolvedPiAgentSessionsDirPath =
+    options.piAgentSessionsDirPath !== undefined
+      ? options.piAgentSessionsDirPath
+      : resolvePiAgentSessionsDir();
 
   const vscodeProvider = new VscodeLogProvider({
     sessionStoreDbPath: resolvedDbPath,
@@ -79,8 +86,11 @@ export function createApp(options: CreateAppOptions = {}): Express {
     capturesDirPath: resolvedMitmproxyCapturesDirPath,
     decoders: defaultMitmExchangeDecoders,
   });
+  const piAgentProvider = new PiAgentLogProvider({
+    sessionsDirPath: resolvedPiAgentSessionsDirPath,
+  });
   const registry = new LogProviderRegistry(
-    [vscodeProvider, mitmproxyProvider, ...(options.additionalLogProviders ?? [])],
+    [vscodeProvider, mitmproxyProvider, piAgentProvider, ...(options.additionalLogProviders ?? [])],
     resolvedAppSettingsDir,
   );
 

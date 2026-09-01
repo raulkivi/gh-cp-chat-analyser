@@ -932,6 +932,7 @@ describe("GET /api/log-providers and PUT /api/log-providers/active", () => {
   let dbPath: string;
   let appSettingsDir: string;
   let mitmproxyCapturesDirPath: string;
+  let piAgentSessionsDirPath: string;
 
   beforeEach(() => {
     dir = mkdtempSync(path.join(tmpdir(), "app-test-log-providers-"));
@@ -939,6 +940,7 @@ describe("GET /api/log-providers and PUT /api/log-providers/active", () => {
     seedFixtureDb(dbPath);
     appSettingsDir = path.join(dir, "app-settings");
     mitmproxyCapturesDirPath = path.join(dir, "mitmproxy-captures");
+    piAgentSessionsDirPath = path.join(dir, "pi-agent-sessions");
   });
 
   afterEach(() => {
@@ -951,11 +953,12 @@ describe("GET /api/log-providers and PUT /api/log-providers/active", () => {
       debugLogsDirPaths: [path.join(dir, "debug-logs")],
       appSettingsDir,
       mitmproxyCapturesDirPath,
+      piAgentSessionsDirPath,
       ...overrides,
     });
   }
 
-  it("defaults to vscode active with both providers listed", async () => {
+  it("defaults to vscode active with all providers listed", async () => {
     const app = buildApp();
 
     const response = await request(app).get("/api/log-providers");
@@ -964,9 +967,10 @@ describe("GET /api/log-providers and PUT /api/log-providers/active", () => {
     expect(() => logProviderStatusSchema.parse(response.body)).not.toThrow();
     expect(response.body.activeProviderId).toBe("vscode");
     const ids = response.body.providers.map((p: { id: string }) => p.id);
-    expect(ids).toEqual(["vscode", "mitmproxy"]);
+    expect(ids).toEqual(["vscode", "mitmproxy", "pi-agent"]);
     expect(response.body.providers.find((p: { id: string }) => p.id === "vscode").available).toBe(true);
     expect(response.body.providers.find((p: { id: string }) => p.id === "mitmproxy").available).toBe(false);
+    expect(response.body.providers.find((p: { id: string }) => p.id === "pi-agent").available).toBe(false);
   });
 
   it("rejects PUT to an unregistered provider id with a 4xx", async () => {

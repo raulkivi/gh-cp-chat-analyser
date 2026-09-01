@@ -58,11 +58,13 @@ the bundle until you open it first.
 
 ## Learn mode
 
-Learn mode ships with four bundled example sessions, each illustrating one
-concept from [agentic-coding-explained.md](agentic-coding-explained.md):
-prompt caching, context compaction, an MCP tool change mid-session, and a
-model switch mid-session. No setup is required — this data is static and
-doesn't depend on anything on your machine.
+Learn mode ships with 18 bundled example sessions, each illustrating one
+concept from [agentic-coding-explained.md](agentic-coding-explained.md) —
+prompt caching basics and TTL expiry, context compaction, an MCP tool
+change, a model switch, `/clear`, `/rewind`, session forking, an
+instructions-file edit, extended thinking/reasoning budget, a subagent
+running on a cheaper model, and more. No setup is required — this data is
+static and doesn't depend on anything on your machine.
 
 ### Picking a scenario and reading the turns table
 
@@ -71,10 +73,17 @@ one turn, with the token/AI Credit breakdown for that turn:
 
 ![A loaded scenario: turns table with per-turn token and AI Credit columns, AI Credits sparkline, and the explanation panel](images/guide-trigger-tag.png)
 
-The columns are **Turn, Trigger, Uncached in, Cache read, Cache write,
-Tool, Vision, Reasoning, Output, AI Credits, Model**. An em dash (**—**) in any
-numeric cell means that figure is genuinely unknown for that turn — the
-app never shows a fabricated `0` in its place. The small line chart next
+The columns are **Turn, Trigger, Rounds, Uncached in, Cache read, Cache
+write, Tool, Vision, Reasoning, Output, AI Credits, Cumulative, Model**.
+Rounds is how many LLM request/response round-trips made up that turn (a
+tool call followed by a follow-up response counts as two) — always `1` for
+mitmproxy sessions, since one HAR entry is one complete exchange. Cumulative
+is a running AI Credits total across the session, up to and including that
+row. An em dash (**—**) in any numeric cell means that figure is genuinely
+unknown for that turn — the app never shows a fabricated `0` in its place,
+and once one turn's own cost is unknown the cumulative total for that row
+and every later row is also an em dash rather than a total that silently
+skips it. The small line chart next
 to the session title (when visible) is an AI-Credits-per-turn sparkline; it
 only appears when every turn in the session has a known AI Credits value.
 
@@ -107,8 +116,31 @@ of an empty box.
 ## Analyze mode
 
 Switch to Analyze mode via the header's mode switch. This lists real
-sessions read directly from your local VS Code Copilot Chat session
-store — nothing is sent anywhere, the app only reads local files.
+sessions read from a **log provider** — nothing is sent anywhere, the app
+only reads local files.
+
+### Choosing a log provider
+
+Analyze mode reads from one of two local sources, picked via the **Source**
+dropdown that appears in the header once you're in Analyze mode. The same
+header area also holds the **Retention** field described below:
+
+![The header's Source dropdown (VS Code selected) and Retention field, visible in Analyze mode](images/guide-analyze-provider-select.png)
+
+- **VS Code (local Copilot Chat)** — the default. Reads directly from your
+  local VS Code Copilot Chat session store (SQLite + debug logs), as
+  described below.
+- **mitmproxy (HAR capture)** — reads a local mitmproxy HAR capture instead,
+  for Anthropic/OpenAI API traffic recorded outside VS Code. See
+  [mitmproxy-setup.md](mitmproxy-setup.md) for how to record a capture. A
+  single capture is automatically split into separate sessions wherever
+  there's a 30+ minute idle gap between requests, so unrelated runs left
+  recording in the background don't get mixed into one session.
+
+Switching the source clears the currently-selected session and reloads the
+session list from the newly active provider. A provider shows
+**(unavailable)** in the dropdown, and can't be selected, if its underlying
+data isn't currently reachable (e.g. no capture file found yet).
 
 ### Enabling full per-turn numbers
 
@@ -131,6 +163,13 @@ Sessions recorded *before* you enable logging still show up in Analyze
 mode — they just show em dashes for the numeric columns, the same as any
 other genuinely-unknown value.
 
+The retention check requires VS Code to keep at least a minimum number of
+session logs on disk; the header's **Retention** field (VS Code source
+only) shows and lets you change that minimum — it defaults to 200, but you
+can raise or lower it to match how far back you actually want Analyze mode
+to be able to look. Changes save automatically when you click away from
+the field.
+
 Cache-write and reasoning tokens need a *separate*, optional setting on
 top of the one above — see the README's
 ["Enabling richer cache-write/reasoning numbers"](../README.md#enabling-richer-cache-writereasoning-numbers-optional)
@@ -140,7 +179,7 @@ those two columns showing em dashes.
 
 ### The turns table in Analyze mode
 
-Real sessions render with the identical 11-column table Learn mode
+Real sessions render with the identical 13-column table Learn mode
 uses — this is a real (numbers-only) example, with em dashes for the
 usage figures this particular log didn't capture:
 
@@ -156,6 +195,10 @@ calls this turn" section listing which tools the assistant invoked during
 that specific turn:
 
 ![The Explanation tab in Analyze mode, including the tool-calls-this-turn section](images/guide-analyze-explanation.png)
+
+When the turn's raw request/response data was captured, an **Inspect
+request/response** button also appears on the Explanation tab — see
+[The turn inspector](#the-turn-inspector) below.
 
 **System prompt** — a breakdown of what made up the system prompt for
 this session (base instructions, `CLAUDE.md`/repo instructions, loaded
@@ -194,6 +237,25 @@ system prompt, in three panels:
 ![The system prompt inspector: structure tree, the Preamble section selected and highlighted in the raw text, and its description](images/guide-system-prompt-inspector.png)
 
 Click **← Back to session** to return to the turns table.
+
+### The turn inspector
+
+Click **Inspect request/response** on the Explanation tab for a turn to see
+that turn's actual LLM request/response round-trip(s) — scoped to only the
+content that turn added, not the full conversation history each round
+technically resent. A row of **Round** tabs across the top lets you step
+through each round trip within the turn (the same number shown in the
+turns table's Rounds column); each shows one Request/Response card pair,
+tool-call name/arguments/result on the request side and reasoning shown
+inline where captured on the response side. Oversized text and file/image
+content is collapsed into small placeholder chips instead of being dumped
+inline, to keep the view readable:
+
+![The turn inspector open on Round 0 of a 13-round turn, with tool-call request detail on the left and the model's reasoning/response on the right](images/guide-turn-inspector.png)
+
+If a turn has no captured round-trip data (for example, it predates
+enabling debug logging, or its data has since aged out), the inspector
+shows an explanatory empty state instead of a blank panel.
 
 ### Searching sessions and empty states
 

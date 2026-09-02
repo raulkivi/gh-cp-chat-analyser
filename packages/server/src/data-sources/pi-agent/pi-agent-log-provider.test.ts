@@ -47,6 +47,15 @@ describe("PiAgentLogProvider", () => {
     expect(normal?.mode).toBe("analyze");
   });
 
+  it("lists sessions ordered from most recent to oldest by startedAt", async () => {
+    const provider = new PiAgentLogProvider({ sessionsDirPath: fixturesDir });
+
+    const sessions = await provider.listSessions();
+    const startedAts = sessions.map((s) => s.startedAt);
+
+    expect(startedAts).toEqual([...startedAts].sort().reverse());
+  });
+
   it("lists one session per leaf branch for a forked file", async () => {
     const provider = new PiAgentLogProvider({ sessionsDirPath: fixturesDir });
 

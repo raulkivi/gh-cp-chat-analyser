@@ -192,7 +192,10 @@ export class PiAgentLogProvider implements LogProvider {
     const sessionsPerFile = await Promise.all(
       this.listSessionFilePaths().map((filePath) => this.buildSessionsFromFile(filePath)),
     );
-    return sessionsPerFile.flat().map((session) => ({ ...session, turns: [] }));
+    return sessionsPerFile
+      .flat()
+      .map((session) => ({ ...session, turns: [] }))
+      .sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? ""));
   }
 
   private async resolveBranch(sessionId: string): Promise<

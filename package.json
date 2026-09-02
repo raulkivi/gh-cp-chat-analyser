@@ -23,6 +23,9 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=packages/server & npm run dev --workspace=packages/web",
+    "start": "bash scripts/dev-open.sh",
+    "configure": "bash scripts/install.sh",
+    "unconfigure": "bash scripts/uninstall.sh",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint .",

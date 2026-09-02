@@ -68,6 +68,8 @@ Set up and run the GitHub Copilot Chat Cost & Token Usage Analyzer:
    cache-write/reasoning tokens)
 ```
 
+### Manual setup
+
 **Prerequisites**
 
 - Node.js 22+ (the server uses the built-in, still-experimental
@@ -81,11 +83,24 @@ Set up and run the GitHub Copilot Chat Cost & Token Usage Analyzer:
 **Install and run**
 
 ```sh
+git clone https://github.com/raulkivi/gh-cp-chat-analyser.git
+cd gh-cp-chat-analyser
 npm install
 npm run dev        # starts the API server (127.0.0.1:3001) and the web app (127.0.0.1:5173)
 ```
 
-Open http://127.0.0.1:5173 in a browser. Learn mode works immediately —
+Open http://127.0.0.1:5173 in a browser. Or run `npm start` instead of
+`npm run dev` — it does the same thing and also opens the web app in your
+default browser once it's ready.
+
+To launch it from anywhere with one word, run `npm run configure` once —
+it adds a `cpchat` alias to your shell profile (`~/.zshrc`/`~/.bashrc`,
+autodetected; re-running it is safe and just updates the same entry). Set
+`CPCHAT_ALIAS=foo npm run configure` to pick a different alias name. After
+`source`-ing your profile (or opening a new terminal), `cpchat` starts the
+app and opens the browser; Ctrl+C in that terminal stops both the server
+and the web app. Run `npm run unconfigure` to remove the alias again.
+Learn mode works immediately —
 its scenarios are bundled fixtures. Analyze mode lists any real Copilot
 Chat sessions it finds in your local VS Code session store.
 

@@ -171,7 +171,10 @@ Relationship to turn/session:
   zero, for a purely conversational turn).
 - Each tool call/response pair adds messages to the model's context, so it consumes
   additional request tokens on the *next* model invocation within that same turn (the
-  model re-reads the whole trajectory so far to decide the next step).
+  model re-reads the whole trajectory so far to decide the next step). Each such
+  model invocation — ending in either another tool call or the turn's final answer
+  — is a **round**; a turn that reads a file, greps for a symbol, then answers is
+  three rounds.
 - Tool calls do not span sessions — they exist only within the turn that issued them,
   but their *effects* (edited files, terminal state) persist for the rest of the
   session.

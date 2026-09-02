@@ -1,6 +1,6 @@
 # AI-Assisted Coding Terminology
 
-*Last updated: 2026-08-11*
+*Last updated: 2026-09-02*
 
 A glossary of terms used when working with AI coding assistants (GitHub
 Copilot, Claude Code, Cursor, and similar tools), sorted alphabetically.
@@ -74,8 +74,11 @@ own.*
 ## Cache breakpoint
 
 An explicit marker in a request telling the provider where to split the
-prompt for caching purposes (Anthropic-style), as opposed to fully
-automatic caching (OpenAI/Google-style) that infers the split itself.
+prompt for caching purposes, as opposed to fully automatic caching that
+infers the split itself. Anthropic has used explicit breakpoints from the
+start; Google's caching stays fully implicit; OpenAI's newer model
+families (GPT-5.6+) have also moved to explicit breakpoints, after
+starting out fully automatic like Google.
 
 *Example: Anthropic's 1-hour-TTL cache option is enabled by setting a
 longer-lived breakpoint, billed at roughly double the normal cache-write
@@ -114,15 +117,16 @@ project)***
 How long a provider keeps a cached prefix available for reuse before it
 expires and must be rebuilt from scratch on the next request.
 
-*Example: stepping away from a session for over an hour can let the
-cache lapse, so the next turn pays full price to rebuild it. **(this
-project)***
+*Example: stepping away from a session for as little as 5 minutes can
+be enough to let the cache lapse under Anthropic's default TTL, so the
+next turn pays full price to rebuild it. **(this project)***
 
 ## Cache write (tokens)
 
 The tokens of new content (not already cached) written to the cache on
-a given turn, usually billed at a slightly higher rate than a plain
-cache read.
+a given turn, usually billed at a slightly higher rate than normal
+(uncached) input — and far higher than a plain cache read, which is
+priced well below normal input.
 
 *Example: turn 1 of a session writes its entire system prompt and first
 message to cache, since nothing existed to read yet. **(this

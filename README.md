@@ -75,6 +75,55 @@ npm run lint        # eslint across the repo
 npm run build        # type-checks/builds every workspace
 ```
 
+## How each provider finds your logs
+
+Analyze mode reads local files directly — nothing is uploaded, and no
+provider needs manual configuration just to be *found* (Copilot Chat's
+provider does need a setting turned on to get full per-turn numbers, see
+below). Every path below is computed from your OS home directory at
+runtime, never hardcoded:
+
+- **VS Code (local Copilot Chat)** — several files, since VS Code splits
+  its state:
+  - **Session list** comes from `session-store.db`, a SQLite database
+    under VS Code's `globalStorage`:
+    `~/.config/Code - Insiders/User/globalStorage/github.copilot-chat/session-store.db`
+    (falls back to `~/.config/Code/...` — Stable — if Insiders isn't
+    installed).
+  - **Per-turn token/cache detail** comes from `main.jsonl`, written
+    per-workspace rather than globally. Since a session's workspace isn't
+    known ahead of time, the app scans every folder under
+    `<user-data-dir>/User/workspaceStorage/*/GitHub.copilot-chat/debug-logs/`
+    and uses whichever one contains `<session-id>/main.jsonl`. This log is
+    off by default — see
+    [Enabling GitHub Copilot Chat debug logging](#enabling-github-copilot-chat-debug-logging)
+    below.
+  - **Optional cache-write/reasoning tokens** come from `agent-traces.db`,
+    next to `session-store.db` in the same `globalStorage` folder — also
+    off by default, see
+    [Enabling richer cache-write/reasoning numbers](#enabling-richer-cache-writereasoning-numbers-optional)
+    below.
+  - Linux only for now (other platforms are a documented follow-up, not a
+    redesign — see [architecture.md](docs/architecture.md)).
+
+- **mitmproxy** — reads `.har` capture files you export yourself after
+  recording LLM-provider traffic with mitmproxy (see
+  [mitmproxy setup](docs/mitmproxy-setup.md)). There's no OS-level
+  discovery here — you manually drop the exported `.har` file into this
+  app's own settings directory, under a `mitmproxy-captures` subfolder:
+  `~/.config/gh-cp-chat-analyser/mitmproxy-captures/` on Linux (respects
+  `$XDG_CONFIG_HOME`), `~/Library/Application Support/gh-cp-chat-analyser/...`
+  on macOS, `%APPDATA%/gh-cp-chat-analyser/...` on Windows. Each `.har` is
+  split into one or more sessions by idle gaps in the captured traffic.
+
+- **[pi coding agent](https://pi.dev)** — reads pi's own session JSONL
+  files directly; no export step needed. pi auto-saves every session
+  (unless run with `pi --no-session`) to one fixed location,
+  `~/.pi/agent/sessions/`, in a `--<project-path-with-slashes-as-dashes>--`
+  subfolder per project. Because pi sessions are a branchable tree
+  (fork/rewind create siblings), a single file with multiple leaf branches
+  becomes multiple sessions in the app.
+
 ## Enabling GitHub Copilot Chat debug logging
 
 Analyze mode's real per-turn token/cache numbers (uncached input, cache

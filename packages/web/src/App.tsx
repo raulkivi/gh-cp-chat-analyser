@@ -354,6 +354,7 @@ export function App() {
               {mode === "analyze" && rightTab === "system-prompt" && (
                 <SystemPromptBreakdown
                   components={session?.systemPrompt ?? []}
+                  providerId={session?.providerId}
                   onOpenInspector={session ? () => setInspectorOpen(true) : undefined}
                 />
               )}

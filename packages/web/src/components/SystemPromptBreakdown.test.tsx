@@ -42,13 +42,40 @@ describe("SystemPromptBreakdown", () => {
     expect(screen.getByTestId("prompt-bar-fill-graphify")).toHaveStyle({ width: "0%" });
   });
 
-  it("shows a fallback message when no breakdown is available", () => {
+  it("shows the VS Code-specific fallback message for a vscode session with no breakdown", () => {
+    render(<SystemPromptBreakdown components={[]} providerId="vscode" />);
+
+    expect(
+      screen.getByText(
+        "No prompt artifacts captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS Code.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the same VS Code fallback message when providerId is omitted", () => {
     render(<SystemPromptBreakdown components={[]} />);
 
     expect(
       screen.getByText(
         "No prompt artifacts captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS Code.",
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a provider-neutral fallback message for a pi-agent session with no breakdown", () => {
+    render(<SystemPromptBreakdown components={[]} providerId="pi-agent" />);
+
+    expect(
+      screen.getByText("This provider does not capture a system-prompt artifact, so no breakdown is available."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/agentDebugLog.fileLogging.enabled/)).not.toBeInTheDocument();
+  });
+
+  it("shows a provider-neutral fallback message for a mitmproxy session with no breakdown", () => {
+    render(<SystemPromptBreakdown components={[]} providerId="mitmproxy" />);
+
+    expect(
+      screen.getByText("This provider does not capture a system-prompt artifact, so no breakdown is available."),
     ).toBeInTheDocument();
   });
 

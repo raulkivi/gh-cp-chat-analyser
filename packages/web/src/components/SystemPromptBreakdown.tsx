@@ -18,10 +18,11 @@ function barWidthPercent(tokenCount: TokenCount, maxValue: number): number {
 
 interface SystemPromptBreakdownProps {
   components: SystemPromptComponent[];
+  providerId?: string;
   onOpenInspector?: () => void;
 }
 
-export function SystemPromptBreakdown({ components, onOpenInspector }: SystemPromptBreakdownProps) {
+export function SystemPromptBreakdown({ components, providerId, onOpenInspector }: SystemPromptBreakdownProps) {
   const maxValue = Math.max(
     0,
     ...components.map((component) => (component.tokenCount.known ? component.tokenCount.value : 0)),
@@ -45,8 +46,9 @@ export function SystemPromptBreakdown({ components, onOpenInspector }: SystemPro
       </div>
       {components.length === 0 ? (
         <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
-          No prompt artifacts captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS
-          Code.
+          {providerId && providerId !== "vscode"
+            ? "This provider does not capture a system-prompt artifact, so no breakdown is available."
+            : "No prompt artifacts captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS Code."}
         </p>
       ) : (
         components.map((component) => (

@@ -44,6 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Two of the AI Credits errors were baked into the served fixtures
   (`image-attachment-invalidation.json` turn 2, `cache-ttl-1-hour-breakpoint.json`
   turn 3), so Learn mode now shows the corrected values for those turns.
+- The system-prompt breakdown panel's empty state always told the user to
+  "enable agentDebugLog.fileLogging.enabled and reload VS Code," even for
+  `pi-agent`/`mitmproxy` sessions, which never have a system-prompt artifact
+  to capture (by design) and don't have that VS Code setting at all. The
+  panel now shows a provider-neutral message ("This provider does not
+  capture a system-prompt artifact...") for any non-`vscode` session.
 
 ## [0.4.0] - 2026-08-10
 ### Added

@@ -46,6 +46,28 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
 
 ## Setup
 
+### Setup via an AI coding agent
+
+Paste this into a coding harness (Claude Code, Copilot, Cursor, etc.) to
+have it install and run the app for you:
+
+```
+Set up and run the GitHub Copilot Chat Cost & Token Usage Analyzer:
+1. Clone https://github.com/raulkivi/gh-cp-chat-analyser.git (or use the
+   existing checkout if already in this repo) and cd into it.
+2. Confirm Node.js 22+ is installed (the server uses node:sqlite).
+3. Run `npm install`, then `npm run dev` to start the API server
+   (127.0.0.1:3001) and web app (127.0.0.1:5173); open the web app URL
+   when both are up.
+4. Check `GET /api/config/status` and report any config warnings.
+5. If Analyze mode needs full per-turn token/cache numbers, add to VS
+   Code's user settings.json and reload the window:
+   "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+   "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 200,
+   "github.copilot.chat.otel.dbSpanExporter.enabled": true (optional, adds
+   cache-write/reasoning tokens)
+```
+
 **Prerequisites**
 
 - Node.js 22+ (the server uses the built-in, still-experimental

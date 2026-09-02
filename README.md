@@ -37,7 +37,7 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
 - [Copilot Chat source investigation](docs/copilot-chat-source-investigation.md) —
   findings from inspecting the Copilot Chat extension's own source for
   richer cache/token-usage log data than `main.jsonl` carries.
-- [Log provider alternatives](docs/log-provider-alternatives.md) — ranked,
+- [Log provider alternatives](docs/providers/log-provider-alternatives.md) — ranked,
   actionable recommendations for Phase 9+ `LogProvider` work that follow
   from the source investigation above.
 - [mitmproxy setup](docs/mitmproxy-setup.md) — how to install mitmproxy,

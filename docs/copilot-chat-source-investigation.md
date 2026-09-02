@@ -12,7 +12,7 @@ It does not change any shipped code or `architecture.md`'s contracts —
 `architecture.md` §7's existing description of `main.jsonl`'s fields is
 already accurate (confirmed below against a real capture). This is a
 research memo to inform future Phase 9+ decisions, referenced from
-[log-provider-alternatives.md](log-provider-alternatives.md) for the
+[log-provider-alternatives.md](providers/log-provider-alternatives.md) for the
 actionable conclusions.
 
 **Update (2026-08-09): both open questions below are now resolved.** §0–§4

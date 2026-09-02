@@ -1,11 +1,11 @@
 # Alternative log/cache-data sources for LogProvider: ranked options
 
 Actionable conclusions from
-[copilot-chat-source-investigation.md](copilot-chat-source-investigation.md),
+[copilot-chat-source-investigation.md](../copilot-chat-source-investigation.md),
 scoped for whoever picks up Phase 9+ `LogProvider` work. Read that document
 first for the evidence; this one is the recommendation, kept separate so
 this repo's convention of one doc per concern holds (per
-[implementation-plan.md](implementation-plan.md)).
+[implementation-plan.md](../implementation-plan.md)).
 
 **Update (2026-08-09, source check)**: the investigation doc's §5 confirmed
 options #1 and #4 below against the *live* `microsoft/vscode` source (not

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Vendored `pi-system-prompt-logger`, a Pi coding-agent extension that
+  captures the fully assembled system prompt (plus selected tools, skills,
+  and context files) to a JSONL sidecar log once per session, as a new
+  workspace package (`packages/pi-system-prompt-logger`) — buildable and
+  testable via the root toolchain (`npm run build`/`test`/`bundle
+  --workspace=packages/pi-system-prompt-logger`). Not yet consumed by the
+  `pi-agent` log provider; `Session.systemPrompt`/`toolInventory` stay empty
+  for pi sessions as before.
 - New Analyze-mode log provider, `pi-agent`, reading the
   [pi coding agent](https://pi.dev)'s native JSONL session format directly
   (`~/.pi/agent/sessions/`) — selectable alongside `vscode`/`mitmproxy` via

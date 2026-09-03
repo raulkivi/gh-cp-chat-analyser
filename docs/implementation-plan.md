@@ -899,6 +899,51 @@ clean. Once a real capture is available, revisit `usage-extractor.ts` and
 `turn-inspector-builder.ts`'s field-name assumptions and update this status
 note and architecture.md §6.2.5 accordingly.
 
+## Phase 9.7 — Vendor `pi-system-prompt-logger`
+
+**Goal**: bring the previously-standalone `pi-system-prompt-logger` Pi
+coding-agent extension into this repo as a fourth npm-workspaces package,
+`packages/pi-system-prompt-logger` — a first-class part of the app rather
+than an external companion tool the docs merely point at. This extension
+captures exactly the artifact Phase 9.6/architecture.md §6.2.5 note pi
+lacks: the fully assembled system prompt plus selected tools/skills/context
+files, written to a JSONL sidecar log
+(`~/.pi/agent/logs/system-prompts.jsonl`) from outside pi's own session
+format.
+
+- Source (`src/` ports/adapters/domain + `test/`) copied over unchanged —
+  same `SystemPromptLoggerExtension` orchestrator wired to pi's
+  `before_agent_start` event, same `SystemPromptSink`/`SeenSessionTracker`/
+  `FileSystemPort` ports, same 15 unit tests, no logic changes.
+- Toolchain aligned to this monorepo's shared conventions: dropped its own
+  `typescript`/`@types/node` devDependencies (root already provides
+  `typescript ^5.7.2`), `vitest` pinned to `^4.1.10` (matching
+  `domain`/`server`), added a `vitest.config.ts` (mirroring `domain`'s,
+  excluding `dist/`), package scoped as
+  `@gh-cp-chat-analyser/pi-system-prompt-logger`.
+- Registered in the root `package.json`'s `workspaces` array, so it
+  participates in `npm run build/test --workspaces --if-present` and the
+  root `lint`/`format` scripts automatically.
+- A `bundle` npm script (the same esbuild single-file bundle the original
+  README documented via a bare `npx esbuild` command) produces
+  `dist/pi-system-prompt-logger.js`, the artifact users copy into
+  `~/.pi/agent/extensions/` or `.pi/extensions/` to actually install it into
+  a running pi.
+
+**Exit criterion**: `npm run build`, `npm test`, and `npm run bundle`, each
+scoped to `--workspace=packages/pi-system-prompt-logger`, are clean; the
+whole-repo `npm run lint`/`npm run format` pass with no new violations from
+the new package. Explicitly **not** part of this phase's exit criterion:
+`PiAgentLogProvider` reading the sidecar log this extension produces — no
+code in `packages/server`/`packages/web` depends on this package, and
+`Session.systemPrompt`/`toolInventory` stay empty for pi sessions exactly as
+Phase 9.6 left them. That consumption work is a distinct future phase,
+gated on the real-data verification Phase 9.6's status note already flags
+as outstanding.
+
+**Dependencies**: none — this package has no dependency on `domain`,
+`server`, or `web`, and none of them depend on it (yet).
+
 ## Phase 10 — VS Code extension packaging (future, out of MVP scope)
 
 Not part of the initial build (vision §5 "future path"); tracked here only
@@ -932,6 +977,7 @@ flowchart LR
     P85 --> P9
     P9 --> P95["Phase 9.5<br/>Turn inspector"]
     P95 --> P96["Phase 9.6<br/>pi-agent provider"]
+    P96 --> P97["Phase 9.7<br/>Vendor pi-system-prompt-logger"]
     P95 --> P10["Phase 10<br/>VS Code extension (future)"]
     P5 --> P10
 ```

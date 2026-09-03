@@ -1115,8 +1115,17 @@ Until then:
   `branch_summary` entry's more specific intent isn't yet distinguished.
 
 No `systemPrompt`/`toolInventory` is populated (both Analyze-mode-only
-optional fields) — pi has no equivalent captured artifact, the same choice
-already made for the mitmproxy provider.
+optional fields) — pi's own JSONL session format has no equivalent captured
+artifact, the same choice already made for the mitmproxy provider.
+
+`packages/pi-system-prompt-logger` (§10) is a vendored Pi extension that
+captures exactly that missing artifact — the fully assembled system prompt
+plus selected tools/skills/context files — to a separate JSONL sidecar log
+(`~/.pi/agent/logs/system-prompts.jsonl`) from outside pi's own session
+format. As of this writing `PiAgentLogProvider` does not read that sidecar
+log, so the sentence above still holds; wiring it in to populate
+`Session.systemPrompt`/`toolInventory` is a separate, not-yet-started
+follow-up.
 
 ### 6.3 Startup configuration check
 
@@ -1308,6 +1317,9 @@ gh-cp-chat-analyser/
         state/
         api-client/
         charts/
+    pi-system-prompt-logger/ # vendored Pi coding-agent extension: captures the
+                              # assembled system prompt to a JSONL sidecar log
+                              # (§6.2.5); not yet consumed by server/
   package.json          # workspaces root
 ```
 

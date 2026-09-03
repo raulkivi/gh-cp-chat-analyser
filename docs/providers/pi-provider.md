@@ -73,6 +73,14 @@ support means: populating `Session.systemPrompt`/`toolInventory` in
 /api/sessions/:id/system-prompt` should grow a provider-generic path or
 stay VS-Code-only with a separate pi-specific route.
 
+As of Phase 9.7, `packages/pi-system-prompt-logger` (a vendored Pi
+extension, not part of pi itself) captures exactly that missing artifact
+from outside pi's session format — see architecture.md §6.2.5 and the
+"System prompt / tool inventory" open item below. `pi-agent-log-provider.ts`
+does not read it yet; this remains the "pi has no equivalent captured
+artifact" gap described above unless/until a user installs the extension
+*and* the provider is wired to consume its sidecar log.
+
 ## Most recent change (2026-09-02, ~23:29 UTC)
 
 Bug report: the "System prompt" tab showed a confusing empty state for pi
@@ -142,3 +150,12 @@ outstanding here. Concretely, until a real capture is obtained:
 `~/.pi/agent/sessions/**/*.jsonl` capture, diff its actual field names
 against the fixtures in `packages/server/fixtures/pi-agent/`, and update the
 extractors + this doc + architecture.md §6.2.5 together once confirmed.
+
+**`packages/pi-system-prompt-logger`** (vendored in Phase 9.7, see
+implementation-plan.md) is a candidate tool for unblocking this: installing
+it into a real pi session and running a turn captures a real `sessionId` and
+`~/.pi/agent/sessions/**/*.jsonl` file side by side with its own
+`system-prompts.jsonl` record, giving both the real-session-format capture
+this section needs *and* a first real look at `selectedTools`/`skillNames`/
+`contextFilePaths` — useful groundwork for a future `Session.systemPrompt`/
+`toolInventory` enrichment path, not yet implemented.

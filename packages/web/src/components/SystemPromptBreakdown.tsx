@@ -33,7 +33,7 @@ export function SystemPromptBreakdown({ components, providerId, onOpenInspector 
     <Blueprint style={{ padding: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)" }}>
         <div className="card-kicker">System prompt breakdown</div>
-        {onOpenInspector && hasBuiltIn && (
+        {onOpenInspector && (hasBuiltIn || providerId === "pi-agent") && (
           <button
             type="button"
             className="btn btn-secondary"
@@ -46,9 +46,11 @@ export function SystemPromptBreakdown({ components, providerId, onOpenInspector 
       </div>
       {components.length === 0 ? (
         <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
-          {providerId && providerId !== "vscode"
-            ? "This provider does not capture a system-prompt artifact, so no breakdown is available."
-            : "No prompt artifacts captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS Code."}
+          {providerId === "pi-agent"
+            ? "No system prompt captured for this session yet — open the system prompt inspector for how to enable it."
+            : providerId && providerId !== "vscode"
+              ? "This provider does not capture a system-prompt artifact, so no breakdown is available."
+              : "No prompt artifacts captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS Code."}
         </p>
       ) : (
         components.map((component) => (

@@ -1,6 +1,8 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { describeLogProviderContract } from "../log-providers/contract.js";
 import { PiAgentLogProvider } from "./pi-agent-log-provider.js";
 import { computePiFileHash } from "./session-id.js";
@@ -136,6 +138,103 @@ describe("PiAgentLogProvider", () => {
       const id = computePiFileHash(path.join(fixturesDir, "normal-session.jsonl"));
 
       await expect(provider.readTurnDetail(id, 999)).resolves.toBeNull();
+    });
+  });
+
+  describe("system-prompt sidecar log", () => {
+    // The sidecar's sessionFile must resolve to the real, unmodified
+    // normal-session.jsonl fixture's absolute path, so this is synthesized
+    // into a tmpdir at test time rather than checked in — a static fixture
+    // would embed a checkout-path-dependent absolute path.
+    let sidecarDir: string;
+
+    beforeEach(() => {
+      sidecarDir = mkdtempSync(path.join(tmpdir(), "pi-system-prompt-sidecar-"));
+    });
+
+    afterEach(() => {
+      rmSync(sidecarDir, { recursive: true, force: true });
+    });
+
+    function writeSidecarLog(sessionFile: string, overrides: Record<string, unknown> = {}): string {
+      const logPath = path.join(sidecarDir, "system-prompts.jsonl");
+      const record = {
+        sessionId: "session-1",
+        sessionFile,
+        capturedAt: "2026-09-03T10:00:00.000Z",
+        cwd: "/home/dev/project",
+        systemPromptChars: 11,
+        systemPrompt: "You are Pi.",
+        selectedTools: ["read_file"],
+        ...overrides,
+      };
+      writeFileSync(logPath, `${JSON.stringify(record)}\n`);
+      return logPath;
+    }
+
+    it("readSession populates systemPrompt from a matching sidecar record", async () => {
+      const normalSessionPath = path.join(fixturesDir, "normal-session.jsonl");
+      const systemPromptLogPath = writeSidecarLog(normalSessionPath);
+      const provider = new PiAgentLogProvider({ sessionsDirPath: fixturesDir, systemPromptLogPath });
+      const id = computePiFileHash(normalSessionPath);
+
+      const session = await provider.readSession(id);
+
+      expect(session?.systemPrompt).toEqual([
+        {
+          kind: "built-in",
+          label: "Base system prompt (11 characters)",
+          tokenCount: expect.objectContaining({ known: true, estimated: true }),
+        },
+        {
+          kind: "tool-definitions",
+          label: "Tool definitions (1 tools)",
+          tokenCount: expect.objectContaining({ known: false }),
+        },
+      ]);
+    });
+
+    it("readSession leaves systemPrompt unset when systemPromptLogPath is omitted", async () => {
+      const provider = new PiAgentLogProvider({ sessionsDirPath: fixturesDir });
+      const id = computePiFileHash(path.join(fixturesDir, "normal-session.jsonl"));
+
+      const session = await provider.readSession(id);
+
+      expect(session?.systemPrompt).toBeUndefined();
+    });
+
+    it("readSession leaves systemPrompt unset when the sidecar log has no matching record", async () => {
+      const systemPromptLogPath = writeSidecarLog("/some/other/session.jsonl");
+      const provider = new PiAgentLogProvider({ sessionsDirPath: fixturesDir, systemPromptLogPath });
+      const id = computePiFileHash(path.join(fixturesDir, "normal-session.jsonl"));
+
+      const session = await provider.readSession(id);
+
+      expect(session?.systemPrompt).toBeUndefined();
+    });
+
+    it("readSystemPromptText returns the captured prompt text for a matching sidecar record", async () => {
+      const normalSessionPath = path.join(fixturesDir, "normal-session.jsonl");
+      const systemPromptLogPath = writeSidecarLog(normalSessionPath);
+      const provider = new PiAgentLogProvider({ sessionsDirPath: fixturesDir, systemPromptLogPath });
+      const id = computePiFileHash(normalSessionPath);
+
+      await expect(provider.readSystemPromptText(id)).resolves.toBe("You are Pi.");
+    });
+
+    it("readSystemPromptText returns null when there is no matching sidecar record", async () => {
+      const systemPromptLogPath = writeSidecarLog("/some/other/session.jsonl");
+      const provider = new PiAgentLogProvider({ sessionsDirPath: fixturesDir, systemPromptLogPath });
+      const id = computePiFileHash(path.join(fixturesDir, "normal-session.jsonl"));
+
+      await expect(provider.readSystemPromptText(id)).resolves.toBeNull();
+    });
+
+    it("readSystemPromptText returns null for an unknown session id", async () => {
+      const systemPromptLogPath = writeSidecarLog(path.join(fixturesDir, "normal-session.jsonl"));
+      const provider = new PiAgentLogProvider({ sessionsDirPath: fixturesDir, systemPromptLogPath });
+
+      await expect(provider.readSystemPromptText("does-not-exist")).resolves.toBeNull();
     });
   });
 });

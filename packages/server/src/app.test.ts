@@ -19,6 +19,7 @@ import {
   USAGE_UNAVAILABLE_REASON,
 } from "./services/session-enricher/session-enricher.js";
 import { AGENT_TRACES_UNAVAILABLE_REASON } from "./data-sources/jsonl/session-usage-spans.js";
+import { computePiFileHash } from "./data-sources/pi-agent/session-id.js";
 
 const AGENT_TRACES_DB_SCHEMA = `
   CREATE TABLE spans (
@@ -811,6 +812,87 @@ describe("GET /api/sessions/:id/system-prompt", () => {
 
   it("returns 404 for an unknown session id", async () => {
     const app = createApp({ sessionStoreDbPath: dbPath, debugLogsDirPaths: [debugLogsDirPath] });
+
+    const response = await request(app).get("/api/sessions/does-not-exist/system-prompt");
+
+    expect(response.status).toBe(404);
+  });
+});
+
+describe("GET /api/sessions/:id/system-prompt (pi-agent provider active)", () => {
+  const piAgentFixturesDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../fixtures/pi-agent",
+  );
+  const normalSessionPath = path.join(piAgentFixturesDir, "normal-session.jsonl");
+
+  let dir: string;
+  let appSettingsDir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "app-test-pi-system-prompt-"));
+    appSettingsDir = path.join(dir, "app-settings");
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function writeSidecarLog(sessionFile: string): string {
+    const logPath = path.join(dir, "system-prompts.jsonl");
+    writeFileSync(
+      logPath,
+      `${JSON.stringify({
+        sessionId: "session-1",
+        sessionFile,
+        capturedAt: "2026-09-03T10:00:00.000Z",
+        cwd: "/home/dev/project",
+        systemPromptChars: 11,
+        systemPrompt: "You are Pi.",
+      })}\n`,
+    );
+    return logPath;
+  }
+
+  async function activatePiAgent(app: ReturnType<typeof createApp>) {
+    await request(app).put("/api/log-providers/active").send({ id: "pi-agent" });
+  }
+
+  it("returns the real captured system prompt as text/plain for a matching sidecar record", async () => {
+    const systemPromptLogPath = writeSidecarLog(normalSessionPath);
+    const app = createApp({
+      appSettingsDir,
+      piAgentSessionsDirPath: piAgentFixturesDir,
+      systemPromptLogPath,
+    });
+    await activatePiAgent(app);
+    const id = computePiFileHash(normalSessionPath);
+
+    const response = await request(app).get(`/api/sessions/${id}/system-prompt`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toMatch(/^text\/plain/);
+    expect(response.text).toBe("You are Pi.");
+  });
+
+  it("returns 404 for a pi-agent session with no matching sidecar record", async () => {
+    const systemPromptLogPath = writeSidecarLog("/some/other/session.jsonl");
+    const app = createApp({
+      appSettingsDir,
+      piAgentSessionsDirPath: piAgentFixturesDir,
+      systemPromptLogPath,
+    });
+    await activatePiAgent(app);
+    const id = computePiFileHash(normalSessionPath);
+
+    const response = await request(app).get(`/api/sessions/${id}/system-prompt`);
+
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 404 for an unknown pi-agent session id", async () => {
+    const app = createApp({ appSettingsDir, piAgentSessionsDirPath: piAgentFixturesDir });
+    await activatePiAgent(app);
 
     const response = await request(app).get("/api/sessions/does-not-exist/system-prompt");
 

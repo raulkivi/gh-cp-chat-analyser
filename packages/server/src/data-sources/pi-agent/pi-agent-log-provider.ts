@@ -18,6 +18,8 @@ import { groupBranchEntriesByUserMessage, type PiTurnGroup } from "./turn-groupe
 import { extractToolCalls, extractTurnUsage } from "./usage-extractor.js";
 import { buildTurnInspectorDetail } from "./turn-inspector-builder.js";
 import { computeBranchSessionId, computePiFileHash, parseBranchSessionId } from "./session-id.js";
+import { buildPiSystemPromptComponents } from "./system-prompt-components.js";
+import { readSystemPromptSidecarIndex, type SidecarIndex } from "./system-prompt-sidecar-reader.js";
 
 const PROVIDER_ID = "pi-agent";
 const NO_AI_CREDITS_REASON =
@@ -25,6 +27,11 @@ const NO_AI_CREDITS_REASON =
 
 export interface PiAgentLogProviderOptions {
   sessionsDirPath: string | null;
+  // Optional: path to the pi-system-prompt-logger extension's JSONL sidecar
+  // log (packages/pi-system-prompt-logger). Omitted/null means no such
+  // extension is installed — Session.systemPrompt simply stays unset for
+  // every session, exactly as before this option existed.
+  systemPromptLogPath?: string | null;
 }
 
 function reasonOf(tokenCount: TokenCount): string {
@@ -143,6 +150,7 @@ export class PiAgentLogProvider implements LogProvider {
     leafId: string,
     leafIndex: number,
     leafCount: number,
+    sidecarIndex: SidecarIndex,
   ): Session {
     const branch = walkBranch(allEntries, leafId);
     const forkPointIds = findForkPointIds(allEntries);
@@ -165,6 +173,7 @@ export class PiAgentLogProvider implements LogProvider {
     const knownUsageTurns = turns.filter((turn) => turn.usage.output.known);
     const model = knownUsageTurns.length > 0 ? knownUsageTurns[knownUsageTurns.length - 1].usage.model : "unknown";
     const id = leafCount > 1 ? computeBranchSessionId(filePath, leafId) : computePiFileHash(filePath);
+    const sidecarRecord = sidecarIndex.get(path.resolve(filePath));
 
     return {
       id,
@@ -177,20 +186,26 @@ export class PiAgentLogProvider implements LogProvider {
       costAiCredits: unavailableTokenCount(NO_AI_CREDITS_REASON),
       usageDataAvailable: knownUsageTurns.length > 0,
       ...(header ? { startedAt: header.timestamp } : {}),
+      ...(sidecarRecord ? { systemPrompt: buildPiSystemPromptComponents(sidecarRecord) } : {}),
     };
   }
 
-  private async buildSessionsFromFile(filePath: string): Promise<Session[]> {
+  private loadSidecarIndex(): Promise<SidecarIndex> {
+    return readSystemPromptSidecarIndex(this.options.systemPromptLogPath ?? null);
+  }
+
+  private async buildSessionsFromFile(filePath: string, sidecarIndex: SidecarIndex): Promise<Session[]> {
     const { header, entries } = await readPiSessionFile(filePath);
     const leafIds = findLeafEntryIds(entries);
     return leafIds.map((leafId, leafIndex) =>
-      this.buildSessionForBranch(filePath, header, entries, leafId, leafIndex, leafIds.length),
+      this.buildSessionForBranch(filePath, header, entries, leafId, leafIndex, leafIds.length, sidecarIndex),
     );
   }
 
   async listSessions(): Promise<Session[]> {
+    const sidecarIndex = await this.loadSidecarIndex();
     const sessionsPerFile = await Promise.all(
-      this.listSessionFilePaths().map((filePath) => this.buildSessionsFromFile(filePath)),
+      this.listSessionFilePaths().map((filePath) => this.buildSessionsFromFile(filePath, sidecarIndex)),
     );
     return sessionsPerFile
       .flat()
@@ -225,6 +240,7 @@ export class PiAgentLogProvider implements LogProvider {
     if (!resolved) {
       return null;
     }
+    const sidecarIndex = await this.loadSidecarIndex();
     return this.buildSessionForBranch(
       resolved.filePath,
       resolved.header,
@@ -232,6 +248,7 @@ export class PiAgentLogProvider implements LogProvider {
       resolved.leafId,
       resolved.leafIndex,
       resolved.leafCount,
+      sidecarIndex,
     );
   }
 
@@ -246,5 +263,20 @@ export class PiAgentLogProvider implements LogProvider {
       return null;
     }
     return buildTurnInspectorDetail(turnIndex, group);
+  }
+
+  // Raw captured system-prompt text for the "inspect as text" view
+  // (SystemPromptInspector) — not part of the shared LogProvider interface
+  // (ISP: VscodeLogProvider/MitmproxyLogProvider have no equivalent), same
+  // precedent as the VS-Code-only system-prompt route special-casing
+  // VscodeLogProvider directly. Re-reads the sidecar log fresh each call,
+  // same "no caching layer" posture as readTurnDetail.
+  async readSystemPromptText(sessionId: string): Promise<string | null> {
+    const resolved = await this.resolveBranch(sessionId);
+    if (!resolved) {
+      return null;
+    }
+    const sidecarIndex = await this.loadSidecarIndex();
+    return sidecarIndex.get(path.resolve(resolved.filePath))?.systemPrompt ?? null;
   }
 }

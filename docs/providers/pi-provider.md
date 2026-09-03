@@ -34,96 +34,108 @@ idle-gap split.
 | [pi-message.ts](../../packages/server/src/data-sources/pi-agent/pi-message.ts) | Type guards/accessors for pi's message shapes (`PiAssistantMessage`, `PiToolResultMessage`, `PiToolCallBlock`) |
 | [turn-inspector-builder.ts](../../packages/server/src/data-sources/pi-agent/turn-inspector-builder.ts) | Builds `TurnInspectorDetail` from a turn's raw entries (Analyze-mode drill-down) |
 | [resolve-pi-agent-sessions-dir.ts](../../packages/server/src/platform/pi-agent-paths/resolve-pi-agent-sessions-dir.ts) | Locates `~/.pi/agent/sessions/` and lists session files for the current cwd |
-| `packages/server/fixtures/pi-agent/*.jsonl` | Test fixtures: `normal-session`, `forked-session`, `malformed-lines-session`, `no-usage-session` |
+| [resolve-pi-system-prompt-log-path.ts](../../packages/server/src/platform/pi-agent-paths/resolve-pi-system-prompt-log-path.ts) | Resolves the optional `pi-system-prompt-logger` sidecar log path (`PI_SYSTEM_PROMPT_LOG_PATH` env override, else `~/.pi/agent/logs/system-prompts.jsonl`) |
+| [system-prompt-sidecar-reader.ts](../../packages/server/src/data-sources/pi-agent/system-prompt-sidecar-reader.ts) | Reads the sidecar JSONL into a `Map` keyed by resolved `sessionFile` path (earliest-wins on duplicates) |
+| [system-prompt-components.ts](../../packages/server/src/data-sources/pi-agent/system-prompt-components.ts) | `buildPiSystemPromptComponents` — turns a matched sidecar record into `SystemPromptComponent[]`, mirroring `buildSystemPromptBreakdown`'s VS Code shape |
+| `packages/server/fixtures/pi-agent/*.jsonl` | Test fixtures: `normal-session`, `forked-session`, `malformed-lines-session`, `no-usage-session`. No static sidecar-log fixture exists — its `sessionFile` would be checkout-path-dependent, so tests synthesize one into a tmpdir instead |
 
 Each `.ts` above has a matching `.test.ts` (TDD-first, per `architecture.md`
 §11.4); `pi-agent-log-provider.test.ts` also runs the shared
 `describeLogProviderContract` conformance suite.
 
-## System prompt / tool inventory: not supported, by design
+## System prompt: sidecar-log-based, optional (Phase 9.8); tool inventory still unsupported
 
-Unlike `VscodeLogProvider`, this provider never populates
-`Session.systemPrompt` or `Session.toolInventory` — both stay `[]`. This is
-a permanent, deliberate choice (architecture.md §6.2.5), not a gap pending
-real-data verification: pi's JSONL format has no equivalent of VS Code's
-captured `system_prompt_N.json`/`tools_N.json` artifact files, so there is
-nothing to extract. This is the same precedent already set for the
-mitmproxy provider.
+`Session.toolInventory` is never populated — pi's JSONL format has no
+equivalent of VS Code's `tools_N.json` artifact, and this is a low-priority,
+not-yet-picked-up follow-up (`components/ToolInventoryPanel` renders empty
+for pi sessions as a result).
+
+`Session.systemPrompt` **is** populated, conditionally, since Phase 9.8: the
+vendored `packages/pi-system-prompt-logger` extension (Phase 9.7, not part
+of pi itself) captures the fully assembled system prompt plus selected
+tools/skills/context files to a JSONL sidecar log
+(`~/.pi/agent/logs/system-prompts.jsonl`) from outside pi's own session
+format. When a user has installed it (`npm run configure` offers to) and a
+session's file has a matching captured record,
+`pi-agent-log-provider.ts` reads it via `system-prompt-sidecar-reader.ts`
+(joined on resolved `sessionFile` path — see architecture.md §6.2.5 for the
+full join-key reasoning and its known earliest-wins-on-fork simplification)
+and builds `SystemPromptComponent[]` via `system-prompt-components.ts`.
 
 Knock-on effects in the UI for pi sessions:
 
-- `components/SystemPromptBreakdown` renders its empty state (no meter
-  rows) — as of the most recent change below, with copy that correctly
-  says this provider doesn't capture a system-prompt artifact, rather than
-  the VS Code-specific "enable `agentDebugLog.fileLogging.enabled`" hint.
-- Its "Open system prompt inspector" button never renders (it's gated on a
-  `built-in` component being present, which pi sessions never have), so
-  `components/SystemPromptInspector`'s full-page raw-text view is
-  unreachable for pi sessions. This is consistent with `GET
-  /api/sessions/:id/system-prompt` itself being wired directly to the VS
-  Code `main.jsonl` artifact path rather than the generic `LogProvider`
-  contract (`app.ts`'s comment on that route) — there would be nothing for
-  it to return for a pi session id even if the button did appear.
-- `components/ToolInventoryPanel` renders empty for the same reason.
+- `components/SystemPromptBreakdown` renders real meter rows when a match
+  exists, same as any other provider. With no match, its empty-state text
+  is pi-agent-specific ("No system prompt captured for this session yet —
+  open the system prompt inspector for how to enable it"), distinct from
+  mitmproxy's permanent "this provider does not capture..." message.
+- Unlike other providers, its "Open system prompt inspector" button
+  **always** renders for `pi-agent` sessions (not gated on a `built-in`
+  component being present) — so the inspector itself can explain what to
+  do when there's no capture yet.
+- `components/SystemPromptInspector` fetches through the same
+  `GET /api/sessions/:id/system-prompt` route VS Code uses;`app.ts` branches
+  on `registry.getActiveProviderId() === "pi-agent"` before reaching the
+  VS-Code-only session-store path, delegating to a new
+  `PiAgentLogProvider.readSystemPromptText(sessionId)` method (not on the
+  shared `LogProvider` interface — ISP, matching the existing
+  VS-Code-special-case precedent). On success the real captured text
+  renders identically to a VS Code prompt (Pretty/Raw/Icicle — that
+  rendering machinery is already provider-agnostic, no changes needed
+  there). On no match, the inspector shows a plain-text (no link — an
+  earlier "link to the extension's README" idea was explicitly rejected)
+  message pointing at `npm run configure` as the install path, instead of
+  the VS Code-specific hint.
+- `npm run configure`/`unconfigure` (`scripts/install.sh`/`uninstall.sh`)
+  interactively offer to build (`npm run bundle
+  --workspace=packages/pi-system-prompt-logger`) and install/remove
+  `~/.pi/agent/extensions/pi-system-prompt-logger.js` — this is the actual
+  install mechanism; the UI never links to the extension's own README.
 
-If pi ever exposes its own system-prompt/tool-definition artifact, adding
-support means: populating `Session.systemPrompt`/`toolInventory` in
-`pi-agent-log-provider.ts` (mirroring `system-prompt-breakdown.ts`'s
-`buildSystemPromptBreakdown`), and deciding whether `GET
-/api/sessions/:id/system-prompt` should grow a provider-generic path or
-stay VS-Code-only with a separate pi-specific route.
+## Most recent change (2026-09-04, Phase 9.8)
 
-As of Phase 9.7, `packages/pi-system-prompt-logger` (a vendored Pi
-extension, not part of pi itself) captures exactly that missing artifact
-from outside pi's session format — see architecture.md §6.2.5 and the
-"System prompt / tool inventory" open item below. `pi-agent-log-provider.ts`
-does not read it yet; this remains the "pi has no equivalent captured
-artifact" gap described above unless/until a user installs the extension
-*and* the provider is wired to consume its sidecar log.
+Wired `PiAgentLogProvider` to optionally read the `pi-system-prompt-logger`
+sidecar log vendored in Phase 9.7, per two explicit UX requirements: the
+system prompt inspector shows the real captured prompt when a sidecar
+record matches, and a plain-text (no link) "run `npm run configure`"
+message when it doesn't.
 
-## Most recent change (2026-09-02, ~23:29 UTC)
+- [system-prompt-sidecar-reader.ts](../../packages/server/src/data-sources/pi-agent/system-prompt-sidecar-reader.ts) /
+  [system-prompt-components.ts](../../packages/server/src/data-sources/pi-agent/system-prompt-components.ts) /
+  [resolve-pi-system-prompt-log-path.ts](../../packages/server/src/platform/pi-agent-paths/resolve-pi-system-prompt-log-path.ts) —
+  new, TDD-first (see Code map above)
+- [pi-agent-log-provider.ts](../../packages/server/src/data-sources/pi-agent/pi-agent-log-provider.ts) —
+  `PiAgentLogProviderOptions.systemPromptLogPath`, sidecar-index threading
+  through `buildSessionForBranch`/`listSessions`/`readSession`, new
+  `readSystemPromptText(sessionId)` method
+- [app.ts](../../packages/server/src/app.ts) — `GET
+  /api/sessions/:id/system-prompt` branches on
+  `registry.getActiveProviderId() === "pi-agent"`
+- [SystemPromptBreakdown.tsx](../../packages/web/src/components/SystemPromptBreakdown.tsx) —
+  button gate becomes `hasBuiltIn || providerId === "pi-agent"`; new
+  pi-agent-specific empty-state text
+- [SystemPromptInspector.tsx](../../packages/web/src/components/SystemPromptInspector.tsx) /
+  [App.tsx](../../packages/web/src/App.tsx) — new `providerId` prop,
+  threaded through, branches the fetch-failure message
+- [scripts/install.sh](../../scripts/install.sh) /
+  [scripts/uninstall.sh](../../scripts/uninstall.sh) — interactive
+  build+install / remove of the extension via `npm run configure`/
+  `unconfigure`, independent of and non-fatal to the existing alias setup
+
+Full server suite (439 tests) and full web suite (284 tests) pass after the
+change; `install.sh`/`uninstall.sh` verified manually (no automated harness
+exists for shell scripts in this repo).
+
+## Previous change (2026-09-02, ~23:29 UTC)
 
 Bug report: the "System prompt" tab showed a confusing empty state for pi
 sessions — the fallback message told the user to "enable
 agentDebugLog.fileLogging.enabled and reload VS Code," which is a VS Code
-setting that doesn't apply to pi (or mitmproxy) sessions at all. Per
-architecture.md §6.2.5, pi has no system-prompt artifact to capture in the
-first place, so `Session.systemPrompt` is always `[]` for this provider —
-that part is correct, working-as-designed behavior. The bug was purely in
-`SystemPromptBreakdown`'s copy for that empty state, not in the provider.
-
-Fix: `SystemPromptBreakdown` now takes an optional `providerId` prop (wired
-from `session.providerId` in `App.tsx`) and shows a provider-neutral message
-("This provider does not capture a system-prompt artifact...") for any
-non-`vscode` session, keeping the VS Code-specific hint only for
-`providerId: "vscode"` (or omitted, matching Learn mode/legacy callers).
-
-- [SystemPromptBreakdown.test.tsx](../../packages/web/src/components/SystemPromptBreakdown.test.tsx) —
-  new cases for `providerId="pi-agent"`/`"mitmproxy"` vs `"vscode"`/omitted
-- [SystemPromptBreakdown.tsx](../../packages/web/src/components/SystemPromptBreakdown.tsx) —
-  the `providerId`-branched empty-state message
-- [App.tsx](../../packages/web/src/App.tsx) — passes `session?.providerId` through
-
-## Previous change (2026-09-02, ~20:59–21:01 UTC)
-
-Request: order pi sessions most-recent-first in the app, matching how
-Copilot/VS Code sessions are already ordered (`ORDER BY updated_at DESC` in
-`session-store.ts`'s `listSessionRows`) — pi sessions were previously
-returned in file/branch discovery order, not sorted by recency.
-
-TDD-first fix (test added and failing before the implementation change):
-
-- [pi-agent-log-provider.test.ts:50-57](../../packages/server/src/data-sources/pi-agent/pi-agent-log-provider.test.ts#L50-L57) —
-  `"lists sessions ordered from most recent to oldest by startedAt"`
-- [pi-agent-log-provider.ts:191-201](../../packages/server/src/data-sources/pi-agent/pi-agent-log-provider.ts#L191-L201) —
-  `listSessions()` now appends
-  `.sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? ""))`
-  after flattening per-file sessions.
-
-Full server test suite was run after the change: the 21 pi-agent tests pass;
-the only failures are the 13 pre-existing `app.test.ts` mitm-contamination
-failures (see memory `project_mitm_app_test_contamination`), confirmed
-unrelated. **This change is uncommitted on `main` as of this writing.**
+setting that doesn't apply to pi (or mitmproxy) sessions at all. Fix:
+`SystemPromptBreakdown` gained an optional `providerId` prop (wired from
+`session.providerId` in `App.tsx`) and a provider-neutral message for any
+non-`vscode` session — since superseded by the pi-agent-specific message
+above.
 
 ## Open items (pending real-data verification)
 
@@ -151,11 +163,15 @@ outstanding here. Concretely, until a real capture is obtained:
 against the fixtures in `packages/server/fixtures/pi-agent/`, and update the
 extractors + this doc + architecture.md §6.2.5 together once confirmed.
 
-**`packages/pi-system-prompt-logger`** (vendored in Phase 9.7, see
-implementation-plan.md) is a candidate tool for unblocking this: installing
-it into a real pi session and running a turn captures a real `sessionId` and
-`~/.pi/agent/sessions/**/*.jsonl` file side by side with its own
-`system-prompts.jsonl` record, giving both the real-session-format capture
-this section needs *and* a first real look at `selectedTools`/`skillNames`/
-`contextFilePaths` — useful groundwork for a future `Session.systemPrompt`/
-`toolInventory` enrichment path, not yet implemented.
+**`packages/pi-system-prompt-logger`** (vendored Phase 9.7, consumed
+starting Phase 9.8 — see "System prompt" section above) is a candidate tool
+for unblocking this: installing it into a real pi session and running a
+turn captures a real `sessionId` and `~/.pi/agent/sessions/**/*.jsonl` file
+side by side with its own `system-prompts.jsonl` record, giving both the
+real-session-format capture this section needs *and* a real look at
+`selectedTools`/`skillNames`/`contextFilePaths`/`sessionId`-vs-`header.id`
+semantics — the last of which Phase 9.8's `sessionFile`-based join
+deliberately sidesteps rather than resolves (see architecture.md §6.2.5's
+"known simplification" note). A real capture with a forked/rewound session
+would additionally confirm or refute the earliest-record-wins assumption
+for that case.

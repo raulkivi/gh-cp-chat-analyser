@@ -236,6 +236,7 @@ export function App() {
           sessionId={session.id}
           sessionTitle={session.title}
           model={session.model}
+          providerId={session.providerId}
           onClose={() => setInspectorOpen(false)}
         />
       ) : turnInspectorOpen && session ? (

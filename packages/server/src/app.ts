@@ -30,6 +30,7 @@ import { resolveMitmproxyCapturesDir } from "./data-sources/log-providers/mitmpr
 import { PiAgentLogProvider } from "./data-sources/pi-agent/pi-agent-log-provider.js";
 import { resolveAppSettingsDir } from "./platform/app-settings-dir/resolve-app-settings-dir.js";
 import { resolvePiAgentSessionsDir } from "./platform/pi-agent-paths/resolve-pi-agent-sessions-dir.js";
+import { resolvePiSystemPromptLogPath } from "./platform/pi-agent-paths/resolve-pi-system-prompt-log-path.js";
 import { LogProviderRegistry, UnknownLogProviderIdError } from "./data-sources/log-providers/registry.js";
 import type { LogProvider } from "./data-sources/log-providers/log-provider.js";
 
@@ -47,6 +48,7 @@ export interface CreateAppOptions {
   appSettingsDir?: string;
   mitmproxyCapturesDirPath?: string | null;
   piAgentSessionsDirPath?: string | null;
+  systemPromptLogPath?: string | null;
   // Additional providers registered alongside vscode/mitmproxy/pi-agent — exists so
   // tests can prove the registry is open/closed (phase-9-log-providers-
   // implementation.md §8 step 9) without any other file needing to change.
@@ -76,6 +78,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
     options.piAgentSessionsDirPath !== undefined
       ? options.piAgentSessionsDirPath
       : resolvePiAgentSessionsDir();
+  const resolvedSystemPromptLogPath =
+    options.systemPromptLogPath !== undefined
+      ? options.systemPromptLogPath
+      : resolvePiSystemPromptLogPath();
 
   const vscodeProvider = new VscodeLogProvider({
     sessionStoreDbPath: resolvedDbPath,
@@ -88,6 +94,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   });
   const piAgentProvider = new PiAgentLogProvider({
     sessionsDirPath: resolvedPiAgentSessionsDirPath,
+    systemPromptLogPath: resolvedSystemPromptLogPath,
   });
   const registry = new LogProviderRegistry(
     [vscodeProvider, mitmproxyProvider, piAgentProvider, ...(options.additionalLogProviders ?? [])],
@@ -225,13 +232,32 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   // Raw, uninterpreted text of the base system prompt captured for this
   // session — the "inspect as text file" counterpart to the estimated
-  // token count shown in SystemPromptBreakdown. This stays wired directly
-  // to the VS Code main.jsonl artifact path rather than going through the
-  // generic LogProvider contract: a captured system-prompt artifact is a
-  // VS Code/main.jsonl-specific concept (mitmproxy sessions have no
-  // artifact file of this shape to read), matching this endpoint's existing
-  // scope from before Phase 9.
+  // token count shown in SystemPromptBreakdown. VS Code sessions (below)
+  // stay wired directly to the main.jsonl artifact path rather than going
+  // through the generic LogProvider contract, since that's a VS
+  // Code/main.jsonl-specific concept. pi-agent sessions (branch below) read
+  // through PiAgentLogProvider's own optional sidecar-log reader
+  // (architecture.md §6.2.5) instead — populated only when the optional
+  // pi-system-prompt-logger extension captured this session. mitmproxy
+  // sessions have no artifact of this shape at all and always 404 through
+  // the VS Code path below (the session-store lookup simply never matches).
   app.get("/api/sessions/:id/system-prompt", async (req, res) => {
+    if (registry.getActiveProviderId() === "pi-agent") {
+      try {
+        const text = await piAgentProvider.readSystemPromptText(req.params.id);
+        if (text === null) {
+          res.status(404).json({ error: `No system-prompt artifact captured for session "${req.params.id}"` });
+          return;
+        }
+        res.type("text/plain").send(text);
+      } catch (error) {
+        res.status(500).json({
+          error: `Failed to load system prompt for session "${req.params.id}": ${(error as Error).message}`,
+        });
+      }
+      return;
+    }
+
     const db = openSessionStoreDb();
     if (!db) {
       res.status(404).json({ error: `Unknown session id "${req.params.id}"` });

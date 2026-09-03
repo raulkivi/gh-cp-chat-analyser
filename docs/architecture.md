@@ -174,7 +174,7 @@ SQLite, `main.jsonl`, or scenario fixtures.
 | `components/ExplanationPanel` | Right panel: plain-language explanation for the selected turn, plus (Analyze mode only) a "Tool calls this turn" block listing that turn's tool calls and touched files, and an "Inspect request/response" button opening `TurnInspector` |
 | `components/TurnInspector` | Analyze-mode-only, full-page view (replaces the 3-column layout, not a tab), structured like `SystemPromptInspector`: one Request/Response `Blueprint` card pair per LLM round-trip for the selected turn, reasoning shown inline under the response with no toggle, oversized/file/image content rendered as `Tag`-styled placeholder chips instead of raw text. No provider-specific branching — both `LogProvider`s implement `readTurnDetail` (§6.2.4) |
 | `components/TimelineScrubber` | Bottom slider driving the shared "selected turn" state |
-| `components/SystemPromptBreakdown` | Analyze-mode-only: token contribution per system-prompt component (real or, where labeled, tokenizer-estimated), rendered as a proportional bar-meter; opens `SystemPromptInspector` for the base prompt. Its empty state (no components) is provider-aware: the VS Code-specific "enable `agentDebugLog.fileLogging.enabled`" hint only shows for `providerId: "vscode"`; `mitmproxy`/`pi-agent` sessions, which never capture a system-prompt artifact (§6.2.5), get a provider-neutral message instead |
+| `components/SystemPromptBreakdown` | Analyze-mode-only: token contribution per system-prompt component (real or, where labeled, tokenizer-estimated), rendered as a proportional bar-meter; opens `SystemPromptInspector` for the base prompt. Its empty state (no components) is provider-aware: the VS Code-specific "enable `agentDebugLog.fileLogging.enabled`" hint only shows for `providerId: "vscode"`; `mitmproxy` sessions, which never capture a system-prompt artifact, get a provider-neutral message; `pi-agent` sessions get a message pointing at the optional sidecar-log extension (§6.2.5) and, unlike other providers, always show the "Open system prompt inspector" button even with no components yet, so the inspector's own message can explain how to enable capture |
 | `components/SystemPromptInspector` | Analyze-mode-only, full-page form (replaces the 3-column layout, not a tab): a three-pane view over the raw captured system-prompt text — a colored hierarchical tag/subtag menu (left), the byte-for-byte raw text with matching per-section background colors (center, scrolls to the clicked menu entry), and a description panel (right) explaining the selected tag, honestly labeled `Sourced` (with links) or `Not independently sourced` per constraint 6's spirit. Built entirely client-side from `lib/system-prompt-parser.ts` (defensive tag-tree parser), `lib/system-prompt-menu.ts` (labels + an 8-hue categorical palette), `lib/system-prompt-text.ts` (lossless colored-segment renderer), and `lib/system-prompt-descriptions.ts` (the tag glossary) — no new API surface, reuses `GET /api/sessions/:id/system-prompt` |
 | `components/ToolInventoryPanel` | Analyze-mode-only: tools loaded vs. tools actually invoked |
 | `components/ConfigWarningBanner` | Dismissible banner shown when `GET /api/config/status` reports unmet prerequisites; renders the exact setting name, current vs. recommended value, and step-by-step fix instructions (§6.3) |
@@ -1114,18 +1114,56 @@ Until then:
   one other entry) is always tagged `triggeredEvent: "fork"`; a real
   `branch_summary` entry's more specific intent isn't yet distinguished.
 
-No `systemPrompt`/`toolInventory` is populated (both Analyze-mode-only
-optional fields) — pi's own JSONL session format has no equivalent captured
-artifact, the same choice already made for the mitmproxy provider.
+`toolInventory` is never populated (Analyze-mode-only optional field) — pi's
+own JSONL session format has no equivalent captured artifact, and
+`selectedTools` (see below) is currently only used for a summary token-count
+label, not per-tool entries; this is a natural, near-zero-cost follow-up
+that hasn't been picked up yet.
 
-`packages/pi-system-prompt-logger` (§10) is a vendored Pi extension that
-captures exactly that missing artifact — the fully assembled system prompt
-plus selected tools/skills/context files — to a separate JSONL sidecar log
-(`~/.pi/agent/logs/system-prompts.jsonl`) from outside pi's own session
-format. As of this writing `PiAgentLogProvider` does not read that sidecar
-log, so the sentence above still holds; wiring it in to populate
-`Session.systemPrompt`/`toolInventory` is a separate, not-yet-started
-follow-up.
+**`systemPrompt` is populated conditionally, via an optional sidecar log
+(Phase 9.8).** `packages/pi-system-prompt-logger` (§10) is a vendored Pi
+extension that captures the missing artifact pi's own session format
+lacks — the fully assembled system prompt plus selected tools/skills/context
+files — to a separate JSONL sidecar log
+(`~/.pi/agent/logs/system-prompts.jsonl`, or `$PI_SYSTEM_PROMPT_LOG_PATH`)
+from outside pi's own session format. `PiAgentLogProvider` optionally reads
+it:
+
+- `system-prompt-sidecar-reader.ts`'s `readSystemPromptSidecarIndex` streams
+  the sidecar log into a `Map` keyed by each record's resolved `sessionFile`
+  path — the only reliable join key, since `session-id.ts`'s
+  `computePiFileHash` is a one-way hash and a `Session.id` can't be reversed
+  back to a file path. **Known simplification pending real-data
+  verification**: if a forked/rewound session's file has multiple sidecar
+  records (one per branch), the earliest-captured one wins and is applied to
+  every branch — the sidecar's own `sessionId` field vs. a session file's
+  own `header.id` are an unconfirmed equivalence, so `sessionFile` sidesteps
+  that uncertainty rather than resolving it.
+- `system-prompt-components.ts`'s `buildPiSystemPromptComponents` turns a
+  matched record into `SystemPromptComponent[]`, mirroring
+  `buildSystemPromptBreakdown`'s VS Code shape: one `built-in` component
+  with a *real* `estimateTokenCount` count (pi captured the full text,
+  unlike VS Code's per-artifact split), one `repo-instructions` component
+  per `contextFilePaths` entry and one `skill-manifest` per `skillNames`
+  entry (both name-only/`unavailableTokenCount`, since the sidecar never
+  captured per-item content), and one `tool-definitions` component sized by
+  `selectedTools.length` when present.
+- A new `PiAgentLogProvider.readSystemPromptText(sessionId)` method — not on
+  the shared `LogProvider` interface (ISP: `VscodeLogProvider`/
+  `MitmproxyLogProvider` have no equivalent) — returns the matched record's
+  raw text, or `null`. `app.ts`'s `GET /api/sessions/:id/system-prompt`
+  branches on `registry.getActiveProviderId() === "pi-agent"` before
+  touching the VS-Code-only session-store path, delegating to this method
+  (same 200 text/plain / 404 JSON contract either way, so the frontend needs
+  no provider-specific response parsing).
+
+No match (extension not installed, or this session predates capture) leaves
+`Session.systemPrompt` unset exactly as before Phase 9.8 — `components/
+SystemPromptBreakdown`'s "Open system prompt inspector" button always
+renders for `pi-agent` sessions regardless (unlike other providers, which
+gate it on a `built-in` component being present), and opening it without a
+match shows a plain-text message pointing at `npm run configure` rather
+than the VS Code-specific hint.
 
 ### 6.3 Startup configuration check
 
@@ -1318,8 +1356,8 @@ gh-cp-chat-analyser/
         api-client/
         charts/
     pi-system-prompt-logger/ # vendored Pi coding-agent extension: captures the
-                              # assembled system prompt to a JSONL sidecar log
-                              # (§6.2.5); not yet consumed by server/
+                              # assembled system prompt to a JSONL sidecar log,
+                              # optionally consumed by server/pi-agent (§6.2.5)
   package.json          # workspaces root
 ```
 

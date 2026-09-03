@@ -18,6 +18,7 @@ interface SystemPromptInspectorProps {
   sessionId: string;
   sessionTitle?: string;
   model?: string;
+  providerId?: string;
   onClose: () => void;
 }
 
@@ -72,7 +73,13 @@ function renderSegments(segments: TextSegment[], selectedNodeId: string | null):
   });
 }
 
-export function SystemPromptInspector({ sessionId, sessionTitle, model, onClose }: SystemPromptInspectorProps) {
+export function SystemPromptInspector({
+  sessionId,
+  sessionTitle,
+  model,
+  providerId,
+  onClose,
+}: SystemPromptInspectorProps) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [format, setFormat] = useState<PromptFormat>("pretty");
@@ -90,14 +97,16 @@ export function SystemPromptInspector({ sessionId, sessionTitle, model, onClose 
           setState({
             status: "error",
             message:
-              "No system prompt captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS Code.",
+              providerId === "pi-agent"
+                ? "No system prompt captured for this session — run `npm run configure` to optionally install pi's system-prompt capture extension, then start a new pi session and try again."
+                : "No system prompt captured for this session — enable agentDebugLog.fileLogging.enabled and reload VS Code.",
           });
         }
       });
     return () => {
       canceled = true;
     };
-  }, [sessionId]);
+  }, [sessionId, providerId]);
 
   const parsed = useMemo(
     () => (state.status === "ready" ? parseSystemPrompt(state.text) : null),

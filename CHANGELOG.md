@@ -12,9 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and context files) to a JSONL sidecar log once per session, as a new
   workspace package (`packages/pi-system-prompt-logger`) — buildable and
   testable via the root toolchain (`npm run build`/`test`/`bundle
-  --workspace=packages/pi-system-prompt-logger`). Not yet consumed by the
-  `pi-agent` log provider; `Session.systemPrompt`/`toolInventory` stay empty
-  for pi sessions as before.
+  --workspace=packages/pi-system-prompt-logger`).
+- The `pi-agent` log provider now optionally reads that sidecar log:
+  when installed and a session's file has a matching captured record, the
+  system prompt inspector shows the real captured prompt for pi sessions
+  (rendered the same way as a VS Code session's); the "Open system prompt
+  inspector" button now always renders for pi-agent sessions, and shows a
+  plain-text (no link) message pointing at `npm run configure` when there's
+  no match yet. `Session.toolInventory` stays unpopulated.
+- `npm run configure`/`unconfigure` now interactively offer to build,
+  install, and remove `pi-system-prompt-logger` into
+  `~/.pi/agent/extensions/` — independent of and non-fatal to the existing
+  shell-alias setup.
 - New Analyze-mode log provider, `pi-agent`, reading the
   [pi coding agent](https://pi.dev)'s native JSONL session format directly
   (`~/.pi/agent/sessions/`) — selectable alongside `vscode`/`mitmproxy` via

@@ -944,6 +944,72 @@ as outstanding.
 **Dependencies**: none — this package has no dependency on `domain`,
 `server`, or `web`, and none of them depend on it (yet).
 
+## Phase 9.8 — Consume the pi-system-prompt-logger sidecar
+
+**Goal**: wire `PiAgentLogProvider` to optionally read the JSONL sidecar log
+Phase 9.7's extension produces, closing the exact gap that phase's exit
+criterion left open, per two explicit UX requirements: the system prompt
+inspector shows the real captured prompt when a session's sidecar record
+matches, and a plain-text (no link — an in-UI README link was considered
+and explicitly rejected) message pointing at `npm run configure` when it
+doesn't.
+
+- `data-sources/pi-agent/system-prompt-sidecar-reader.ts`: streams the
+  sidecar log into a `Map` keyed by each record's resolved `sessionFile`
+  path — the only reliable join key, since `session-id.ts`'s
+  `computePiFileHash` is a one-way hash a `Session.id` can't be reversed
+  from. Earliest-record-wins on a shared file (forked/rewound sessions) is
+  a known simplification pending real-data verification.
+- `data-sources/pi-agent/system-prompt-components.ts`: turns a matched
+  record into `SystemPromptComponent[]`, mirroring
+  `system-prompt-breakdown.ts`'s VS Code shape (one real-count `built-in`
+  component, name-only `repo-instructions`/`skill-manifest` per entry, a
+  `tool-definitions` count).
+- `platform/pi-agent-paths/resolve-pi-system-prompt-log-path.ts`: env
+  override / default path resolution, mirroring
+  `resolve-pi-agent-sessions-dir.ts`'s convention.
+- `pi-agent-log-provider.ts`: optional `systemPromptLogPath` constructor
+  option; sidecar index loaded once per `listSessions()`/`readSession()`
+  call (not once per branch); new `readSystemPromptText(sessionId)` method
+  (not on the shared `LogProvider` interface — ISP, matching the existing
+  VS-Code-only-route precedent).
+- `app.ts`: `GET /api/sessions/:id/system-prompt` branches on
+  `registry.getActiveProviderId() === "pi-agent"` before the VS-Code-only
+  path, delegating to the new method (same 200/404 response contract, no
+  new frontend error-parsing needed).
+- `SystemPromptBreakdown.tsx`: the inspector button now always renders for
+  `pi-agent` sessions (not gated on a `built-in` component, unlike other
+  providers); a pi-agent-specific empty-state message.
+- `SystemPromptInspector.tsx`/`App.tsx`: new `providerId` prop; the
+  fetch-failure message branches to the `npm run configure` text for
+  pi-agent, unchanged VS Code text otherwise. Pretty/Raw/Icicle rendering
+  needed zero changes — already provider-agnostic.
+- `scripts/install.sh`/`scripts/uninstall.sh`: interactive, non-fatal
+  build+install / remove of the extension (`CPCHAT_INSTALL_PI_EXTENSION`/
+  `CPCHAT_PI_EXTENSIONS_DIR` env overrides for non-interactive/test use,
+  mirroring the existing `CPCHAT_ALIAS`/`CPCHAT_PROFILE` convention) —
+  independent of the existing alias setup, a build failure warns and
+  continues rather than aborting the script.
+- TDD order: sidecar reader → components builder → path resolver (each
+  fully unit-tested) → provider wiring → route wiring → frontend → scripts
+  (manually verified — no automated harness exists for shell scripts in
+  this repo).
+
+**Exit criterion**: a pi-agent session whose file has a matching sidecar
+record renders its real captured prompt in the inspector identically to a
+VS Code session; a session with no match shows the plain-text `npm run
+configure` message; the inspector button always renders for pi-agent
+sessions; `install.sh`/`uninstall.sh` install/remove the extension
+end-to-end (manually verified). Explicitly **not** part of this phase's
+exit criterion: `Session.toolInventory` population — a near-zero-cost
+natural follow-up, not bundled into this phase.
+
+**Dependencies**: Phase 9.7 (the vendored extension this phase consumes).
+
+**Status (2026-09-04): complete.** Full server suite (439 tests) and full
+web suite (284 tests) pass; `install.sh`/`uninstall.sh` verified manually
+against a tmpdir (both the accept and decline paths).
+
 ## Phase 10 — VS Code extension packaging (future, out of MVP scope)
 
 Not part of the initial build (vision §5 "future path"); tracked here only
@@ -978,6 +1044,7 @@ flowchart LR
     P9 --> P95["Phase 9.5<br/>Turn inspector"]
     P95 --> P96["Phase 9.6<br/>pi-agent provider"]
     P96 --> P97["Phase 9.7<br/>Vendor pi-system-prompt-logger"]
+    P97 --> P98["Phase 9.8<br/>Consume pi-system-prompt-logger sidecar"]
     P95 --> P10["Phase 10<br/>VS Code extension (future)"]
     P5 --> P10
 ```

@@ -26,7 +26,7 @@ content here.
 - Commit all changes to git as soon as a phase's exit criterion is met,
   before starting the next phase.
 - Repo status: Phases 0-9.5 complete, Phase 9.6 built pending real-data
-  verification (see below), Phase 9.7 complete — npm workspaces with
+  verification (see below), Phases 9.7-9.8 complete — npm workspaces with
   `packages/domain`
   (zod schemas + types for every architecture.md §5 shape, including
   `Session.category`/`startedAt`/`providerId`, `ConfigWarning.severity`,
@@ -61,6 +61,9 @@ content here.
   oversized/file/image content collapsed into placeholder chips), Vitest
   wired with TDD-first tests, and `packages/pi-system-prompt-logger`
   (a vendored Pi coding-agent extension — captures the assembled pi system
-  prompt to a JSONL sidecar log; not yet consumed by `packages/server`, see
+  prompt to a JSONL sidecar log; `PiAgentLogProvider` optionally consumes
+  it when installed and a session matches, populating `Session.systemPrompt`
+  and the system prompt inspector for pi sessions, `toolInventory` still
+  unpopulated; `npm run configure`/`unconfigure` install/remove it, see
   architecture.md §6.2.5). Phase 10 (VS Code extension packaging) is
   future/out of MVP scope — see implementation-plan.md.

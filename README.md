@@ -43,6 +43,12 @@ cards with corner registration marks, Barlow/Barlow Condensed type.*
 - [mitmproxy setup](docs/mitmproxy-setup.md) — how to install mitmproxy,
   trust its CA, capture LLM-provider traffic, and export it as a `.har`
   file the app's `mitmproxy` provider can read.
+- [pi-system-prompt-logger](packages/pi-system-prompt-logger/README.md) —
+  optional Pi coding-agent extension, vendored in this repo, that captures
+  pi's assembled system prompt to a JSONL sidecar log so Analyze mode's
+  system prompt inspector can show it for pi sessions. `npm run configure`
+  offers to build and install it for you; see that README for manual
+  install steps or to change the install location.
 
 ## Setup
 
@@ -99,7 +105,12 @@ autodetected; re-running it is safe and just updates the same entry). Set
 `CPCHAT_ALIAS=foo npm run configure` to pick a different alias name. After
 `source`-ing your profile (or opening a new terminal), `cpchat` starts the
 app and opens the browser; Ctrl+C in that terminal stops both the server
-and the web app. Run `npm run unconfigure` to remove the alias again.
+and the web app. `npm run configure` also asks whether to install
+[pi-system-prompt-logger](packages/pi-system-prompt-logger/README.md), an
+optional extension that captures the pi coding agent's assembled system
+prompt for Analyze mode — answer `y` to build and drop it into
+`~/.pi/agent/extensions/` automatically. Run `npm run unconfigure` to
+remove both the alias and, if installed, that extension.
 Learn mode works immediately —
 its scenarios are bundled fixtures. Analyze mode lists any real Copilot
 Chat sessions it finds in your local VS Code session store.
@@ -159,7 +170,15 @@ runtime, never hardcoded:
   `~/.pi/agent/sessions/`, in a `--<project-path-with-slashes-as-dashes>--`
   subfolder per project. Because pi sessions are a branchable tree
   (fork/rewind create siblings), a single file with multiple leaf branches
-  becomes multiple sessions in the app.
+  becomes multiple sessions in the app. pi's own session format has no
+  system-prompt/tool-inventory artifact to read, so those tabs stay empty
+  for pi sessions unless you've installed
+  [`pi-system-prompt-logger`](packages/pi-system-prompt-logger/README.md)
+  (`npm run configure` offers to do this for you) — it captures the missing
+  artifact from outside pi's own session format, and the system prompt
+  inspector shows it once a captured session exists. `toolInventory` stays
+  unpopulated either way (see
+  [architecture.md §6.2.5](docs/architecture.md#625-pi-agent-provider-flow)).
 
 ## Enabling GitHub Copilot Chat debug logging
 

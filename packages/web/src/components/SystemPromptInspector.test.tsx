@@ -85,6 +85,25 @@ describe("SystemPromptInspector", () => {
     expect(await screen.findByText(/no system prompt/i)).toBeInTheDocument();
   });
 
+  it("shows a pi-agent-specific message mentioning npm run configure, with no VS Code hint and no link, on fetch failure", async () => {
+    stubFetchText("", false, 404);
+
+    render(<SystemPromptInspector sessionId="session-1" providerId="pi-agent" onClose={() => {}} />);
+
+    expect(await screen.findByText(/npm run configure/i)).toBeInTheDocument();
+    expect(screen.queryByText(/agentDebugLog/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("renders the captured prompt normally for a pi-agent session when the fetch succeeds", async () => {
+    stubFetchText(SAMPLE_TEXT);
+
+    render(<SystemPromptInspector sessionId="session-1" providerId="pi-agent" onClose={() => {}} />);
+
+    expect(await screen.findByRole("button", { name: /security requirements/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /graphify/i })).toBeInTheDocument();
+  });
+
   it("shows a placeholder in the description panel until a section is selected", async () => {
     stubFetchText(SAMPLE_TEXT);
     render(<SystemPromptInspector sessionId="session-1" onClose={() => {}} />);

@@ -62,13 +62,30 @@ describe("SystemPromptBreakdown", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows a provider-neutral fallback message for a pi-agent session with no breakdown", () => {
-    render(<SystemPromptBreakdown components={[]} providerId="pi-agent" />);
+  it("shows a pi-agent-specific not-yet-captured message, and still renders the inspector button, when there is no breakdown", () => {
+    render(<SystemPromptBreakdown components={[]} providerId="pi-agent" onOpenInspector={vi.fn()} />);
 
     expect(
-      screen.getByText("This provider does not capture a system-prompt artifact, so no breakdown is available."),
+      screen.getByText("No system prompt captured for this session yet — open the system prompt inspector for how to enable it."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/agentDebugLog.fileLogging.enabled/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("This provider does not capture a system-prompt artifact, so no breakdown is available."),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open system prompt inspector/i })).toBeInTheDocument();
+  });
+
+  it("renders real breakdown rows for a pi-agent session with a captured system prompt", () => {
+    const components: SystemPromptComponent[] = [
+      { kind: "built-in", label: "Base system prompt (28 characters)", tokenCount: { known: true, value: 12, estimated: true } },
+      { kind: "tool-definitions", label: "Tool definitions (4 tools)", tokenCount: { known: false, reason: "no per-item content" } },
+    ];
+
+    render(<SystemPromptBreakdown components={components} providerId="pi-agent" onOpenInspector={vi.fn()} />);
+
+    expect(screen.getByText("Base system prompt (28 characters)")).toBeInTheDocument();
+    expect(screen.getByText("Tool definitions (4 tools)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open system prompt inspector/i })).toBeInTheDocument();
   });
 
   it("shows a provider-neutral fallback message for a mitmproxy session with no breakdown", () => {
